@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FinSight — Sign in / Sign up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="container" id="authContainer">
+
+  <!-- sign up -->
+  <div class="form-panel sign-up-panel" id="signUpPanel">
+    <div class="panel-inner">
+      <span class="eyebrow">Create account</span>
+      <h2 class="panel-title">Let's Get Started</h2>
+
+      <div class="social-row">
+        <button type="button" class="social-btn" aria-label="Continue with Google">G</button>
+        <button type="button" class="social-btn" aria-label="Continue with LinkedIn">in</button>
+      </div>
+      <p class="divider-text">or use your email to register</p>
+
+      <form id="signUpForm">
+        <div class="field">
+          <label for="su-name">Full name</label>
+          <div class="field-line">
+            <input type="text" id="su-name" placeholder="Jordan Reyes" required autocomplete="name">
+          </div>
+        </div>
+        <div class="field">
+          <label for="su-email">Email</label>
+          <div class="field-line">
+            <input type="email" id="su-email" placeholder="you@domain.com" required autocomplete="email">
+          </div>
+        </div>
+        <div class="field">
+          <label for="su-password">Password</label>
+          <div class="field-line">
+            <input type="password" id="su-password" placeholder="••••••••••" required autocomplete="new-password">
+            <button type="button" class="toggle-visibility" data-target="su-password">Show</button>
+          </div>
+        </div>
+        <button type="submit" class="submit-btn" style="margin-top:8px;">Create account</button>
+      </form>
+
+      <p class="mobile-switch">Already have an account? <a data-switch="signin">Sign in</a></p>
+    </div>
+  </div>
+
+  <!-- sign in -->
+  <div class="form-panel sign-in-panel" id="signInPanel">
+    <div class="panel-inner">
+      <span class="eyebrow">Dive in</span>
+      <h2 class="panel-title">Welcome back!</h2>
+      <p class="divider-text">Pick up where you left off.</p>
+
+      <div class="social-row">
+        <button type="button" class="social-btn" aria-label="Continue with Google">G</button>
+        <button type="button" class="social-btn" aria-label="Continue with LinkedIn">in</button>
+      </div>
+
+      <form id="signInForm">
+        <div class="field">
+          <label for="si-email">Email</label>
+          <div class="field-line">
+            <input type="email" id="si-email" placeholder="you@domain.com" required autocomplete="email">
+          </div>
+        </div>
+        <div class="field">
+          <label for="si-password">Password</label>
+          <div class="field-line">
+            <input type="password" id="si-password" placeholder="••••••••••" required autocomplete="current-password">
+          </div>
+        </div>
+        <div class="forgot-row"><a href="#">Forgot your password?</a></div>
+        <button type="submit" class="submit-btn">Sign in</button>
+      </form>
+
+      <p class="mobile-switch">New to FinSight? <a data-switch="signup">Create an account</a></p>
+    </div>
+  </div>
+
+  <!-- sliding overlay -->
+  <div class="overlay-container">
+    <div class="overlay">
+
+      <div class="overlay-panel overlay-left">
+        <div class="wordmark" style="margin-bottom:26px;">Fin<span>Sight</span></div>
+        <span class="overlay-eyebrow">Already tracking?</span>
+        <h3 class="overlay-title">Unlock your progress</h3>
+        <p class="overlay-copy">Log back in and continue tracking your accounts, budgets, and goals seamlessly.</p>
+        <button type="button" class="ghost-btn" id="toSignIn">Sign in</button>
+        <div class="mini-ticker" aria-hidden="true">
+          <span style="height:8px;"></span><span style="height:14px;"></span><span style="height:10px;"></span>
+          <span style="height:18px;"></span><span style="height:12px;"></span><span style="height:22px;"></span>
+          <span style="height:16px;"></span>
+        </div>
+      </div>
+
+      <div class="overlay-panel overlay-right">
+        <div class="wordmark" style="margin-bottom:26px;">Fin<span>Sight</span></div>
+        <span class="overlay-eyebrow">First time here?</span>
+        <h3 class="overlay-title">Hello, Boss !</h3>
+        <p class="overlay-copy">Join now to unlock a smarter way to track your finances and take control of your money journey.</p>
+        <button type="button" class="ghost-btn" id="toSignUp">Sign up</button>
+        <div class="mini-ticker" aria-hidden="true">
+          <span style="height:10px;"></span><span style="height:16px;"></span><span style="height:12px;"></span>
+          <span style="height:20px;"></span><span style="height:14px;"></span><span style="height:24px;"></span>
+          <span style="height:18px;"></span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
