@@ -1,0 +1,92 @@
+/* 
+  responsive.css - Cross-Device Mobile & Tablet Optimization
+  Media queries adjusting grid layouts, navbars, cards, and luxury forms
+*/
+
+/* Laptop / Desktop Large Tablets */
+@media (max-width: 1100px) {
+  .summary-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Medium Tablets & Mobile Landscape */
+@media (max-width: 768px) {
+  .navbar {
+    padding: 0.8rem 1.25rem;
+  }
+  
+  .app-container {
+    padding: 1.5rem 1rem 3rem 1rem;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .summary-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .controls-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-group {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .filter-select {
+    flex: 1;
+  }
+
+  .budgets-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .form-group-full {
+    grid-column: span 1;
+  }
+
+  .form-card {
+    padding: 1.5rem;
+  }
+
+  .priority-chips {
+    flex-wrap: wrap;
+  }
+
+  .form-actions-bar {
+    flex-direction: column-reverse;
+    gap: 1rem;
+    align-items: stretch;
+  }
+
+  .actions-right {
+    flex-direction: column;
+  }
+}
+
+/* Small Mobile Devices */
+@media (max-width: 480px) {
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .header-title-area h1 {
+    font-size: 1.75rem;
+  }
+
+  .amounts-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+}

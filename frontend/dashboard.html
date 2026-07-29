@@ -1,0 +1,249 @@
+{% extends "base.html" %}
+
+{% block title %}Budget Dashboard{% endblock %}
+
+{% block content %}
+
+<!-- Dashboard Top Header Section -->
+<header class="dashboard-header animated-fade-in">
+  <div class="header-title-area">
+    <h1>Manage Your Budgets</h1>
+    <div class="quote-banner">
+      <i class="fa-solid fa-quote-left quote-icon"></i>
+      <span>"A budget tells your money where to go instead of wondering where it went."</span>
+    </div>
+  </div>
+
+  <div class="header-action-area">
+    <div class="header-date-badge mb-3">
+      <i class="fa-regular fa-calendar-days"></i> {{ today_date }}
+    </div>
+    <a href="{{ url_for('create_budget') }}" class="btn btn-emerald">
+      <i class="fa-solid fa-plus"></i> Create New Budget
+    </a>
+  </div>
+</header>
+
+<!-- Summary Metric Glass Cards Grid -->
+<section class="summary-grid animated-fade-in">
+  <!-- Metric 1: Total Budgets -->
+  <div class="metric-card">
+    <div class="metric-header">
+      <span class="metric-title">Total Budgets</span>
+      <div class="metric-icon-box">
+        <i class="fa-solid fa-folder-open"></i>
+      </div>
+    </div>
+    <div class="metric-value">{{ stats.total_budgets }}</div>
+  </div>
+
+  <!-- Metric 2: Active Budgets -->
+  <div class="metric-card">
+    <div class="metric-header">
+      <span class="metric-title">Active Budgets</span>
+      <div class="metric-icon-box" style="color: var(--emerald-green);">
+        <i class="fa-solid fa-bolt"></i>
+      </div>
+    </div>
+    <div class="metric-value" style="color: var(--emerald-green);">{{ stats.active_budgets }}</div>
+  </div>
+
+  <!-- Metric 3: Completed Budgets -->
+  <div class="metric-card">
+    <div class="metric-header">
+      <span class="metric-title">Completed</span>
+      <div class="metric-icon-box" style="color: var(--luxury-gold);">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+    </div>
+    <div class="metric-value">{{ stats.completed_budgets }}</div>
+  </div>
+
+  <!-- Metric 4: Total Allocated -->
+  <div class="metric-card">
+    <div class="metric-header">
+      <span class="metric-title">Total Allocated</span>
+      <div class="metric-icon-box" style="color: #2563EB;">
+        <i class="fa-solid fa-coins"></i>
+      </div>
+    </div>
+    <div class="metric-value">${{ "{:,.2f}".format(stats.total_allocated) }}</div>
+  </div>
+
+  <!-- Metric 5: Total Remaining -->
+  <div class="metric-card">
+    <div class="metric-header">
+      <span class="metric-title">Total Remaining</span>
+      <div class="metric-icon-box" style="color: #059669;">
+        <i class="fa-solid fa-vault"></i>
+      </div>
+    </div>
+    <div class="metric-value" style="color: #059669;">${{ "{:,.2f}".format(stats.total_remaining) }}</div>
+  </div>
+</section>
+
+<!-- Real-time Controls, Search & Filters -->
+<section class="controls-bar animated-fade-in">
+  <div class="search-input-wrapper">
+    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+    <input 
+      type="text" 
+      id="search-input" 
+      class="search-input" 
+      placeholder="Search by budget name, category, or notes..." 
+      value="{{ search_query }}"
+    >
+  </div>
+
+  <div class="filter-group">
+    <!-- Category Filter -->
+    <select id="filter-category" class="filter-select">
+      <option value="All" {% if category_filter == 'All' %}selected{% endif %}>All Categories</option>
+      <option value="Housing & Rent" {% if category_filter == 'Housing & Rent' %}selected{% endif %}>Housing & Rent</option>
+      <option value="Food & Dining" {% if category_filter == 'Food & Dining' %}selected{% endif %}>Food & Dining</option>
+      <option value="Transportation" {% if category_filter == 'Transportation' %}selected{% endif %}>Transportation</option>
+      <option value="Entertainment" {% if category_filter == 'Entertainment' %}selected{% endif %}>Entertainment</option>
+      <option value="Investment & Savings" {% if category_filter == 'Investment & Savings' %}selected{% endif %}>Investment & Savings</option>
+      <option value="Utilities" {% if category_filter == 'Utilities' %}selected{% endif %}>Utilities</option>
+      <option value="Healthcare" {% if category_filter == 'Healthcare' %}selected{% endif %}>Healthcare</option>
+      <option value="Personal Care" {% if category_filter == 'Personal Care' %}selected{% endif %}>Personal Care</option>
+    </select>
+
+    <!-- Status Filter -->
+    <select id="filter-status" class="filter-select">
+      <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All Statuses</option>
+      <option value="Active" {% if status_filter == 'Active' %}selected{% endif %}>Active</option>
+      <option value="Completed" {% if status_filter == 'Completed' %}selected{% endif %}>Completed</option>
+      <option value="Archived" {% if status_filter == 'Archived' %}selected{% endif %}>Archived</option>
+    </select>
+
+    <!-- Priority Filter -->
+    <select id="filter-priority" class="filter-select">
+      <option value="All" {% if priority_filter == 'All' %}selected{% endif %}>All Priorities</option>
+      <option value="Low" {% if priority_filter == 'Low' %}selected{% endif %}>Low</option>
+      <option value="Medium" {% if priority_filter == 'Medium' %}selected{% endif %}>Medium</option>
+      <option value="High" {% if priority_filter == 'High' %}selected{% endif %}>High</option>
+      <option value="Urgent" {% if priority_filter == 'Urgent' %}selected{% endif %}>Urgent</option>
+    </select>
+
+    <!-- Sorting -->
+    <select id="filter-sort" class="filter-select">
+      <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Sort by Newest</option>
+      <option value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>Sort by Oldest</option>
+      <option value="amount_desc" {% if sort_by == 'amount_desc' %}selected{% endif %}>Amount: High to Low</option>
+      <option value="amount_asc" {% if sort_by == 'amount_asc' %}selected{% endif %}>Amount: Low to High</option>
+    </select>
+  </div>
+</section>
+
+<!-- Budget Cards Display Container -->
+<section id="budgets-container" class="animated-fade-in">
+  {% if budgets and budgets|length > 0 %}
+    <div class="budgets-grid">
+      {% for b in budgets %}
+        {% set spent = b.spent_amount|float if b.spent_amount else 0.0 %}
+        {% set total = b.budget_amount|float if b.budget_amount else 1.0 %}
+        {% set pct = (spent / total * 100)|round(1) if total > 0 else 0 %}
+        
+        <div class="budget-card" data-id="{{ b.budget_id }}">
+          <div class="card-top">
+            <div class="card-category-badge">
+              <i class="fa-solid {{ b.budget_icon or 'fa-wallet' }}" style="color: {{ b.color_label or '#0E5A4E' }};"></i>
+              {{ b.category }}
+            </div>
+            <span class="card-priority-badge priority-{{ b.priority }}">{{ b.priority }}</span>
+          </div>
+
+          <h3 class="card-title">{{ b.budget_name }}</h3>
+
+          <div class="card-dates">
+            <i class="fa-regular fa-calendar"></i>
+            {{ b.start_date }} &rarr; {{ b.end_date }}
+          </div>
+
+          <!-- Financial Breakdown -->
+          <div class="amounts-row">
+            <div class="amount-box">
+              <span class="amount-label">Budget</span>
+              <span class="amount-val">${{ "{:,.2f}".format(total) }}</span>
+            </div>
+            <div class="amount-box">
+              <span class="amount-label">Spent</span>
+              <span class="amount-val" style="color: #B91C1C;">${{ "{:,.2f}".format(spent) }}</span>
+            </div>
+            <div class="amount-box">
+              <span class="amount-label">Remaining</span>
+              <span class="amount-val" style="color: #059669;">${{ "{:,.2f}".format(b.remaining_amount|float) }}</span>
+            </div>
+          </div>
+
+          <!-- Progress Bar -->
+          <div class="progress-container">
+            <div class="progress-info">
+              <span>Usage Progress</span>
+              <span>{{ pct }}%</span>
+            </div>
+            <div class="progress-track">
+              <div class="progress-fill {% if pct >= (b.alert_percentage or 80) %}progress-warning{% endif %}" style="width: {{ [pct, 100]|min }}%;"></div>
+            </div>
+          </div>
+
+          <!-- Card Actions Row -->
+          <div class="card-actions">
+            <span class="card-category-badge" style="background: rgba(14, 90, 78, 0.08);">
+              Status: {{ b.status }}
+            </span>
+
+            <div class="action-btn-group">
+              <button class="icon-btn" title="View Details" onclick="openViewModal({{ b.budget_id }})">
+                <i class="fa-regular fa-eye"></i>
+              </button>
+              <a href="{{ url_for('edit_budget', budget_id=b.budget_id) }}" class="icon-btn" title="Edit Budget">
+                <i class="fa-regular fa-pen-to-square"></i>
+              </a>
+              <a href="{{ url_for('duplicate_budget', budget_id=b.budget_id) }}" class="icon-btn" title="Duplicate Budget">
+                <i class="fa-regular fa-copy"></i>
+              </a>
+              <a href="{{ url_for('archive_budget', budget_id=b.budget_id) }}" class="icon-btn" title="Archive Budget">
+                <i class="fa-solid fa-box-archive"></i>
+              </a>
+              <button class="icon-btn icon-btn-delete" title="Delete Budget" onclick="confirmDeleteBudget({{ b.budget_id }}, '{{ b.budget_name|escape }}')">
+                <i class="fa-regular fa-trash-can"></i>
+              </button>
+            </div>
+          </div>
+
+        </div>
+      {% endfor %}
+    </div>
+
+  {% else %}
+    <!-- Empty State Component -->
+    <div class="empty-state">
+      <div class="empty-icon">
+        <i class="fa-solid fa-vault"></i>
+      </div>
+      <h3>No Budgets Created Yet</h3>
+      <p>"No budgets created yet. Take control of your financial future today."</p>
+      <a href="{{ url_for('create_budget') }}" class="btn btn-emerald btn-lg">
+        <i class="fa-solid fa-plus"></i> Create Your First Budget
+      </a>
+    </div>
+  {% endif %}
+</section>
+
+<!-- View Detail Glass Modal Popup -->
+<div id="viewModal" class="modal-overlay" onclick="closeViewModalOnBackground(event)">
+  <div class="modal-content">
+    <button class="modal-close-btn" onclick="closeViewModal()">&times;</button>
+    <div id="modal-body-content">
+      <!-- Dynamically filled via JavaScript -->
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Budget Management Module{% endblock %} - FinSight Luxury</title>
+
+  <!-- Google Fonts: Playfair Display, Poppins & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Font Awesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+  <!-- Chart.js CDN for Analytics Visualizations -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Custom Stylesheets -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/variables.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/budget.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/form.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+</head>
+<body>
+
+  <!-- Luxury Top Navigation Bar -->
+  <nav class="navbar">
+    <a href="{{ url_for('budget_dashboard') }}" class="navbar-brand">
+      <div class="brand-icon">
+        <i class="fa-solid fa-chart-pie"></i>
+      </div>
+      <div>
+        <div class="brand-title">FinSight</div>
+        <div class="brand-subtitle">Budget & Wealth</div>
+      </div>
+    </a>
+
+    <div class="navbar-user">
+      <div class="user-badge">
+        <div class="user-avatar">{{ current_username[0]|upper if current_username else 'A' }}</div>
+        <span>{{ current_username }}</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Application Main Shell -->
+  <main class="app-container">
+
+    <!-- Flask Flash Alert Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for category, message in messages %}
+            <div class="flash-alert flash-{{ category }}">
+              <span><i class="fa-solid {% if category == 'success' %}fa-circle-check{% elif category == 'danger' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %} me-2"></i> {{ message }}</span>
+              <button type="button" class="flash-close" onclick="this.parentElement.remove();">&times;</button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    {% block content %}{% endblock %}
+
+  </main>
+
+  <!-- Toast Notification System Anchor -->
+  <div id="toast-container"></div>
+
+  <!-- Global JavaScript Core Script -->
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>

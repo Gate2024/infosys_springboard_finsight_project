@@ -1,0 +1,195 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_edit %}Edit Budget{% else %}Create New Budget{% endif %}{% endblock %}
+
+{% block content %}
+
+<div class="form-header-bar animated-fade-in">
+  <div>
+    <h1 class="form-header-title">
+      {% if is_edit %}
+        <i class="fa-solid fa-pen-to-square" style="color: var(--luxury-gold);"></i> Edit Budget
+      {% else %}
+        <i class="fa-solid fa-plus-circle" style="color: var(--emerald-green);"></i> Create New Budget
+      {% endif %}
+    </h1>
+    <p class="form-header-subtitle">Enter budget parameters and targets for tracking.</p>
+  </div>
+  <a href="{{ url_for('budget_dashboard') }}" class="btn btn-outline">
+    <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+  </a>
+</div>
+
+<!-- Streamlined Luxury Form Container -->
+<div class="form-card animated-fade-in">
+  <form 
+    id="budgetForm" 
+    action="{% if is_edit %}{{ url_for('edit_budget', budget_id=budget_id) }}{% else %}{{ url_for('create_budget') }}{% endif %}" 
+    method="POST"
+  >
+    <div class="form-grid">
+      
+      <!-- Budget Name -->
+      <div class="form-group-full">
+        <label for="budget_name" class="form-label">Budget Name <span class="required">*</span></label>
+        <input 
+          type="text" 
+          id="budget_name" 
+          name="budget_name" 
+          class="input-control" 
+          placeholder="e.g. Monthly Grocery & Food Budget" 
+          value="{{ budget.budget_name or '' }}" 
+          required
+        >
+      </div>
+
+      <!-- Category Dropdown -->
+      <div>
+        <label for="category" class="form-label">Category <span class="required">*</span></label>
+        <select id="category" name="category" class="input-control" required>
+          <option value="" disabled {% if not budget.category %}selected{% endif %}>Select Category</option>
+          <option value="Housing & Rent" {% if budget.category == 'Housing & Rent' %}selected{% endif %}>Housing & Rent</option>
+          <option value="Food & Dining" {% if budget.category == 'Food & Dining' %}selected{% endif %}>Food & Dining</option>
+          <option value="Transportation" {% if budget.category == 'Transportation' %}selected{% endif %}>Transportation</option>
+          <option value="Entertainment" {% if budget.category == 'Entertainment' %}selected{% endif %}>Entertainment</option>
+          <option value="Investment & Savings" {% if budget.category == 'Investment & Savings' %}selected{% endif %}>Investment & Savings</option>
+          <option value="Utilities" {% if budget.category == 'Utilities' %}selected{% endif %}>Utilities</option>
+          <option value="Healthcare" {% if budget.category == 'Healthcare' %}selected{% endif %}>Healthcare</option>
+          <option value="Personal Care" {% if budget.category == 'Personal Care' %}selected{% endif %}>Personal Care</option>
+          <option value="Other" {% if budget.category == 'Other' %}selected{% endif %}>Other</option>
+        </select>
+      </div>
+
+      <!-- Status Selector -->
+      <div>
+        <label for="status" class="form-label">Status</label>
+        <select id="status" name="status" class="input-control">
+          <option value="Active" {% if budget.status == 'Active' or not budget.status %}selected{% endif %}>Active</option>
+          <option value="Completed" {% if budget.status == 'Completed' %}selected{% endif %}>Completed</option>
+          <option value="Archived" {% if budget.status == 'Archived' %}selected{% endif %}>Archived</option>
+        </select>
+      </div>
+
+      <!-- Allocated Budget Amount -->
+      <div>
+        <label for="budget_amount" class="form-label">Budget Amount ($) <span class="required">*</span></label>
+        <div class="input-group">
+          <span class="input-group-addon">$</span>
+          <input 
+            type="number" 
+            step="0.01" 
+            min="0" 
+            id="budget_amount" 
+            name="budget_amount" 
+            class="input-control" 
+            placeholder="0.00" 
+            value="{{ budget.budget_amount or '' }}" 
+            required
+          >
+        </div>
+      </div>
+
+      <!-- Spent Amount -->
+      <div>
+        <label for="spent_amount" class="form-label">Spent Amount ($)</label>
+        <div class="input-group">
+          <span class="input-group-addon">$</span>
+          <input 
+            type="number" 
+            step="0.01" 
+            min="0" 
+            id="spent_amount" 
+            name="spent_amount" 
+            class="input-control" 
+            placeholder="0.00" 
+            value="{{ budget.spent_amount or '0.00' }}"
+          >
+        </div>
+      </div>
+
+      <!-- Start Date -->
+      <div>
+        <label for="start_date" class="form-label">Start Date <span class="required">*</span></label>
+        <input 
+          type="date" 
+          id="start_date" 
+          name="start_date" 
+          class="input-control" 
+          value="{{ budget.start_date or '' }}" 
+          required
+        >
+      </div>
+
+      <!-- End Date -->
+      <div>
+        <label for="end_date" class="form-label">End Date <span class="required">*</span></label>
+        <input 
+          type="date" 
+          id="end_date" 
+          name="end_date" 
+          class="input-control" 
+          value="{{ budget.end_date or '' }}" 
+          required
+        >
+      </div>
+
+      <!-- Priority Selector Chips -->
+      <div class="form-group-full">
+        <label class="form-label">Priority Level</label>
+        <div class="priority-chips">
+          {% set cur_p = budget.priority or 'Medium' %}
+          <div class="priority-chip-option">
+            <input type="radio" id="p_low" name="priority" value="Low" {% if cur_p == 'Low' %}checked{% endif %}>
+            <label for="p_low" class="chip-label"><i class="fa-solid fa-arrow-down me-1"></i> Low</label>
+          </div>
+          <div class="priority-chip-option">
+            <input type="radio" id="p_med" name="priority" value="Medium" {% if cur_p == 'Medium' %}checked{% endif %}>
+            <label for="p_med" class="chip-label"><i class="fa-solid fa-minus me-1"></i> Medium</label>
+          </div>
+          <div class="priority-chip-option">
+            <input type="radio" id="p_high" name="priority" value="High" {% if cur_p == 'High' %}checked{% endif %}>
+            <label for="p_high" class="chip-label"><i class="fa-solid fa-arrow-up me-1"></i> High</label>
+          </div>
+          <div class="priority-chip-option">
+            <input type="radio" id="p_urg" name="priority" value="Urgent" {% if cur_p == 'Urgent' %}checked{% endif %}>
+            <label for="p_urg" class="chip-label"><i class="fa-solid fa-fire me-1"></i> Urgent</label>
+          </div>
+        </div>
+      </div>
+
+      <!-- Description / Notes -->
+      <div class="form-group-full">
+        <label for="description" class="form-label">Description / Notes</label>
+        <textarea 
+          id="description" 
+          name="description" 
+          class="input-control" 
+          placeholder="Brief description or purpose for this budget..."
+        >{{ budget.description or '' }}</textarea>
+      </div>
+
+    </div>
+
+    <!-- Form Action Buttons -->
+    <div class="form-actions-bar">
+      <a href="{{ url_for('budget_dashboard') }}" class="btn btn-outline">
+        <i class="fa-solid fa-xmark"></i> Cancel
+      </a>
+
+      <div class="actions-right">
+        <button type="reset" class="btn btn-outline">
+          <i class="fa-solid fa-rotate-left"></i> Reset
+        </button>
+        <button type="submit" class="btn btn-emerald">
+          <i class="fa-solid fa-floppy-disk"></i> {% if is_edit %}Update Budget{% else %}Save Budget{% endif %}
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/form.js') }}"></script>
+{% endblock %}
