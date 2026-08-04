@@ -300,5 +300,210 @@ def remove_budget(budget_id):
     return redirect(url_for("budgets"))
 
 
+EXPENSE_CATEGORIES = [
+    "Food & Dining",
+    "Groceries",
+    "Transportation",
+    "Utilities",
+    "Housing & Rent",
+    "Healthcare",
+    "Shopping",
+    "Entertainment",
+    "Travel",
+    "Personal Care",
+    "Education",
+    "Subscriptions",
+    "Other",
+]
+
+PAYMENT_MODES = [
+    "Cash",
+    "Credit Card",
+    "Debit Card",
+    "UPI",
+    "Bank Transfer",
+    "Wallet",
+]
+
+
+def validate_expense_form(form):
+    errors = []
+    category = form.get("category", "").strip()
+    payment_mode = form.get("payment_mode", "").strip()
+    expense_date = form.get("date", "").strip()
+
+    try:
+        amount = float(form.get("amount", 0) or 0)
+        if amount <= 0:
+            errors.append("Amount must be greater than zero.")
+    except ValueError:
+        errors.append("Amount must be a valid number.")
+
+    if category not in EXPENSE_CATEGORIES:
+        errors.append("Please select a valid category.")
+
+    if payment_mode not in PAYMENT_MODES:
+        errors.append("Please select a valid payment mode.")
+
+    if not expense_date:
+        errors.append("Date is required.")
+    else:
+        try:
+            parsed_date = datetime.strptime(expense_date, "%Y-%m-%d").date()
+            if parsed_date > datetime.now().date():
+                errors.append("Date cannot be in the future.")
+        except ValueError:
+            errors.append("Date must be valid.")
+
+    return errors
+
+
+def render_expense_form(expense_row=None, is_edit=False, transaction_id=None):
+    return render_template(
+        "expense_form.html",
+        expense=expense_row or {},
+        is_edit=is_edit,
+        transaction_id=transaction_id,
+        categories=EXPENSE_CATEGORIES,
+        payment_modes=PAYMENT_MODES,
+    )
+
+
+@app.route("/expenses")
+def expenses():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    from db import get_expense_summary, get_transactions
+
+    search_query = request.args.get("q", "").strip()
+    category_filter = request.args.get("category", "All")
+    payment_filter = request.args.get("payment", "All")
+    sort_by = request.args.get("sort", "newest")
+
+    expense_rows = get_transactions(
+        current_user_id(),
+        search_query=search_query,
+        category_filter=category_filter,
+        payment_filter=payment_filter,
+        sort_by=sort_by,
+    )
+    stats = get_expense_summary(current_user_id())
+
+    return render_template(
+        "expense_dashboard.html",
+        expenses=expense_rows,
+        stats=stats,
+        categories=EXPENSE_CATEGORIES,
+        payment_modes=PAYMENT_MODES,
+        search_query=search_query,
+        category_filter=category_filter,
+        payment_filter=payment_filter,
+        sort_by=sort_by,
+        current_username=session["username"],
+    )
+
+
+@app.route("/expense/create", methods=["GET", "POST"])
+def create_expense():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    if request.method == "POST":
+        errors = validate_expense_form(request.form)
+        if errors:
+            for error in errors:
+                flash(error, "danger")
+            return render_expense_form(request.form, is_edit=False)
+
+        try:
+            from db import create_transaction
+
+            create_transaction(current_user_id(), request.form)
+            flash("Expense added successfully.", "success")
+            return redirect(url_for("expenses"))
+        except Exception:
+            app.logger.exception("Expense creation failed")
+            flash("Unable to add expense. Please check the form and try again.", "danger")
+            return render_expense_form(request.form, is_edit=False)
+
+    return render_expense_form(is_edit=False)
+
+
+@app.route("/expense/edit/<int:transaction_id>", methods=["GET", "POST"])
+def edit_expense(transaction_id):
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    from db import get_transaction
+
+    expense_row = get_transaction(transaction_id, current_user_id())
+    if not expense_row:
+        flash("Expense not found.", "danger")
+        return redirect(url_for("expenses"))
+
+    if request.method == "POST":
+        errors = validate_expense_form(request.form)
+        if errors:
+            for error in errors:
+                flash(error, "danger")
+            return render_expense_form(
+                request.form,
+                is_edit=True,
+                transaction_id=transaction_id,
+            )
+
+        try:
+            from db import update_transaction
+
+            if update_transaction(transaction_id, current_user_id(), request.form):
+                flash("Expense updated successfully.", "success")
+                return redirect(url_for("expenses"))
+            flash("Unable to update expense.", "danger")
+        except Exception:
+            app.logger.exception("Expense update failed")
+            flash("Unable to update expense. Please check the form and try again.", "danger")
+
+    return render_expense_form(
+        expense_row=expense_row,
+        is_edit=True,
+        transaction_id=transaction_id,
+    )
+
+
+@app.route("/expense/view/<int:transaction_id>")
+def view_expense(transaction_id):
+    if not session.get("uid"):
+        return jsonify({"success": False, "message": "Unauthorized"}), 401
+
+    from db import get_transaction
+
+    expense_row = get_transaction(transaction_id, current_user_id())
+    if not expense_row:
+        return jsonify({"success": False, "message": "Expense not found"}), 404
+
+    return jsonify({"success": True, "expense": expense_row})
+
+
+@app.route("/expense/delete/<int:transaction_id>", methods=["GET", "POST"])
+def delete_expense_route(transaction_id):
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    from db import delete_transaction
+
+    result = delete_transaction(transaction_id, current_user_id())
+    if result:
+        flash("Expense deleted successfully.", "success")
+    else:
+        flash("Expense not found.", "danger")
+
+    return redirect(url_for("expenses"))
+
+
 if __name__ == "__main__":
     app.run(debug=True)

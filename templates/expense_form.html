@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+
+{% block title %}{% if is_edit %}Edit Expense{% else %}Add Expense{% endif %}{% endblock %}
+
+{% block page_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/expense.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<div class="form-header-bar animated-fade-in">
+  <div>
+    <h1 class="form-header-title">
+      {% if is_edit %}
+        <i class="fa-solid fa-pen-to-square" style="color: var(--luxury-gold);"></i> Edit Expense
+      {% else %}
+        <i class="fa-solid fa-circle-plus" style="color: var(--emerald-green);"></i> Add Expense
+      {% endif %}
+    </h1>
+    <p class="form-header-subtitle">Record expense details with category, payment mode, and date.</p>
+  </div>
+  <a href="{{ url_for('expenses') }}" class="btn btn-outline">
+    <i class="fa-solid fa-arrow-left"></i> Back to Expenses
+  </a>
+</div>
+
+<div class="form-card expense-form-card animated-fade-in">
+  <form
+    id="expenseForm"
+    action="{% if is_edit %}{{ url_for('edit_expense', transaction_id=transaction_id) }}{% else %}{{ url_for('create_expense') }}{% endif %}"
+    method="POST"
+  >
+    <div class="form-grid">
+      <div class="form-group-full">
+        <label for="description" class="form-label">Description</label>
+        <input
+          type="text"
+          id="description"
+          name="description"
+          class="input-control"
+          placeholder="e.g. Team lunch, rent payment, flight booking"
+          value="{{ expense.description or '' }}"
+        >
+      </div>
+
+      <div>
+        <label for="amount" class="form-label">Amount ($) <span class="required">*</span></label>
+        <div class="input-group">
+          <span class="input-group-addon">$</span>
+          <input
+            type="number"
+            step="0.01"
+            min="0.01"
+            id="amount"
+            name="amount"
+            class="input-control"
+            placeholder="0.00"
+            value="{{ expense.amount or '' }}"
+            required
+          >
+        </div>
+      </div>
+
+      <div>
+        <label for="date" class="form-label">Date <span class="required">*</span></label>
+        <input
+          type="date"
+          id="date"
+          name="date"
+          class="input-control"
+          value="{{ expense.date or '' }}"
+          required
+        >
+      </div>
+
+      <div>
+        <label for="category" class="form-label">Category <span class="required">*</span></label>
+        <select id="category" name="category" class="input-control" required>
+          <option value="" disabled {% if not expense.category %}selected{% endif %}>Select Category</option>
+          {% for category in categories %}
+            <option value="{{ category }}" {% if expense.category == category %}selected{% endif %}>{{ category }}</option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label for="payment_mode" class="form-label">Payment Mode <span class="required">*</span></label>
+        <select id="payment_mode" name="payment_mode" class="input-control" required>
+          <option value="" disabled {% if not expense.payment_mode %}selected{% endif %}>Select Payment Mode</option>
+          {% for payment_mode in payment_modes %}
+            <option value="{{ payment_mode }}" {% if expense.payment_mode == payment_mode %}selected{% endif %}>{{ payment_mode }}</option>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <div class="expense-form-note">
+      <i class="fa-solid fa-shield-halved"></i>
+      <span>Expenses are stored against your signed-in account only.</span>
+    </div>
+
+    <div class="form-actions-bar">
+      <a href="{{ url_for('expenses') }}" class="btn btn-outline">
+        <i class="fa-solid fa-xmark"></i> Cancel
+      </a>
+
+      <div class="actions-right">
+        <button type="reset" class="btn btn-outline">
+          <i class="fa-solid fa-rotate-left"></i> Reset
+        </button>
+        <button type="submit" class="btn btn-emerald">
+          <i class="fa-solid fa-floppy-disk"></i> {% if is_edit %}Update Expense{% else %}Save Expense{% endif %}
+        </button>
+      </div>
+    </div>
+  </form>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/expense.js') }}"></script>
+{% endblock %}

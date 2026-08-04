@@ -224,7 +224,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     if (monthlycashflow) {
 
-        new Chart(monthlycashflow, {
+        const cashFlowChart = new Chart(monthlycashflow, {
             type: "bar",
             data: {
                 labels: ["Income", "Expenses", "Savings"],
@@ -292,27 +292,19 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         });
 
+        const monthFilter = document.getElementById("monthFilter");
+        if (monthFilter) {
+            monthFilter.addEventListener("change", () => {
+                cashFlowChart.data.datasets[0].data = [58000, 42000, 16000];
+                cashFlowChart.options.plugins.title.text =
+                    `Monthly Cash Flow - ${monthFilter.value}`;
+
+                cashFlowChart.update();
+            });
+        }
+
     }
 });
-
-
-// To update the monthlycashflow chart use backend for dynamic values
-monthFilter.addEventListener("change", () => {
-    // Fetch data for the selected month from your backend
-    // Example:
-    // Income: ₹58,000
-    // Expenses: ₹42,000
-    // Savings: ₹16,000
-
-    cashFlowChart.data.datasets[0].data = [58000, 42000, 16000];
-    cashFlowChart.options.plugins.title.text =
-        `Monthly Cash Flow - ${monthFilter.value}`;
-
-    cashFlowChart.update();
-});
-
-
-
 
 
 const spent = 12500;
@@ -320,4 +312,7 @@ const budget = 15000;
 
 const percentage = (spent / budget) * 100;
 
-document.getElementById("food-progress").style.width = percentage + "%";
+const foodProgress = document.getElementById("food-progress");
+if (foodProgress) {
+    foodProgress.style.width = percentage + "%";
+}

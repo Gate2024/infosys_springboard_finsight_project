@@ -361,3 +361,246 @@ def get_summary_stats(user_id):
         "total_spent": stats.get("total_spent", 0.0),
         "total_remaining": stats.get("total_remaining", 0.0),
     }
+
+
+def ensure_transactions_table():
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS transactions (
+                    id SERIAL PRIMARY KEY,
+                    user_id INT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    amount NUMERIC(12, 2) NOT NULL CHECK (amount > 0),
+                    type VARCHAR(20) NOT NULL DEFAULT 'Expense',
+                    category VARCHAR(80) NOT NULL,
+                    date DATE NOT NULL,
+                    description TEXT,
+                    payment_mode VARCHAR(50) NOT NULL,
+                    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+                )
+                """
+            )
+            cursor.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_transactions_user_id
+                ON transactions(user_id)
+                """
+            )
+            cursor.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_transactions_user_type
+                ON transactions(user_id, type)
+                """
+            )
+            cursor.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_transactions_user_date
+                ON transactions(user_id, date DESC)
+                """
+            )
+            cursor.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_transactions_user_category
+                ON transactions(user_id, category)
+                """
+            )
+
+
+def _clean_transaction_data(data):
+    return {
+        "amount": _to_float(data.get("amount"), 0.0),
+        "category": data.get("category", "").strip(),
+        "date": data.get("date"),
+        "description": data.get("description", "").strip(),
+        "payment_mode": data.get("payment_mode", "").strip(),
+    }
+
+
+def create_transaction(user_id, data):
+    ensure_transactions_table()
+    payload = _clean_transaction_data(data)
+
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO transactions (
+                    user_id, amount, type, category, date, description, payment_mode
+                )
+                VALUES (%s, %s, 'Expense', %s, %s, %s, %s)
+                RETURNING id
+                """,
+                (
+                    user_id,
+                    payload["amount"],
+                    payload["category"],
+                    payload["date"],
+                    payload["description"],
+                    payload["payment_mode"],
+                ),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def get_transactions(
+    user_id,
+    search_query="",
+    category_filter="All",
+    payment_filter="All",
+    sort_by="newest",
+):
+    ensure_transactions_table()
+    clauses = ["user_id = %s", "type = 'Expense'"]
+    params = [user_id]
+
+    if search_query:
+        clauses.append("(description ILIKE %s OR category ILIKE %s OR payment_mode ILIKE %s)")
+        term = f"%{search_query}%"
+        params.extend([term, term, term])
+
+    if category_filter and category_filter != "All":
+        clauses.append("category = %s")
+        params.append(category_filter)
+
+    if payment_filter and payment_filter != "All":
+        clauses.append("payment_mode = %s")
+        params.append(payment_filter)
+
+    order_by = {
+        "oldest": "date ASC, created_at ASC",
+        "amount_desc": "amount DESC",
+        "amount_asc": "amount ASC",
+    }.get(sort_by, "date DESC, created_at DESC")
+
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT *
+                FROM transactions
+                WHERE {" AND ".join(clauses)}
+                ORDER BY {order_by}
+                """,
+                tuple(params),
+            )
+            return serialize_rows(cursor.fetchall())
+
+
+def get_transaction(transaction_id, user_id):
+    ensure_transactions_table()
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT *
+                FROM transactions
+                WHERE id = %s
+                AND user_id = %s
+                AND type = 'Expense'
+                """,
+                (transaction_id, user_id),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def update_transaction(transaction_id, user_id, data):
+    ensure_transactions_table()
+    payload = _clean_transaction_data(data)
+
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE transactions
+                SET
+                    amount = %s,
+                    category = %s,
+                    date = %s,
+                    description = %s,
+                    payment_mode = %s,
+                    updated_at = NOW()
+                WHERE id = %s
+                AND user_id = %s
+                AND type = 'Expense'
+                """,
+                (
+                    payload["amount"],
+                    payload["category"],
+                    payload["date"],
+                    payload["description"],
+                    payload["payment_mode"],
+                    transaction_id,
+                    user_id,
+                ),
+            )
+            return cursor.rowcount > 0
+
+
+def delete_transaction(transaction_id, user_id):
+    ensure_transactions_table()
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                DELETE FROM transactions
+                WHERE id = %s
+                AND user_id = %s
+                AND type = 'Expense'
+                """,
+                (transaction_id, user_id),
+            )
+            return cursor.rowcount > 0
+
+
+def get_expense_summary(user_id):
+    ensure_transactions_table()
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    COUNT(*) AS total_expenses,
+                    COALESCE(SUM(amount), 0) AS total_spent,
+                    COALESCE(AVG(amount), 0) AS average_expense,
+                    COALESCE(MAX(amount), 0) AS largest_expense,
+                    COUNT(*) FILTER (
+                        WHERE date >= DATE_TRUNC('month', CURRENT_DATE)
+                        AND date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
+                    ) AS month_expenses,
+                    COALESCE(SUM(amount) FILTER (
+                        WHERE date >= DATE_TRUNC('month', CURRENT_DATE)
+                        AND date < DATE_TRUNC('month', CURRENT_DATE) + INTERVAL '1 month'
+                    ), 0) AS month_spent
+                FROM transactions
+                WHERE user_id = %s
+                AND type = 'Expense'
+                """,
+                (user_id,),
+            )
+            summary = serialize_row(cursor.fetchone())
+
+            cursor.execute(
+                """
+                SELECT category, COALESCE(SUM(amount), 0) AS total
+                FROM transactions
+                WHERE user_id = %s
+                AND type = 'Expense'
+                GROUP BY category
+                ORDER BY total DESC
+                LIMIT 1
+                """,
+                (user_id,),
+            )
+            top_category = serialize_row(cursor.fetchone())
+
+    return {
+        "total_expenses": summary.get("total_expenses", 0),
+        "total_spent": summary.get("total_spent", 0.0),
+        "average_expense": summary.get("average_expense", 0.0),
+        "largest_expense": summary.get("largest_expense", 0.0),
+        "month_expenses": summary.get("month_expenses", 0),
+        "month_spent": summary.get("month_spent", 0.0),
+        "top_category": top_category.get("category", "No data") if top_category else "No data",
+    }

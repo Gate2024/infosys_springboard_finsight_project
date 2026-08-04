@@ -12,6 +12,7 @@
 
   <!-- Font Awesome Icons CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
   <!-- Custom Stylesheets -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/variables.css') }}">
@@ -20,6 +21,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/form.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+  {% block page_styles %}{% endblock %}
 </head>
 <body>
 
@@ -55,23 +57,63 @@
   <!-- Application Main Shell -->
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
-      <nav class="sidebar-nav" aria-label="Primary navigation">
-        <a href="{{ url_for('dashboard') }}" class="sidebar-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
-          <i class="fa-solid fa-gauge-high"></i>
-          <span>Dashboard</span>
-        </a>
-        <a href="{{ url_for('budgets') }}" class="sidebar-link {% if request.endpoint == 'budgets' %}active{% endif %}">
-          <i class="fa-solid fa-chart-pie"></i>
-          <span>Budgets</span>
-        </a>
-        <a href="{{ url_for('create_budget_route') }}" class="sidebar-link {% if request.endpoint == 'create_budget_route' %}active{% endif %}">
-          <i class="fa-solid fa-plus"></i>
-          <span>Create Budget</span>
-        </a>
-        <a href="{{ url_for('logout') }}" class="sidebar-link">
-          <i class="fa-solid fa-right-from-bracket"></i>
-          <span>Logout</span>
-        </a>
+      <div class="logo">
+        <div class="logo-icon-wrapper">
+          <i class="bi bi-pie-chart-fill"></i>
+        </div>
+        <div class="logo-text">
+          <span class="logo-title">FinSight</span>
+          <span class="logo-subtitle">Budget &amp; Wealth</span>
+        </div>
+      </div>
+
+      <div class="sidebar-profile">
+        <div class="sidebar-avatar">
+          {{ session.get('username','A')[0]|upper }}
+        </div>
+        <div class="sidebar-profile-copy">
+          <span class="sidebar-profile-label">Signed in as</span>
+          <strong>{{ session.get('username') }}</strong>
+        </div>
+      </div>
+
+      <nav aria-label="Primary navigation">
+        <ul class="nav-links">
+          <li class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
+            <a href="{{ url_for('dashboard') }}">
+              <i class="bi bi-grid-fill"></i>
+              <span>Dashboard</span>
+            </a>
+          </li>
+
+          <li class="{% if request.endpoint in ['expenses', 'create_expense', 'edit_expense'] %}active{% endif %}">
+            <a href="{{ url_for('expenses') }}">
+              <i class="bi bi-arrow-up-circle"></i>
+              <span>Expenses</span>
+            </a>
+          </li>
+
+          <li class="{% if request.endpoint == 'budgets' %}active{% endif %}">
+            <a href="{{ url_for('budgets') }}">
+              <i class="bi bi-wallet2"></i>
+              <span>Budget</span>
+            </a>
+          </li>
+
+          <li class="{% if request.endpoint == 'create_budget_route' %}active{% endif %}">
+            <a href="{{ url_for('create_budget_route') }}">
+              <i class="bi bi-plus-circle"></i>
+              <span>Create Budget</span>
+            </a>
+          </li>
+
+          <li class="logout">
+            <a href="{{ url_for('logout') }}">
+              <i class="bi bi-box-arrow-right"></i>
+              <span>Logout</span>
+            </a>
+          </li>
+        </ul>
       </nav>
     </aside>
     <main class="app-container">

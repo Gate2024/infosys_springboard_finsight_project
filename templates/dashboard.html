@@ -2,74 +2,381 @@
 
 {% block title %}Dashboard{% endblock %}
 
+{% block page_styles %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap-grid.min.css" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/main_dashboard.css') }}">
+{% endblock %}
+
 {% block content %}
 
-<header class="dashboard-header animated-fade-in">
-  <div class="header-title-area">
-    <h1>Welcome, {{ current_username }}</h1>
-    <div class="quote-banner">
-      <i class="fa-solid fa-chart-line quote-icon"></i>
-      <span>Your FinSight overview for {{ today_date }}</span>
-    </div>
-  </div>
-
-  <div class="header-action-area">
-    <a href="{{ url_for('budgets') }}" class="btn btn-emerald">
-      <i class="fa-solid fa-chart-pie"></i> Open Budget Dashboard
-    </a>
-  </div>
-</header>
-
-<section class="summary-grid animated-fade-in">
-  <div class="metric-card">
-    <div class="metric-header">
-      <span class="metric-title">Total Budgets</span>
-      <div class="metric-icon-box">
-        <i class="fa-solid fa-folder-open"></i>
+<section class="dashboard-page animated-fade-in">
+  <!-- summary cards -->
+  <div class="summary-grid">
+    <div class="card balance">
+      <div class="card-icon">
+        <i class="bi bi-wallet2"></i>
+      </div>
+      <div class="card-info">
+        <h4>Total Balance</h4>
+        <h2>1,25,000</h2>
+        <small>Available Balance</small>
       </div>
     </div>
-    <div class="metric-value">{{ stats.total_budgets }}</div>
-  </div>
 
-  <div class="metric-card">
-    <div class="metric-header">
-      <span class="metric-title">Active Budgets</span>
-      <div class="metric-icon-box" style="color: var(--emerald-green);">
-        <i class="fa-solid fa-bolt"></i>
+    <div class="card income">
+      <div class="card-icon">
+        <i class="bi bi-arrow-down-circle"></i>
+      </div>
+      <div class="card-info">
+        <h4>Total Income</h4>
+        <h2>85,000</h2>
+        <small>This Month</small>
       </div>
     </div>
-    <div class="metric-value" style="color: var(--emerald-green);">{{ stats.active_budgets }}</div>
-  </div>
 
-  <div class="metric-card">
-    <div class="metric-header">
-      <span class="metric-title">Completed</span>
-      <div class="metric-icon-box" style="color: var(--luxury-gold);">
-        <i class="fa-solid fa-circle-check"></i>
+    <div class="card expense">
+      <div class="card-icon">
+        <i class="bi bi-arrow-up-circle"></i>
+      </div>
+      <div class="card-info">
+        <h4>Total Expenses</h4>
+        <h2>42,000</h2>
+        <small>This Month</small>
       </div>
     </div>
-    <div class="metric-value">{{ stats.completed_budgets }}</div>
-  </div>
 
-  <div class="metric-card">
-    <div class="metric-header">
-      <span class="metric-title">Total Allocated</span>
-      <div class="metric-icon-box" style="color: #2563EB;">
-        <i class="fa-solid fa-coins"></i>
+    <div class="card savings">
+      <div class="card-icon">
+        <i class="bi bi-piggy-bank"></i>
+      </div>
+      <div class="card-info">
+        <h4>Total Savings</h4>
+        <h2>42,350</h2>
+        <small>Current Savings</small>
       </div>
     </div>
-    <div class="metric-value">${{ "{:,.2f}".format(stats.total_allocated) }}</div>
-  </div>
 
-  <div class="metric-card">
-    <div class="metric-header">
-      <span class="metric-title">Total Remaining</span>
-      <div class="metric-icon-box" style="color: #059669;">
-        <i class="fa-solid fa-vault"></i>
+    <div class="card budget">
+      <div class="card-icon">
+        <i class="bi bi-cash-stack"></i>
+      </div>
+      <div class="card-info">
+        <h4>Budget Left</h4>
+        <h2>18,000</h2>
+        <small>Remaining Budget</small>
       </div>
     </div>
-    <div class="metric-value" style="color: #059669;">${{ "{:,.2f}".format(stats.total_remaining) }}</div>
+  </div>
+
+  <!-- charts -->
+  <div class="dashboard-container">
+    <div class="container-fluid">
+      <div class="row">
+        <div class="col-12 col-md-12 col-lg-6 chart-card">
+          <span><h3>Expense Breakdown</h3></span>
+          <div class="d-flex flex-row dashboard-chart-split">
+            <div class="dashboard-chart-area">
+              <canvas id="expensePieChart"></canvas>
+            </div>
+
+            <div class="expense-summary">
+              <div class="expense-row">
+                <span class="category">
+                  <span class="dot food"></span>
+                  Food
+                </span>
+                <span class="percentage">35%</span>
+                <span class="amount">₹12,500</span>
+              </div>
+
+              <div class="expense-row">
+                <span class="category">
+                  <span class="dot shopping"></span>
+                  Shopping
+                </span>
+                <span class="percentage">22%</span>
+                <span class="amount">₹8,000</span>
+              </div>
+
+              <div class="expense-row">
+                <span class="category">
+                  <span class="dot bills"></span>
+                  Bills
+                </span>
+                <span class="percentage">18%</span>
+                <span class="amount">₹6,500</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-12 col-lg-6">
+          <div class="chart-card">
+            <h3>Income vs Expenses</h3>
+            <canvas id="incomeExpenseChart"></canvas>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4">
+          <div class="chart-card">
+            <h3>Monthly Cash Flow</h3>
+            <p>Track Income, Expenses & Savings</p>
+            <div class="cashflow-header">
+              <div class="cashflow-filters m-3">
+                <select class="form-select" id="monthFilter">
+                  <option value="all">All Months</option>
+                  <option value="jan">January</option>
+                  <option value="feb">February</option>
+                  <option value="mar">March</option>
+                  <option value="apr">April</option>
+                  <option value="may">May</option>
+                  <option value="jun">June</option>
+                </select>
+
+                <select class="form-select" id="yearFilter">
+                  <option>2026</option>
+                  <option>2025</option>
+                  <option>2024</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="chart-container">
+              <canvas id="cashFlowChart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-md-6 col-lg-4 chart-card">
+          <span><h3>Budget Progress</h3></span>
+
+          <div class="budget-item">
+            <div class="budget-header">
+              <span>
+                <i class="bi bi-basket-fill category-icon food-icon"></i>
+                Food
+              </span>
+              <span>₹12,500 / ₹15,000</span>
+            </div>
+            <div class="progress">
+              <div class="progress-bar bg-primary" style="width:83%"></div>
+            </div>
+          </div>
+
+          <div class="budget-item">
+            <div class="budget-header">
+              <span>
+                <i class="bi bi-bag-fill category-icon shopping-icon"></i>
+                Shopping
+              </span>
+              <span>₹8,000 / ₹10,000</span>
+            </div>
+            <div class="progress">
+              <div class="progress-bar bg-success" style="width:80%"></div>
+            </div>
+          </div>
+
+          <div class="budget-item">
+            <div class="budget-header">
+              <span>
+                <i class="bi bi-lightning-charge-fill category-icon bills-icon"></i>
+                Bills
+              </span>
+              <span>₹6,500 / ₹8,000</span>
+            </div>
+            <div class="progress">
+              <div class="progress-bar bg-warning" style="width:81%"></div>
+            </div>
+          </div>
+
+          <div class="budget-item">
+            <div class="budget-header">
+              <span>
+                <i class="bi bi-car-front-fill category-icon transport-icon"></i>
+                Transport
+              </span>
+              <span>₹2,000 / ₹5,000</span>
+            </div>
+            <div class="progress">
+              <div class="progress-bar bg-info" style="width:40%"></div>
+            </div>
+          </div>
+
+          <div class="budget-item">
+            <div class="budget-header">
+              <span>
+                <i class="bi bi-film category-icon entertainment-icon"></i>
+                Entertainment
+              </span>
+              <span>₹3,500 / ₹6,000</span>
+            </div>
+            <div class="progress">
+              <div class="progress-bar bg-danger" style="width:58%"></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12 col-lg-4 mb-2">
+          <div class="chart-card ai-insights-card">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h3 class="mb-0">
+                <i class="bi bi-stars text-primary"></i>
+                AI Insights
+              </h3>
+
+              <span class="badge bg-primary">Today</span>
+            </div>
+
+            <div class="insight-item success">
+              <div class="insight-icon">
+                <i class="bi bi-graph-up-arrow"></i>
+              </div>
+              <div class="insight-content">
+                <h6>Spending Improved</h6>
+                <p>Your expenses are <strong>12%</strong> lower than last month.</p>
+              </div>
+            </div>
+
+            <div class="insight-item warning">
+              <div class="insight-icon">
+                <i class="bi bi-exclamation-triangle-fill"></i>
+              </div>
+              <div class="insight-content">
+                <h6>Budget Alert</h6>
+                <p>You've used <strong>85%</strong> of your Food budget.</p>
+              </div>
+            </div>
+
+            <div class="insight-item info">
+              <div class="insight-icon">
+                <i class="bi bi-lightbulb-fill"></i>
+              </div>
+              <div class="insight-content">
+                <h6>Saving Tip</h6>
+                <p>Reducing dining expenses by ₹2,000 could increase your monthly savings.</p>
+              </div>
+            </div>
+
+            <div class="insight-item danger">
+              <div class="insight-icon">
+                <i class="bi bi-arrow-up-circle-fill"></i>
+              </div>
+              <div class="insight-content">
+                <h6>Highest Expense</h6>
+                <p>Food is your largest spending category this month.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="col-12">
+          <div class="chart-card">
+            <div class="d-flex justify-content-between align-items-center mb-3">
+              <h3 class="mb-0">Recent Transactions</h3>
+              <button class="btn btn-sm btn-primary">View All</button>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table align-middle transaction-table">
+                <thead>
+                  <tr>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Date</th>
+                    <th>Type</th>
+                    <th>Amount</th>
+                  </tr>
+                </thead>
+
+                <tbody>
+                  <tr>
+                    <td>
+                      <div class="transaction-category">
+                        <span class="transaction-icon food">
+                          <i class="bi bi-basket-fill"></i>
+                        </span>
+                        Food
+                      </div>
+                    </td>
+                    <td>Lunch at Restaurant</td>
+                    <td>29 Jul 2026</td>
+                    <td><span class="badge bg-danger">Expense</span></td>
+                    <td class="text-danger fw-bold">-₹650</td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <div class="transaction-category">
+                        <span class="transaction-icon salary">
+                          <i class="bi bi-wallet2"></i>
+                        </span>
+                        Salary
+                      </div>
+                    </td>
+                    <td>Monthly Salary</td>
+                    <td>28 Jul 2026</td>
+                    <td><span class="badge bg-success">Income</span></td>
+                    <td class="text-success fw-bold">+₹55,000</td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <div class="transaction-category">
+                        <span class="transaction-icon shopping">
+                          <i class="bi bi-bag-fill"></i>
+                        </span>
+                        Shopping
+                      </div>
+                    </td>
+                    <td>Amazon Purchase</td>
+                    <td>27 Jul 2026</td>
+                    <td><span class="badge bg-danger">Expense</span></td>
+                    <td class="text-danger fw-bold">-₹2,350</td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <div class="transaction-category">
+                        <span class="transaction-icon transport">
+                          <i class="bi bi-car-front-fill"></i>
+                        </span>
+                        Transport
+                      </div>
+                    </td>
+                    <td>Fuel</td>
+                    <td>26 Jul 2026</td>
+                    <td><span class="badge bg-danger">Expense</span></td>
+                    <td class="text-danger fw-bold">-₹1,200</td>
+                  </tr>
+
+                  <tr>
+                    <td>
+                      <div class="transaction-category">
+                        <span class="transaction-icon bills">
+                          <i class="bi bi-lightning-charge-fill"></i>
+                        </span>
+                        Electricity Bill
+                      </div>
+                    </td>
+                    <td>Electricity Payment</td>
+                    <td>25 Jul 2026</td>
+                    <td><span class="badge bg-danger">Expense</span></td>
+                    <td class="text-danger fw-bold">-₹1,800</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </section>
 
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 {% endblock %}

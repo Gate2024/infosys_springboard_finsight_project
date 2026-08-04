@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}Expense Tracker{% endblock %}
+
+{% block page_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/expense.css') }}">
+{% endblock %}
+
+{% block content %}
+
+<header class="dashboard-header expense-hero animated-fade-in">
+  <div class="header-title-area">
+    <h1>Expense Tracker</h1>
+    <div class="quote-banner">
+      <i class="fa-solid fa-receipt quote-icon"></i>
+      <span>Track every spend with clarity, context, and control.</span>
+    </div>
+  </div>
+
+  <div class="header-action-area">
+    <div class="header-date-badge mb-3">
+      <i class="fa-regular fa-calendar-days"></i> {{ today_date }}
+    </div>
+    <a href="{{ url_for('create_expense') }}" class="btn btn-emerald">
+      <i class="fa-solid fa-plus"></i> Add Expense
+    </a>
+  </div>
+</header>
+
+<section class="summary-grid expense-summary-grid animated-fade-in">
+  <div class="metric-card expense-metric">
+    <div class="metric-header">
+      <span class="metric-title">Total Spent</span>
+      <div class="metric-icon-box">
+        <i class="fa-solid fa-wallet"></i>
+      </div>
+    </div>
+    <div class="metric-value">${{ "{:,.2f}".format(stats.total_spent) }}</div>
+  </div>
+
+  <div class="metric-card expense-metric">
+    <div class="metric-header">
+      <span class="metric-title">This Month</span>
+      <div class="metric-icon-box" style="color: var(--emerald-green);">
+        <i class="fa-solid fa-calendar-check"></i>
+      </div>
+    </div>
+    <div class="metric-value" style="color: var(--emerald-green);">${{ "{:,.2f}".format(stats.month_spent) }}</div>
+  </div>
+
+  <div class="metric-card expense-metric">
+    <div class="metric-header">
+      <span class="metric-title">Transactions</span>
+      <div class="metric-icon-box" style="color: var(--luxury-gold);">
+        <i class="fa-solid fa-list-check"></i>
+      </div>
+    </div>
+    <div class="metric-value">{{ stats.total_expenses }}</div>
+  </div>
+
+  <div class="metric-card expense-metric">
+    <div class="metric-header">
+      <span class="metric-title">Average</span>
+      <div class="metric-icon-box" style="color: #2563EB;">
+        <i class="fa-solid fa-chart-line"></i>
+      </div>
+    </div>
+    <div class="metric-value">${{ "{:,.2f}".format(stats.average_expense) }}</div>
+  </div>
+
+  <div class="metric-card expense-metric">
+    <div class="metric-header">
+      <span class="metric-title">Top Category</span>
+      <div class="metric-icon-box" style="color: #B91C1C;">
+        <i class="fa-solid fa-layer-group"></i>
+      </div>
+    </div>
+    <div class="metric-value expense-category-value">{{ stats.top_category }}</div>
+  </div>
+</section>
+
+<section class="controls-bar animated-fade-in">
+  <div class="search-input-wrapper">
+    <i class="fa-solid fa-magnifying-glass search-icon"></i>
+    <input
+      type="text"
+      id="expense-search-input"
+      class="search-input"
+      placeholder="Search by description, category, or payment mode..."
+      value="{{ search_query }}"
+    >
+  </div>
+
+  <div class="filter-group">
+    <select id="expense-filter-category" class="filter-select">
+      <option value="All" {% if category_filter == 'All' %}selected{% endif %}>All Categories</option>
+      {% for category in categories %}
+        <option value="{{ category }}" {% if category_filter == category %}selected{% endif %}>{{ category }}</option>
+      {% endfor %}
+    </select>
+
+    <select id="expense-filter-payment" class="filter-select">
+      <option value="All" {% if payment_filter == 'All' %}selected{% endif %}>All Payment Modes</option>
+      {% for payment_mode in payment_modes %}
+        <option value="{{ payment_mode }}" {% if payment_filter == payment_mode %}selected{% endif %}>{{ payment_mode }}</option>
+      {% endfor %}
+    </select>
+
+    <select id="expense-filter-sort" class="filter-select">
+      <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Sort by Newest</option>
+      <option value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>Sort by Oldest</option>
+      <option value="amount_desc" {% if sort_by == 'amount_desc' %}selected{% endif %}>Amount: High to Low</option>
+      <option value="amount_asc" {% if sort_by == 'amount_asc' %}selected{% endif %}>Amount: Low to High</option>
+    </select>
+  </div>
+</section>
+
+<section class="expense-panel animated-fade-in">
+  <div class="expense-panel-header">
+    <div>
+      <h2>Recent Expenses</h2>
+      <p>{{ stats.month_expenses }} recorded this month</p>
+    </div>
+    <span class="expense-total-chip">
+      <i class="fa-solid fa-arrow-trend-down"></i>
+      Largest: ${{ "{:,.2f}".format(stats.largest_expense) }}
+    </span>
+  </div>
+
+  {% if expenses and expenses|length > 0 %}
+    <div class="expense-table-wrap">
+      <table class="expense-table">
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Category</th>
+            <th>Payment Mode</th>
+            <th class="amount-col">Amount</th>
+            <th class="actions-col">Actions</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for expense in expenses %}
+            <tr
+              class="expense-row"
+              data-search="{{ ((expense.description or '') ~ ' ' ~ expense.category ~ ' ' ~ expense.payment_mode)|lower|e }}"
+              data-category="{{ expense.category }}"
+              data-payment="{{ expense.payment_mode }}"
+              data-amount="{{ expense.amount }}"
+              data-date="{{ expense.date }}"
+            >
+              <td>
+                <div class="expense-date">
+                  <i class="fa-regular fa-calendar"></i>
+                  <span>{{ expense.date }}</span>
+                </div>
+              </td>
+              <td>
+                <div class="expense-description">
+                  <strong>{{ expense.description or "Untitled expense" }}</strong>
+                  <span>Expense #{{ expense.id }}</span>
+                </div>
+              </td>
+              <td>
+                <span class="expense-pill">
+                  <i class="fa-solid fa-tag"></i>
+                  {{ expense.category }}
+                </span>
+              </td>
+              <td>
+                <span class="expense-payment">
+                  <i class="fa-solid fa-credit-card"></i>
+                  {{ expense.payment_mode }}
+                </span>
+              </td>
+              <td class="amount-col">
+                <span class="expense-amount">${{ "{:,.2f}".format(expense.amount) }}</span>
+              </td>
+              <td class="actions-col">
+                <div class="action-btn-group">
+                  <button class="icon-btn" title="View Expense" onclick="openExpenseModal({{ expense.id }})">
+                    <i class="fa-regular fa-eye"></i>
+                  </button>
+                  <a href="{{ url_for('edit_expense', transaction_id=expense.id) }}" class="icon-btn" title="Edit Expense">
+                    <i class="fa-regular fa-pen-to-square"></i>
+                  </a>
+                  <form
+                    action="{{ url_for('delete_expense_route', transaction_id=expense.id) }}"
+                    method="POST"
+                    class="delete-expense-form"
+                    data-expense-name="{{ expense.description or expense.category }}"
+                  >
+                    <button type="submit" class="icon-btn icon-btn-delete" title="Delete Expense">
+                      <i class="fa-regular fa-trash-can"></i>
+                    </button>
+                  </form>
+                </div>
+              </td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state expense-empty-state">
+      <div class="empty-icon">
+        <i class="fa-solid fa-receipt"></i>
+      </div>
+      <h3>No Expenses Recorded Yet</h3>
+      <p>Add your first expense to start building a clear spending history.</p>
+      <a href="{{ url_for('create_expense') }}" class="btn btn-emerald btn-lg">
+        <i class="fa-solid fa-plus"></i> Add First Expense
+      </a>
+    </div>
+  {% endif %}
+</section>
+
+<div id="expenseViewModal" class="modal-overlay" onclick="closeExpenseModalOnBackground(event)">
+  <div class="modal-content expense-modal-content">
+    <button class="modal-close-btn" onclick="closeExpenseModal()">&times;</button>
+    <div id="expense-modal-body">
+      <!-- Filled by expense.js -->
+    </div>
+  </div>
+</div>
+
+<div id="expenseDeleteConfirmModal" class="modal-overlay" aria-hidden="true">
+  <div class="modal-content delete-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="expenseDeleteConfirmTitle">
+    <div class="delete-confirm-icon">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+    </div>
+    <h2 id="expenseDeleteConfirmTitle">Delete this expense?</h2>
+    <p>This action cannot be undone.</p>
+    <div class="delete-confirm-actions">
+      <button type="button" class="btn btn-outline" id="cancelDeleteExpense">Cancel</button>
+      <button type="button" class="btn btn-danger" id="confirmDeleteExpense">Delete</button>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/expense.js') }}"></script>
+{% endblock %}
