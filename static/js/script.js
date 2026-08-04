@@ -16,7 +16,15 @@ function setMobilePanel(which){
 }
 setMobilePanel('signin');
 document.querySelectorAll('[data-switch]').forEach(el=>{
-  el.addEventListener('click', () => setMobilePanel(el.getAttribute('data-switch')));
+  el.addEventListener('click', () => {
+    const which = el.getAttribute('data-switch');
+    if(which === 'signup'){
+      container.classList.add('active');
+    } else {
+      container.classList.remove('active');
+    }
+    setMobilePanel(which);
+  });
 });
 
 // Password visibility toggles
@@ -26,13 +34,19 @@ document.querySelectorAll('.toggle-visibility').forEach(btn=>{
     const isPassword = input.type === 'password';
     input.type = isPassword ? 'text' : 'password';
     btn.textContent = isPassword ? 'Hide' : 'Show';
+    btn.setAttribute('aria-label', isPassword ? 'Hide password' : 'Show password');
   });
 });
 
-// Form submits (hook up to your backend)
-
-
-//document.getElementById('signInForm').addEventListener('submit', e => { e.preventDefault/(); console.log('sign in submitted'); });
-//document.getElementById('signUpForm').addEventListener('submit', e => { e.preventDefault(); console.log('sign up submitted'); });
+// Keep the native submit flow intact while giving the button immediate feedback.
+document.querySelectorAll('form').forEach(form=>{
+  form.addEventListener('submit', () => {
+    const button = form.querySelector('.submit-btn');
+    if (!button) return;
+    button.disabled = true;
+    button.classList.add('is-loading');
+    button.querySelector('span').textContent = 'Please wait…';
+  });
+});
 
 
