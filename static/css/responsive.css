@@ -29,10 +29,11 @@
   }
 
   body.sidebar-open .sidebar {
-    display: block;
+    display: flex;
     min-height: auto;
     border-right: none;
     border-bottom: 1px solid var(--border-subtle);
+    box-shadow: 0 18px 40px rgba(9, 26, 43, 0.14);
   }
 
   body.sidebar-collapsed .app-shell {
@@ -43,6 +44,11 @@
     flex-direction: column;
     align-items: flex-start;
     gap: 1rem;
+  }
+
+  .header-action-area {
+    align-items: flex-start;
+    width: 100%;
   }
 
   .summary-grid {
@@ -61,6 +67,7 @@
 
   .filter-select {
     flex: 1;
+    min-width: 180px;
   }
 
   .budgets-grid {
@@ -92,6 +99,11 @@
   .actions-right {
     flex-direction: column;
   }
+
+  .form-actions-bar .btn,
+  .actions-right .btn {
+    width: 100%;
+  }
 }
 
 /* Small Mobile Devices */
@@ -115,5 +127,97 @@
 
   .delete-confirm-actions .btn {
     width: 100%;
+  }
+
+  .navbar-brand .brand-subtitle,
+  .navbar-user span {
+    display: none;
+  }
+
+  .dashboard-header,
+  .form-header-bar {
+    padding: 1.1rem;
+  }
+
+  .quote-banner {
+    border-radius: 16px;
+    align-items: flex-start;
+  }
+}
+
+/* Final responsive spacing polish only */
+@media (max-width: 1024px) {
+  .app-shell {
+    grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  .app-container {
+    padding-left: 1.35rem;
+    padding-right: 1.35rem;
+  }
+
+  .nav-links a {
+    padding-left: 13px;
+    padding-right: 13px;
+  }
+}
+
+@media (max-width: 768px) {
+  .navbar {
+    min-height: 68px;
+    padding: 0 1rem;
+    gap: 12px;
+  }
+
+  .sidebar-toggle {
+    width: 42px;
+    height: 42px;
+  }
+
+  body.sidebar-open .sidebar {
+    min-height: auto;
+  }
+
+  .logo {
+    min-height: auto;
+    padding: 18px 18px 12px;
+  }
+
+  .sidebar-profile {
+    margin-left: 14px;
+    margin-right: 14px;
+  }
+}
+
+@media (max-width: 560px) {
+  .brand-icon {
+    width: 38px;
+    height: 38px;
+  }
+
+  .brand-title {
+    font-size: 1.05rem;
+  }
+
+  .dashboard-header,
+  .form-header-bar,
+  .controls-bar,
+  .metric-card,
+  .budget-card,
+  .chart-card,
+  .expense-panel-header {
+    border-radius: 18px;
+  }
+
+  .search-input-wrapper {
+    min-width: 100%;
+  }
+
+  .filter-group {
+    gap: 0.6rem;
+  }
+
+  .filter-select {
+    min-width: 100%;
   }
 }

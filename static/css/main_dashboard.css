@@ -433,3 +433,291 @@
     flex-direction: column;
   }
 }
+
+/* Auth-reference premium dashboard refinements */
+.dashboard-page {
+  color: var(--text-main);
+}
+
+.dashboard-page .summary-grid {
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+  font-family: var(--font-body);
+}
+
+.dashboard-page .card {
+  position: relative;
+  overflow: hidden;
+  padding: 1.25rem;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.80));
+  border: 1px solid rgba(223, 230, 233, 0.92);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-page .card::after {
+  content: '';
+  position: absolute;
+  inset: auto -40px -70px auto;
+  width: 150px;
+  height: 150px;
+  border: 1px solid rgba(101, 208, 178, 0.14);
+  border-radius: 50%;
+}
+
+.dashboard-page .card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.dashboard-page .card-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  font-size: 1.35rem;
+  box-shadow: 0 12px 26px rgba(9, 26, 43, 0.12);
+}
+
+.dashboard-page .balance .card-icon,
+.dashboard-page .income .card-icon,
+.dashboard-page .savings .card-icon,
+.dashboard-page .budget .card-icon,
+.dashboard-page .bills .card-icon {
+  background: linear-gradient(135deg, var(--emerald-green), #65D0B2);
+}
+
+.dashboard-page .expense .card-icon {
+  background: linear-gradient(135deg, #B42318, #EF4444);
+}
+
+.dashboard-page .card-info h4 {
+  color: #71808D;
+  font-family: var(--font-accent);
+  font-size: 0.68rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.dashboard-page .card-info h2 {
+  color: var(--text-main);
+  font-family: var(--font-heading);
+  font-size: clamp(1.45rem, 2.2vw, 2rem);
+  font-weight: 800;
+  letter-spacing: -0.055em;
+}
+
+.dashboard-page .card-info small {
+  color: var(--text-muted);
+}
+
+.dashboard-page .chart-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(255, 255, 255, 0.82));
+  border: 1px solid rgba(223, 230, 233, 0.92);
+  border-radius: 22px;
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-page .chart-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.dashboard-page .chart-card h3 {
+  color: var(--text-main);
+  font-family: var(--font-heading);
+  font-size: clamp(1.22rem, 2vw, 1.65rem);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+}
+
+.dashboard-page .expense-row {
+  border-bottom-color: rgba(223, 230, 233, 0.84);
+  color: #344654;
+  font-family: var(--font-body);
+  font-style: normal;
+}
+
+.dashboard-page .percentage {
+  color: var(--text-muted);
+}
+
+.dashboard-page .budget-item {
+  border-radius: 16px;
+  transition: var(--transition-fast);
+}
+
+.dashboard-page .budget-item:hover {
+  background: rgba(246, 249, 249, 0.78);
+}
+
+.dashboard-page .budget-header {
+  color: #344654;
+}
+
+.dashboard-page .progress {
+  background: #EAF0EF;
+}
+
+.dashboard-page .progress-bar {
+  background: linear-gradient(90deg, var(--emerald-green), #65D0B2) !important;
+}
+
+.dashboard-page .cashflow-filters select,
+.dashboard-page .form-select {
+  min-height: 44px;
+  padding: 0.62rem 0.9rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: #FBFCFC;
+  color: var(--text-main);
+  font-family: var(--font-accent);
+  font-weight: 700;
+  outline: none;
+}
+
+.dashboard-page .cashflow-filters select:focus,
+.dashboard-page .form-select:focus {
+  border-color: var(--emerald-green);
+  box-shadow: var(--shadow-glow);
+}
+
+.dashboard-page .insight-item {
+  border: 1px solid rgba(223, 230, 233, 0.76);
+}
+
+.dashboard-page .insight-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(9, 26, 43, 0.05);
+}
+
+.dashboard-page .insight-content h6 {
+  color: var(--text-main);
+  font-weight: 800;
+}
+
+.dashboard-page .insight-content p {
+  color: var(--text-muted);
+}
+
+.dashboard-page .badge {
+  border-radius: 999px;
+  font-family: var(--font-accent);
+  font-weight: 800;
+}
+
+.dashboard-page .bg-primary,
+.dashboard-page .btn-primary {
+  background: var(--emerald-green) !important;
+  border-color: var(--emerald-green) !important;
+}
+
+.dashboard-page .text-primary {
+  color: var(--emerald-green) !important;
+}
+
+.dashboard-page .btn-sm {
+  border-radius: 10px;
+  font-weight: 800;
+}
+
+.dashboard-page .table {
+  overflow: hidden;
+}
+
+.dashboard-page .table th,
+.dashboard-page .table td {
+  border-bottom-color: rgba(223, 230, 233, 0.78);
+}
+
+.dashboard-page .transaction-table th {
+  color: #71808D;
+  font-family: var(--font-accent);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+
+.dashboard-page .transaction-table td {
+  color: #344654;
+}
+
+.dashboard-page .transaction-table tbody tr:hover {
+  background: rgba(246, 249, 249, 0.76);
+}
+
+.dashboard-page .transaction-icon {
+  box-shadow: 0 10px 20px rgba(9, 26, 43, 0.10);
+}
+
+/* Final SaaS polish layer: dashboard density and table refinement */
+.dashboard-page .summary-grid {
+  align-items: stretch;
+}
+
+.dashboard-page .card {
+  min-height: 118px;
+}
+
+.dashboard-page .card-icon {
+  min-width: 52px;
+}
+
+.dashboard-page .card-info {
+  min-width: 0;
+}
+
+.dashboard-page .dashboard-container {
+  padding-top: 1.25rem;
+}
+
+.dashboard-page .chart-card {
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.dashboard-page .chart-card canvas {
+  max-height: 320px;
+}
+
+.dashboard-page .expense-summary {
+  gap: 0.1rem;
+}
+
+.dashboard-page .budget-item {
+  padding: 0.85rem;
+}
+
+.dashboard-page .cashflow-header {
+  gap: 1rem;
+}
+
+.dashboard-page .insight-item {
+  padding: 0.85rem;
+}
+
+.dashboard-page .table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.dashboard-page .table th {
+  height: 44px;
+}
+
+.dashboard-page .table td {
+  height: 62px;
+}
+
+.dashboard-page .transaction-table tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.dashboard-page .transaction-category strong {
+  color: var(--text-main);
+}
+
+.dashboard-page .transaction-icon {
+  width: 38px;
+  height: 38px;
+  font-size: 1rem;
+}
