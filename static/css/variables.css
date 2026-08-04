@@ -31,9 +31,6 @@
   --status-active-text: #0E5A4E;
   --status-completed-bg: rgba(168, 134, 75, 0.15);
   --status-completed-text: #8F703B;
-  --status-archived-bg: rgba(107, 114, 128, 0.12);
-  --status-archived-text: #4B5563;
-
   /* Priority Colors */
   --priority-low-bg: #E0F2FE;
   --priority-low-text: #0369A1;

@@ -9,6 +9,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const filterStatus = document.getElementById('filter-status');
   const filterPriority = document.getElementById('filter-priority');
   const filterSort = document.getElementById('filter-sort');
+  initializeDeleteConfirmation();
 
   // Register Event Listeners for Instant Client-Side Search & Filter
   if (searchInput) {
@@ -34,13 +35,14 @@ function triggerSearchAndFilter() {
   let visibleCount = 0;
 
   cards.forEach(card => {
+    const cardSearch = card.dataset.search || '';
     const cardTitle = card.querySelector('.card-title')?.innerText.toLowerCase() || '';
     const cardCat = card.querySelector('.card-category-badge')?.innerText.trim() || '';
     const cardPriority = card.querySelector('.card-priority-badge')?.innerText.trim() || '';
     const cardStatus = card.querySelector('.card-actions .card-category-badge')?.innerText.replace('Status:', '').trim() || '';
 
     // Matching Logic
-    const matchesSearch = !query || cardTitle.includes(query) || cardCat.toLowerCase().includes(query);
+    const matchesSearch = !query || cardSearch.includes(query) || cardTitle.includes(query) || cardCat.toLowerCase().includes(query);
     const matchesCat = (selectedCat === 'All') || cardCat.includes(selectedCat);
     const matchesStatus = (selectedStatus === 'All') || cardStatus.toLowerCase() === selectedStatus.toLowerCase();
     const matchesPriority = (selectedPriority === 'All') || cardPriority.toLowerCase() === selectedPriority.toLowerCase();
@@ -59,9 +61,14 @@ function triggerSearchAndFilter() {
     const visibleCards = cards.filter(card => card.style.display !== 'none');
     visibleCards.sort((a, b) => {
       if (selectedSort === 'amount_desc' || selectedSort === 'amount_asc') {
-        const amtA = parseFloat(a.querySelector('.amount-val')?.innerText.replace(/[^0-9.-]+/g, "") || 0);
-        const amtB = parseFloat(b.querySelector('.amount-val')?.innerText.replace(/[^0-9.-]+/g, "") || 0);
+        const amtA = parseFloat(a.dataset.budgetAmount || 0);
+        const amtB = parseFloat(b.dataset.budgetAmount || 0);
         return selectedSort === 'amount_desc' ? amtB - amtA : amtA - amtB;
+      }
+      if (selectedSort === 'oldest' || selectedSort === 'newest') {
+        const dateA = Date.parse(a.dataset.created || '') || 0;
+        const dateB = Date.parse(b.dataset.created || '') || 0;
+        return selectedSort === 'oldest' ? dateA - dateB : dateB - dateA;
       }
       return 0;
     });
@@ -176,13 +183,46 @@ function closeViewModalOnBackground(event) {
   }
 }
 
-/**
-  Displays custom confirmation dialog before executing delete POST/GET request.
-  @param {number} budgetId 
-  @param {string} budgetName 
-*/
-function confirmDeleteBudget(budgetId, budgetName) {
-  if (confirm(`Are you sure you want to permanently delete "${budgetName}"?\nThis action cannot be undone.`)) {
-    window.location.href = `/budget/delete/${budgetId}`;
-  }
+function initializeDeleteConfirmation() {
+  const modal = document.getElementById('deleteConfirmModal');
+  const cancelButton = document.getElementById('cancelDeleteBudget');
+  const confirmButton = document.getElementById('confirmDeleteBudget');
+  const forms = document.querySelectorAll('.delete-budget-form');
+  let pendingForm = null;
+
+  if (!modal || !cancelButton || !confirmButton || forms.length === 0) return;
+
+  const closeModal = () => {
+    modal.classList.remove('active');
+    modal.setAttribute('aria-hidden', 'true');
+    pendingForm = null;
+  };
+
+  forms.forEach(form => {
+    form.addEventListener('submit', event => {
+      event.preventDefault();
+      pendingForm = form;
+      modal.classList.add('active');
+      modal.setAttribute('aria-hidden', 'false');
+      confirmButton.focus();
+    });
+  });
+
+  cancelButton.addEventListener('click', closeModal);
+
+  confirmButton.addEventListener('click', () => {
+    if (!pendingForm) return;
+    confirmButton.disabled = true;
+    pendingForm.submit();
+  });
+
+  modal.addEventListener('click', event => {
+    if (event.target === modal) closeModal();
+  });
+
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && modal.classList.contains('active')) {
+      closeModal();
+    }
+  });
 }

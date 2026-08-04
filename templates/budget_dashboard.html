@@ -18,7 +18,7 @@
     <div class="header-date-badge mb-3">
       <i class="fa-regular fa-calendar-days"></i> {{ today_date }}
     </div>
-    <a href="{{ url_for('create_budget') }}" class="btn btn-emerald">
+    <a href="{{ url_for('create_budget_route') }}" class="btn btn-emerald">
       <i class="fa-solid fa-plus"></i> Create New Budget
     </a>
   </div>
@@ -114,7 +114,6 @@
       <option value="All" {% if status_filter == 'All' %}selected{% endif %}>All Statuses</option>
       <option value="Active" {% if status_filter == 'Active' %}selected{% endif %}>Active</option>
       <option value="Completed" {% if status_filter == 'Completed' %}selected{% endif %}>Completed</option>
-      <option value="Archived" {% if status_filter == 'Archived' %}selected{% endif %}>Archived</option>
     </select>
 
     <!-- Priority Filter -->
@@ -145,7 +144,13 @@
         {% set total = b.budget_amount|float if b.budget_amount else 1.0 %}
         {% set pct = (spent / total * 100)|round(1) if total > 0 else 0 %}
         
-        <div class="budget-card" data-id="{{ b.budget_id }}">
+        <div
+          class="budget-card"
+          data-id="{{ b.budget_id }}"
+          data-created="{{ b.created_at or '' }}"
+          data-budget-amount="{{ total }}"
+          data-search="{{ (b.budget_name ~ ' ' ~ b.category ~ ' ' ~ (b.description or '') ~ ' ' ~ (b.notes or ''))|lower|e }}"
+        >
           <div class="card-top">
             <div class="card-category-badge">
               <i class="fa-solid {{ b.budget_icon or 'fa-wallet' }}" style="color: {{ b.color_label or '#0E5A4E' }};"></i>
@@ -201,15 +206,16 @@
               <a href="{{ url_for('edit_budget', budget_id=b.budget_id) }}" class="icon-btn" title="Edit Budget">
                 <i class="fa-regular fa-pen-to-square"></i>
               </a>
-              <a href="{{ url_for('duplicate_budget', budget_id=b.budget_id) }}" class="icon-btn" title="Duplicate Budget">
-                <i class="fa-regular fa-copy"></i>
-              </a>
-              <a href="{{ url_for('archive_budget', budget_id=b.budget_id) }}" class="icon-btn" title="Archive Budget">
-                <i class="fa-solid fa-box-archive"></i>
-              </a>
-              <button class="icon-btn icon-btn-delete" title="Delete Budget" onclick="confirmDeleteBudget({{ b.budget_id }}, '{{ b.budget_name|escape }}')">
-                <i class="fa-regular fa-trash-can"></i>
-              </button>
+              <form
+                action="{{ url_for('remove_budget', budget_id=b.budget_id) }}"
+                method="POST"
+                class="delete-budget-form"
+                data-budget-name="{{ b.budget_name }}"
+              >
+                <button type="submit" class="icon-btn icon-btn-delete" title="Delete Budget">
+                  <i class="fa-regular fa-trash-can"></i>
+                </button>
+              </form>
             </div>
           </div>
 
@@ -225,7 +231,7 @@
       </div>
       <h3>No Budgets Created Yet</h3>
       <p>"No budgets created yet. Take control of your financial future today."</p>
-      <a href="{{ url_for('create_budget') }}" class="btn btn-emerald btn-lg">
+      <a href="{{ url_for('create_budget_route') }}" class="btn btn-emerald btn-lg">
         <i class="fa-solid fa-plus"></i> Create Your First Budget
       </a>
     </div>
@@ -242,8 +248,22 @@
   </div>
 </div>
 
+<div id="deleteConfirmModal" class="modal-overlay" aria-hidden="true">
+  <div class="modal-content delete-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="deleteConfirmTitle">
+    <div class="delete-confirm-icon">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+    </div>
+    <h2 id="deleteConfirmTitle">Are you sure you want to delete this budget?</h2>
+    <p>This action cannot be undone.</p>
+    <div class="delete-confirm-actions">
+      <button type="button" class="btn btn-outline" id="cancelDeleteBudget">Cancel</button>
+      <button type="button" class="btn btn-danger" id="confirmDeleteBudget">Delete</button>
+    </div>
+  </div>
+</div>
+
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+<script src="{{ url_for('static', filename='js/dashboard.js') }}?v=delete-fix-3"></script>
 {% endblock %}

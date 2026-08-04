@@ -1,11 +1,75 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Dashboard</title>
-</head>
-<body>
-    <p><a href="/logout">Logout</a></p>
-    <h1>Welcome, {{ name }}!</h1>
-    <p>You have successfully logged in to Dashboard.</p>
-</body>
-</html>
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+
+{% block content %}
+
+<header class="dashboard-header animated-fade-in">
+  <div class="header-title-area">
+    <h1>Welcome, {{ current_username }}</h1>
+    <div class="quote-banner">
+      <i class="fa-solid fa-chart-line quote-icon"></i>
+      <span>Your FinSight overview for {{ today_date }}</span>
+    </div>
+  </div>
+
+  <div class="header-action-area">
+    <a href="{{ url_for('budgets') }}" class="btn btn-emerald">
+      <i class="fa-solid fa-chart-pie"></i> Open Budget Dashboard
+    </a>
+  </div>
+</header>
+
+<section class="summary-grid animated-fade-in">
+  <div class="metric-card">
+    <div class="metric-header">
+      <span class="metric-title">Total Budgets</span>
+      <div class="metric-icon-box">
+        <i class="fa-solid fa-folder-open"></i>
+      </div>
+    </div>
+    <div class="metric-value">{{ stats.total_budgets }}</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <span class="metric-title">Active Budgets</span>
+      <div class="metric-icon-box" style="color: var(--emerald-green);">
+        <i class="fa-solid fa-bolt"></i>
+      </div>
+    </div>
+    <div class="metric-value" style="color: var(--emerald-green);">{{ stats.active_budgets }}</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <span class="metric-title">Completed</span>
+      <div class="metric-icon-box" style="color: var(--luxury-gold);">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+    </div>
+    <div class="metric-value">{{ stats.completed_budgets }}</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <span class="metric-title">Total Allocated</span>
+      <div class="metric-icon-box" style="color: #2563EB;">
+        <i class="fa-solid fa-coins"></i>
+      </div>
+    </div>
+    <div class="metric-value">${{ "{:,.2f}".format(stats.total_allocated) }}</div>
+  </div>
+
+  <div class="metric-card">
+    <div class="metric-header">
+      <span class="metric-title">Total Remaining</span>
+      <div class="metric-icon-box" style="color: #059669;">
+        <i class="fa-solid fa-vault"></i>
+      </div>
+    </div>
+    <div class="metric-value" style="color: #059669;">${{ "{:,.2f}".format(stats.total_remaining) }}</div>
+  </div>
+</section>
+
+{% endblock %}

@@ -30,5 +30,9 @@ document.querySelectorAll('.toggle-visibility').forEach(btn=>{
 });
 
 // Form submits (hook up to your backend)
-document.getElementById('signInForm').addEventListener('submit', e => { e.preventDefault(); console.log('sign in submitted'); });
-document.getElementById('signUpForm').addEventListener('submit', e => { e.preventDefault(); console.log('sign up submitted'); });
+
+
+//document.getElementById('signInForm').addEventListener('submit', e => { e.preventDefault/(); console.log('sign in submitted'); });
+//document.getElementById('signUpForm').addEventListener('submit', e => { e.preventDefault(); console.log('sign up submitted'); });
+
+

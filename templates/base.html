@@ -13,12 +13,9 @@
   <!-- Font Awesome Icons CDN -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
 
-  <!-- Chart.js CDN for Analytics Visualizations -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
   <!-- Custom Stylesheets -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/variables.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/budget.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/form.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
@@ -28,7 +25,11 @@
 
   <!-- Luxury Top Navigation Bar -->
   <nav class="navbar">
-    <a href="{{ url_for('budget_dashboard') }}" class="navbar-brand">
+    <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Toggle sidebar">
+      <i class="fa-solid fa-bars"></i>
+    </button>
+
+    <a href="{{ url_for('budgets') }}" class="navbar-brand">
       <div class="brand-icon">
         <i class="fa-solid fa-chart-pie"></i>
       </div>
@@ -40,14 +41,40 @@
 
     <div class="navbar-user">
       <div class="user-badge">
-        <div class="user-avatar">{{ current_username[0]|upper if current_username else 'A' }}</div>
-        <span>{{ current_username }}</span>
+       <div class="user-avatar">
+    {{ session.get('username','A')[0]|upper }}
+</div>
+
+<span>
+    {{ session.get('username') }}
+</span>
       </div>
     </div>
   </nav>
 
   <!-- Application Main Shell -->
-  <main class="app-container">
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <nav class="sidebar-nav" aria-label="Primary navigation">
+        <a href="{{ url_for('dashboard') }}" class="sidebar-link {% if request.endpoint == 'dashboard' %}active{% endif %}">
+          <i class="fa-solid fa-gauge-high"></i>
+          <span>Dashboard</span>
+        </a>
+        <a href="{{ url_for('budgets') }}" class="sidebar-link {% if request.endpoint == 'budgets' %}active{% endif %}">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>Budgets</span>
+        </a>
+        <a href="{{ url_for('create_budget_route') }}" class="sidebar-link {% if request.endpoint == 'create_budget_route' %}active{% endif %}">
+          <i class="fa-solid fa-plus"></i>
+          <span>Create Budget</span>
+        </a>
+        <a href="{{ url_for('logout') }}" class="sidebar-link">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span>Logout</span>
+        </a>
+      </nav>
+    </aside>
+    <main class="app-container">
 
     <!-- Flask Flash Alert Messages -->
     {% with messages = get_flashed_messages(with_categories=true) %}
@@ -65,7 +92,8 @@
 
     {% block content %}{% endblock %}
 
-  </main>
+    </main>
+  </div>
 
   <!-- Toast Notification System Anchor -->
   <div id="toast-container"></div>

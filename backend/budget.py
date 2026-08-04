@@ -38,7 +38,7 @@ def inject_global_vars():
 @app.route('/')
 def index():
     """Root route redirecting directly to the Budget Dashboard."""
-    return redirect(url_for('budget_dashboard'))
+    return redirect(url_for('budgets'))
 
 @app.route('/budget', methods=['GET'])
 def budget_dashboard():
@@ -167,7 +167,7 @@ def create_budget():
         try:
             db.create_budget(user_id, form_payload)
             flash("Budget created successfully!", "success")
-            return redirect(url_for('budget_dashboard'))
+            return redirect(url_for('budgets'))
         except Exception as e:
             flash(f"Error saving budget: {str(e)}", "danger")
             return render_template('form.html', budget=request.form, is_edit=False)
@@ -186,7 +186,7 @@ def edit_budget(budget_id):
 
     if not existing_budget:
         flash("Budget not found or unauthorized access.", "danger")
-        return redirect(url_for('budget_dashboard'))
+        return redirect(url_for('budgets'))
 
     if request.method == 'POST':
         budget_name = request.form.get('budget_name', '').strip()
@@ -248,7 +248,7 @@ def edit_budget(budget_id):
         success = db.update_budget(budget_id, user_id, form_payload)
         if success:
             flash("Budget updated successfully!", "success")
-            return redirect(url_for('budget_dashboard'))
+            return redirect(url_for('budgets'))
         else:
             flash("Failed to update budget. Please try again.", "danger")
             return render_template('form.html', budget=request.form, is_edit=True, budget_id=budget_id)
@@ -279,7 +279,7 @@ def delete_budget(budget_id):
         flash("Budget deleted successfully.", "success")
     else:
         flash("Unable to delete budget.", "danger")
-    return redirect(url_for('budget_dashboard'))
+    return redirect(url_for('budgets'))
 
 @app.route('/budget/duplicate/<int:budget_id>', methods=['POST', 'GET'])
 def duplicate_budget(budget_id):
@@ -292,7 +292,7 @@ def duplicate_budget(budget_id):
         flash("Budget duplicated successfully!", "success")
     else:
         flash("Failed to duplicate budget.", "danger")
-    return redirect(url_for('budget_dashboard'))
+    return redirect(url_for('budgets'))
 
 @app.route('/budget/archive/<int:budget_id>', methods=['POST', 'GET'])
 def archive_budget(budget_id):
@@ -305,7 +305,7 @@ def archive_budget(budget_id):
         flash("Budget moved to archive.", "info")
     else:
         flash("Failed to archive budget.", "danger")
-    return redirect(url_for('budget_dashboard'))
+    return redirect(url_for('budgets'))
 
 @app.route('/budget/search', methods=['GET'])
 def search_budget_api():

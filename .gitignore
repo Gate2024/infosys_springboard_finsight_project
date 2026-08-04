@@ -1,1 +1,57 @@
-env
+# ============================
+# Python
+# ============================
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual Environment
+env/
+venv/
+ENV/
+.venv/
+
+# Environment Variables
+.env
+
+# Flask
+instance/
+.webassets-cache/
+
+# VS Code
+.vscode/
+
+# JetBrains
+.idea/
+
+# Python Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Distribution
+build/
+dist/
+*.egg-info/
+
+# Logs
+*.log
+
+# SQLite (if used)
+*.db
+*.sqlite3
+
+# OS Files
+.DS_Store
+Thumbs.db
+
+# Temporary Files
+*.tmp
+*.temp
+
+# Python cache
+*.pyc
+
+# Uploaded files (optional)
+uploads/*
+!uploads/.gitkeep

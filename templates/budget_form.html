@@ -15,7 +15,7 @@
     </h1>
     <p class="form-header-subtitle">Enter budget parameters and targets for tracking.</p>
   </div>
-  <a href="{{ url_for('budget_dashboard') }}" class="btn btn-outline">
+  <a href="{{ url_for('budgets') }}" class="btn btn-outline">
     <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
   </a>
 </div>
@@ -24,7 +24,7 @@
 <div class="form-card animated-fade-in">
   <form 
     id="budgetForm" 
-    action="{% if is_edit %}{{ url_for('edit_budget', budget_id=budget_id) }}{% else %}{{ url_for('create_budget') }}{% endif %}" 
+    action="{% if is_edit %}{{ url_for('edit_budget', budget_id=budget_id) }}{% else %}{{ url_for('create_budget_route') }}{% endif %}" 
     method="POST"
   >
     <div class="form-grid">
@@ -66,7 +66,6 @@
         <select id="status" name="status" class="input-control">
           <option value="Active" {% if budget.status == 'Active' or not budget.status %}selected{% endif %}>Active</option>
           <option value="Completed" {% if budget.status == 'Completed' %}selected{% endif %}>Completed</option>
-          <option value="Archived" {% if budget.status == 'Archived' %}selected{% endif %}>Archived</option>
         </select>
       </div>
 
@@ -172,7 +171,7 @@
 
     <!-- Form Action Buttons -->
     <div class="form-actions-bar">
-      <a href="{{ url_for('budget_dashboard') }}" class="btn btn-outline">
+      <a href="{{ url_for('budgets') }}" class="btn btn-outline">
         <i class="fa-solid fa-xmark"></i> Cancel
       </a>
 
