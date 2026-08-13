@@ -107,6 +107,20 @@
             </a>
           </li>
 
+          <li class="{% if request.endpoint in ['investments', 'create_investment', 'view_investment', 'edit_investment'] %}active{% endif %}">
+            <a href="{{ url_for('investments') }}">
+              <i class="bi bi-graph-up-arrow"></i>
+              <span>Investments</span>
+            </a>
+          </li>
+
+          <li class="{% if request.endpoint in ['goals', 'create_goal', 'view_goal', 'edit_goal'] %}active{% endif %}">
+            <a href="{{ url_for('goals') }}">
+              <i class="bi bi-bullseye"></i>
+              <span>Goals</span>
+            </a>
+          </li>
+
           <li class="logout">
             <a href="{{ url_for('logout') }}">
               <i class="bi bi-box-arrow-right"></i>

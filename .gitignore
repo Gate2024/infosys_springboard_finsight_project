@@ -4,6 +4,8 @@
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyo
+*.pyd
 
 # Virtual Environment
 env/
@@ -11,47 +13,71 @@ venv/
 ENV/
 .venv/
 
-# Environment Variables
+# ============================
+# Environment Variables / Secrets
+# ============================
 .env
+.env.*
+!.env.example
 
+# ============================
 # Flask
+# ============================
 instance/
 .webassets-cache/
 
-# VS Code
-.vscode/
-
-# JetBrains
-.idea/
-
-# Python Testing
+# ============================
+# Testing / Coverage
+# ============================
 .pytest_cache/
 .coverage
+.coverage.*
 htmlcov/
+.tox/
+.nox/
 
-# Distribution
+# ============================
+# Build / Distribution
+# ============================
 build/
 dist/
 *.egg-info/
 
+# ============================
 # Logs
+# ============================
 *.log
 
-# SQLite (if used)
+# ============================
+# Database / Local DB Files
+# ============================
 *.db
+*.sqlite
 *.sqlite3
 
+# ============================
+# IDE / Editor
+# ============================
+.vscode/
+.idea/
+
+# ============================
 # OS Files
+# ============================
 .DS_Store
 Thumbs.db
+desktop.ini
 
+# ============================
 # Temporary Files
+# ============================
 *.tmp
 *.temp
+*.swp
+*.swo
 
-# Python cache
-*.pyc
-
-# Uploaded files (optional)
+# ============================
+# Uploaded Files
+# ============================
 uploads/*
 !uploads/.gitkeep

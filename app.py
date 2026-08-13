@@ -1,3 +1,4 @@
+import secrets
 from datetime import datetime
 
 from flask import (
@@ -23,11 +24,17 @@ from db import (
     register_user,
     update_budget,
 )
+from finsight.repositories.investment_repository import InvestmentRepository
+from finsight.services.investment_service import ASSET_TYPES, InvestmentService
+from finsight.repositories.goal_repository import GoalRepository
+from finsight.services.goal_service import GOAL_CATEGORIES, GoalService
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = Config.SECRET_KEY or "finsight-dev-secret-key"
 
 init_db()
+investment_service = InvestmentService(InvestmentRepository())
+goal_service = GoalService(GoalRepository())
 
 
 def login_required_redirect():
@@ -38,6 +45,34 @@ def login_required_redirect():
 
 def current_user_id():
     return session["uid"]
+
+
+def investment_csrf_token():
+    token = session.get("investment_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["investment_csrf_token"] = token
+    return token
+
+
+def investment_csrf_valid():
+    expected = session.get("investment_csrf_token")
+    supplied = request.form.get("_investment_csrf_token", "")
+    return bool(expected and supplied and secrets.compare_digest(expected, supplied))
+
+
+def goal_csrf_token():
+    token = session.get("goal_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["goal_csrf_token"] = token
+    return token
+
+
+def goal_csrf_valid():
+    expected = session.get("goal_csrf_token")
+    supplied = request.form.get("_goal_csrf_token", "")
+    return bool(expected and supplied and secrets.compare_digest(expected, supplied))
 
 
 @app.route("/")
@@ -503,6 +538,215 @@ def delete_expense_route(transaction_id):
         flash("Expense not found.", "danger")
 
     return redirect(url_for("expenses"))
+
+
+def render_investment_form(investment=None, is_edit=False, investment_id=None, errors=None):
+    return render_template(
+        "investment_form.html",
+        investment=investment or {},
+        is_edit=is_edit,
+        investment_id=investment_id,
+        asset_types=ASSET_TYPES,
+        investment_errors=errors or [],
+        investment_csrf_token=investment_csrf_token(),
+    )
+
+
+@app.route("/investments")
+def investments():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    user_id = current_user_id()
+    rows, stats = investment_service.list_for_user(user_id)
+    goals = goal_service.list_for_user(user_id)
+    return render_template(
+        "investment_dashboard.html",
+        investments=rows,
+        stats=stats,
+        goals=goals,
+    )
+
+
+@app.route("/investments/create", methods=["GET", "POST"])
+def create_investment():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    if request.method == "GET":
+        return render_investment_form()
+    if not investment_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return render_investment_form(request.form, errors=["Invalid form security token."]), 400
+
+    try:
+        created, errors = investment_service.create(current_user_id(), request.form)
+    except Exception:
+        app.logger.exception("Investment creation failed")
+        flash("Unable to create investment. Please try again.", "danger")
+        return render_investment_form(request.form), 503
+    if errors:
+        for error in errors:
+            flash(error, "danger")
+        return render_investment_form(request.form, errors=errors), 400
+
+    flash("Investment added successfully.", "success")
+    return redirect(url_for("investments"))
+
+
+@app.route("/investments/<int:investment_id>")
+def view_investment(investment_id):
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    investment = investment_service.get_for_user(investment_id, current_user_id())
+    if not investment:
+        flash("Investment not found.", "danger")
+        return redirect(url_for("investments"))
+    return render_template("investment_detail.html", investment=investment)
+
+
+@app.route("/investments/<int:investment_id>/edit", methods=["GET", "POST"])
+def edit_investment(investment_id):
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    investment = investment_service.get_for_user(investment_id, current_user_id())
+    if not investment:
+        flash("Investment not found.", "danger")
+        return redirect(url_for("investments"))
+    if request.method == "GET":
+        return render_investment_form(investment, True, investment_id)
+    if not investment_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return render_investment_form(request.form, True, investment_id, ["Invalid form security token."]), 400
+
+    try:
+        updated, errors = investment_service.update(investment_id, current_user_id(), request.form)
+    except Exception:
+        app.logger.exception("Investment update failed")
+        flash("Unable to update investment. Please try again.", "danger")
+        return render_investment_form(request.form, True, investment_id), 503
+    if errors:
+        for error in errors:
+            flash(error, "danger")
+        return render_investment_form(request.form, True, investment_id, errors), 400
+    if not updated:
+        flash("Investment not found.", "danger")
+        return redirect(url_for("investments"))
+
+    flash("Investment updated successfully.", "success")
+    return redirect(url_for("investments"))
+
+
+@app.post("/investments/<int:investment_id>/delete")
+def delete_investment(investment_id):
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+    if not investment_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return redirect(url_for("investments"))
+
+    deleted = investment_service.delete(investment_id, current_user_id())
+    flash("Investment deleted successfully." if deleted else "Investment not found.",
+          "success" if deleted else "danger")
+    return redirect(url_for("investments"))
+
+
+def render_goal_form(goal=None, is_edit=False, goal_id=None, errors=None):
+    return render_template(
+        "goal_form.html",
+        goal=goal or {},
+        is_edit=is_edit,
+        goal_id=goal_id,
+        goal_categories=GOAL_CATEGORIES,
+        goal_errors=errors or [],
+        goal_csrf_token=goal_csrf_token(),
+    )
+
+
+@app.route("/goals")
+def goals():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+    return render_template("goals.html", goals=goal_service.list_for_user(current_user_id()))
+
+
+@app.route("/goals/create", methods=["GET", "POST"])
+def create_goal():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+    if request.method == "GET":
+        return render_goal_form()
+    if not goal_csrf_valid():
+        return render_goal_form(request.form, errors=["Invalid form security token."]), 400
+
+    created, errors = goal_service.create(current_user_id(), request.form)
+    if errors:
+        for error in errors:
+            flash(error, "danger")
+        return render_goal_form(request.form, errors=errors), 400
+    flash("Financial goal created successfully.", "success")
+    return redirect(url_for("goals"))
+
+
+@app.route("/goals/<int:goal_id>")
+def view_goal(goal_id):
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+    goal = goal_service.get_for_user(goal_id, current_user_id())
+    if not goal:
+        flash("Goal not found.", "danger")
+        return redirect(url_for("goals"))
+    return render_template("goal_detail.html", goal=goal)
+
+
+@app.route("/goals/<int:goal_id>/edit", methods=["GET", "POST"])
+def edit_goal(goal_id):
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+    goal = goal_service.get_for_user(goal_id, current_user_id())
+    if not goal:
+        flash("Goal not found.", "danger")
+        return redirect(url_for("goals"))
+    if request.method == "GET":
+        return render_goal_form(goal, True, goal_id)
+    if not goal_csrf_valid():
+        return render_goal_form(request.form, True, goal_id, ["Invalid form security token."]), 400
+
+    updated, errors = goal_service.update(goal_id, current_user_id(), request.form)
+    if errors:
+        for error in errors:
+            flash(error, "danger")
+        return render_goal_form(request.form, True, goal_id, errors), 400
+    if not updated:
+        flash("Goal not found.", "danger")
+        return redirect(url_for("goals"))
+    flash("Financial goal updated successfully.", "success")
+    return redirect(url_for("goals"))
+
+
+@app.post("/goals/<int:goal_id>/delete")
+def delete_goal(goal_id):
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+    if not goal_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return redirect(url_for("goals"))
+    deleted = goal_service.delete(goal_id, current_user_id())
+    flash("Goal deleted successfully." if deleted else "Goal not found.",
+          "success" if deleted else "danger")
+    return redirect(url_for("goals"))
 
 
 if __name__ == "__main__":

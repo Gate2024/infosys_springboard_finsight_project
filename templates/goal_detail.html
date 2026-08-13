@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+
+{% block title %}{{ goal.goal_name }}{% endblock %}
+
+{% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/goals.css') }}">{% endblock %}
+
+{% block content %}
+<div class="form-header-bar animated-fade-in"><div><h1 class="form-header-title"><i class="fa-solid fa-bullseye" style="color: var(--emerald-green);"></i> Goal Details</h1><p class="form-header-subtitle">Review the progress of this financial goal.</p></div><a href="{{ url_for('goals') }}" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Back to Goals</a></div>
+<section class="goal-detail-card animated-fade-in">
+  <div class="goal-card-header"><div><span class="goal-category">{{ goal.goal_category }}</span><h2>{{ goal.goal_name }}</h2></div><span class="goal-status goal-status-{{ goal.status|lower }}">{{ goal.status }}</span></div>
+  <div class="goal-detail-progress"><div class="goal-progress-meta"><span>{{ "{:.2f}".format(goal.progress_percentage) }}% complete</span><strong>${{ "{:,.2f}".format(goal.remaining_amount) }} remaining</strong></div><div class="goal-progress-track"><div class="goal-progress-fill" style="width: {{ goal.progress_percentage }}%;"></div></div></div>
+  <div class="goal-amounts goal-detail-amounts"><div><span>Current Amount</span><strong>${{ "{:,.2f}".format(goal.current_amount) }}</strong></div><div><span>Target Amount</span><strong>${{ "{:,.2f}".format(goal.target_amount) }}</strong></div><div><span>Target Date</span><strong>{{ goal.target_date }}</strong></div></div>
+  <div class="goal-detail-actions"><a href="{{ url_for('edit_goal', goal_id=goal.goal_id) }}" class="btn btn-emerald"><i class="fa-regular fa-pen-to-square"></i> Edit Goal</a><form method="POST" action="{{ url_for('delete_goal', goal_id=goal.goal_id) }}" class="goal-delete-form"><input type="hidden" name="_goal_csrf_token" value="{{ session.get('goal_csrf_token') }}"><button type="submit" class="btn btn-danger"><i class="fa-regular fa-trash-can"></i> Delete Goal</button></form></div>
+</section>
+{% endblock %}
+
+{% block scripts %}<script src="{{ url_for('static', filename='js/goals.js') }}"></script>{% endblock %}

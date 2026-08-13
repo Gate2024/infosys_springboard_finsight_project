@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+
+{% block title %}{{ investment.asset_name }}{% endblock %}
+
+{% block page_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/investment.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="form-header-bar animated-fade-in">
+  <div>
+    <h1 class="form-header-title"><i class="fa-solid fa-chart-line" style="color: var(--emerald-green);"></i> Investment Details</h1>
+    <p class="form-header-subtitle">Review the saved holding information.</p>
+  </div>
+  <a href="{{ url_for('investments') }}" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Back to Portfolio</a>
+</div>
+
+<section class="investment-detail-card animated-fade-in">
+  <div class="investment-detail-heading">
+    <span class="investment-asset-icon large"><i class="fa-solid fa-chart-simple"></i></span>
+    <div><h2>{{ investment.asset_name }}</h2><span class="investment-type-chip">{{ investment.asset_type }}</span></div>
+  </div>
+  <div class="investment-detail-grid">
+    <div><span>Quantity</span><strong>{{ investment.quantity }}</strong></div>
+    <div><span>Purchase Price</span><strong>${{ "{:,.2f}".format(investment.purchase_price) }}</strong></div>
+    <div><span>Current Value</span><strong>{% if investment.current_value is not none %}${{ "{:,.2f}".format(investment.current_value) }}{% else %}Unavailable{% endif %}</strong></div>
+    <div><span>Invested Value</span><strong>${{ "{:,.2f}".format(investment.invested_value) }}</strong></div>
+    <div><span>Purchase Date</span><strong>{{ investment.purchase_date }}</strong></div>
+  </div>
+  {% if investment.notes %}<div class="investment-notes"><strong>Notes</strong><p>{{ investment.notes }}</p></div>{% endif %}
+  <div class="investment-detail-actions">
+    <a href="{{ url_for('edit_investment', investment_id=investment.investment_id) }}" class="btn btn-emerald"><i class="fa-regular fa-pen-to-square"></i> Edit Investment</a>
+    <a href="{{ url_for('investments') }}" class="btn btn-outline">Back to Portfolio</a>
+  </div>
+</section>
+{% endblock %}
