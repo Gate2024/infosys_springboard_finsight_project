@@ -16,8 +16,8 @@
 
   <!-- Custom Stylesheets -->
   <link rel="stylesheet" href="{{ url_for('static', filename='css/variables.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/app.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/budget.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/budgets.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/form.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
@@ -27,10 +27,6 @@
 
   <!-- Luxury Top Navigation Bar -->
   <nav class="navbar">
-    <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Toggle sidebar">
-      <i class="fa-solid fa-bars"></i>
-    </button>
-
     <a href="{{ url_for('budgets') }}" class="navbar-brand">
       <div class="brand-icon">
         <i class="fa-solid fa-chart-pie"></i>
@@ -40,6 +36,10 @@
         <div class="brand-subtitle">Budget & Wealth</div>
       </div>
     </a>
+
+    <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Toggle sidebar">
+      <i class="fa-solid fa-bars"></i>
+    </button>
 
     <div class="navbar-user">
       <div class="user-badge">
@@ -57,26 +57,6 @@
   <!-- Application Main Shell -->
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
-      <div class="logo">
-        <div class="logo-icon-wrapper">
-          <i class="bi bi-pie-chart-fill"></i>
-        </div>
-        <div class="logo-text">
-          <span class="logo-title">FinSight</span>
-          <span class="logo-subtitle">Budget &amp; Wealth</span>
-        </div>
-      </div>
-
-      <div class="sidebar-profile">
-        <div class="sidebar-avatar">
-          {{ session.get('username','A')[0]|upper }}
-        </div>
-        <div class="sidebar-profile-copy">
-          <span class="sidebar-profile-label">Signed in as</span>
-          <strong>{{ session.get('username') }}</strong>
-        </div>
-      </div>
-
       <nav aria-label="Primary navigation">
         <ul class="nav-links">
           <li class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
@@ -97,13 +77,6 @@
             <a href="{{ url_for('budgets') }}">
               <i class="bi bi-wallet2"></i>
               <span>Budget</span>
-            </a>
-          </li>
-
-          <li class="{% if request.endpoint == 'create_budget_route' %}active{% endif %}">
-            <a href="{{ url_for('create_budget_route') }}">
-              <i class="bi bi-plus-circle"></i>
-              <span>Create Budget</span>
             </a>
           </li>
 

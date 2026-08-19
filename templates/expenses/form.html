@@ -3,7 +3,7 @@
 {% block title %}{% if is_edit %}Edit Expense{% else %}Add Expense{% endif %}{% endblock %}
 
 {% block page_styles %}
-<link rel="stylesheet" href="{{ url_for('static', filename='css/expense.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/expenses.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -119,5 +119,5 @@
 {% endblock %}
 
 {% block scripts %}
-<script src="{{ url_for('static', filename='js/expense.js') }}"></script>
+<script src="{{ url_for('static', filename='js/expenses.js') }}"></script>
 {% endblock %}

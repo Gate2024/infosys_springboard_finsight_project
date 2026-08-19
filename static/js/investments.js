@@ -1,8 +1,8 @@
 document.addEventListener("DOMContentLoaded", () => {
-  const modal = document.getElementById("goalDeleteConfirmModal");
-  const cancelButton = document.getElementById("cancelDeleteGoal");
-  const confirmButton = document.getElementById("confirmDeleteGoal");
-  const forms = document.querySelectorAll(".goal-delete-form");
+  const modal = document.getElementById("investmentDeleteConfirmModal");
+  const cancelButton = document.getElementById("cancelDeleteInvestment");
+  const confirmButton = document.getElementById("confirmDeleteInvestment");
+  const forms = document.querySelectorAll(".investment-delete-form");
   let pendingForm = null;
 
   if (!modal || !cancelButton || !confirmButton || forms.length === 0) return;

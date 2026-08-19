@@ -3,6 +3,8 @@ document.addEventListener("DOMContentLoaded", function () {
 const expenseCtx = document
     .getElementById("expensePieChart");
 
+const expenseBreakdown = window.dashboardExpenseBreakdown || [];
+
 if (expenseCtx) {
 
     new Chart(expenseCtx, {
@@ -15,7 +17,7 @@ if (expenseCtx) {
 
             datasets: [{
 
-                data: [650, 420, 310, 180, 250, 140],
+                data: expenseBreakdown.map((item) => item.amount),
 
                 backgroundColor: [
                     "#2563EB",
@@ -31,14 +33,7 @@ if (expenseCtx) {
                 hoverOffset: 12
 
             }],
-            labels: [
-                "Food",
-                "Shopping",
-                "Bills",
-                "Transport",
-                "Entertainment",
-                "Others"
-            ],
+            labels: expenseBreakdown.map((item) => item.category),
         },
 
         options: {

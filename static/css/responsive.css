@@ -22,10 +22,18 @@
 
   .app-shell {
     grid-template-columns: 1fr;
+    margin-top: 68px;
+    height: calc(100vh - 68px);
+    min-height: calc(100vh - 68px);
   }
 
   .sidebar {
     display: none;
+    top: 68px;
+    left: 0;
+    width: 100%;
+    height: auto;
+    max-height: calc(100vh - 68px);
   }
 
   body.sidebar-open .sidebar {
@@ -38,6 +46,12 @@
 
   body.sidebar-collapsed .app-shell {
     grid-template-columns: 1fr;
+  }
+
+  .app-container {
+    grid-column: 1;
+    height: 100%;
+    min-height: calc(100vh - 68px);
   }
 
   .dashboard-header {
@@ -146,9 +160,13 @@
 }
 
 /* Final responsive spacing polish only */
-@media (max-width: 1024px) {
+@media (min-width: 769px) and (max-width: 1024px) {
   .app-shell {
     grid-template-columns: 240px minmax(0, 1fr);
+  }
+
+  .sidebar {
+    width: 240px;
   }
 
   .app-container {

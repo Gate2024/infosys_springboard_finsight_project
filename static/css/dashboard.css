@@ -721,3 +721,346 @@
   height: 38px;
   font-size: 1rem;
 }
+
+/* =================================
+   Financial Health Score
+================================= */
+
+.financial-health-section {
+    margin-top: 1rem;
+}
+
+.financial-health-card {
+    position: relative;
+    overflow: hidden;
+    padding: 1.5rem 1.75rem;
+    background:
+        linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0.96),
+            rgba(255, 255, 255, 0.82)
+        );
+    border: 1px solid rgba(223, 230, 233, 0.92);
+    border-radius: 22px;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition-fast);
+}
+
+.financial-health-card::after {
+    content: "";
+    position: absolute;
+    right: -55px;
+    bottom: -75px;
+    width: 180px;
+    height: 180px;
+    border: 1px solid rgba(101, 208, 178, 0.16);
+    border-radius: 50%;
+    pointer-events: none;
+}
+
+.financial-health-card:hover {
+    box-shadow: var(--shadow-md);
+}
+
+
+/* Header */
+
+.financial-health-header {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 2rem;
+}
+
+.financial-health-label {
+    display: block;
+    margin-bottom: 0.35rem;
+    color: #71808D;
+    font-family: var(--font-accent);
+    font-size: 0.68rem;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.financial-health-header h3 {
+    margin: 0;
+    color: var(--text-main);
+    font-family: var(--font-heading);
+    font-size: clamp(1.35rem, 2vw, 1.7rem);
+    font-weight: 800;
+    letter-spacing: -0.045em;
+}
+
+.financial-health-header p {
+    margin: 0.4rem 0 0;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+}
+
+
+/* Score */
+
+.financial-health-score {
+    display: flex;
+    align-items: baseline;
+    flex-shrink: 0;
+    padding: 0.7rem 1rem;
+    border: 1px solid rgba(101, 208, 178, 0.25);
+    border-radius: 14px;
+    background: rgba(236, 253, 245, 0.72);
+}
+
+.financial-health-score strong {
+    color: var(--text-main);
+    font-family: var(--font-heading);
+    font-size: 2.4rem;
+    line-height: 1;
+    font-weight: 800;
+    letter-spacing: -0.06em;
+}
+
+.financial-health-score span {
+    margin-left: 0.2rem;
+    color: var(--text-muted);
+    font-family: var(--font-accent);
+    font-size: 0.8rem;
+    font-weight: 800;
+}
+
+.financial-health-score.unavailable {
+    background: #f8fafb;
+    border-color: var(--border-subtle);
+}
+
+.financial-health-score.unavailable strong {
+    color: #a8b0ba;
+}
+
+
+/* Summary */
+
+.financial-health-summary {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1.25rem;
+    padding: 0.9rem 0;
+    border-top: 1px solid rgba(223, 230, 233, 0.8);
+    border-bottom: 1px solid rgba(223, 230, 233, 0.8);
+}
+
+.financial-health-grade {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.35rem 0.7rem;
+    border-radius: 999px;
+    background: rgba(236, 253, 245, 0.9);
+    color: #087F5B;
+    font-family: var(--font-accent);
+    font-size: 0.72rem;
+    font-weight: 800;
+}
+
+.financial-health-coverage {
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 0.78rem;
+}
+
+
+/* Components */
+
+.financial-health-components {
+    position: relative;
+    z-index: 1;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    column-gap: 2rem;
+    row-gap: 0;
+    margin-top: 0.5rem;
+}
+
+.health-component {
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(223, 230, 233, 0.75);
+}
+
+.health-component:nth-last-child(-n + 2) {
+    border-bottom: 0;
+}
+
+.health-component-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    margin-bottom: 0.55rem;
+}
+
+.health-component-header span {
+    color: #344654;
+    font-family: var(--font-body);
+    font-size: 0.86rem;
+    font-weight: 700;
+}
+
+.health-component-header strong {
+    flex-shrink: 0;
+    color: var(--text-main);
+    font-family: var(--font-accent);
+    font-size: 0.75rem;
+    font-weight: 800;
+}
+
+
+/* Progress */
+
+.health-progress {
+    width: 100%;
+    height: 7px;
+    margin-bottom: 0.55rem;
+    overflow: hidden;
+    border-radius: 999px;
+    background: #EAF0EF;
+}
+
+.health-progress-bar {
+    height: 100%;
+    border-radius: inherit;
+    background: linear-gradient(
+        90deg,
+        var(--emerald-green),
+        #65D0B2
+    );
+    transition: width 0.4s ease;
+}
+
+.health-component small {
+    display: block;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 0.72rem;
+    line-height: 1.45;
+}
+
+
+/* Empty State */
+
+.financial-health-empty {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.85rem;
+    margin-top: 1.25rem;
+    padding: 1rem;
+    background: #F8FAFB;
+    border: 1px solid rgba(223, 230, 233, 0.8);
+    border-radius: 14px;
+}
+
+.financial-health-empty i {
+    color: var(--emerald-green);
+    font-size: 1.15rem;
+}
+
+.financial-health-empty strong {
+    display: block;
+    margin-bottom: 0.2rem;
+    color: var(--text-main);
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 800;
+}
+
+.financial-health-empty p {
+    margin: 0;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 0.75rem;
+}
+
+
+/* Responsive */
+
+@media (max-width: 768px) {
+
+    .financial-health-card {
+        padding: 1.25rem;
+        border-radius: 18px;
+    }
+
+    .financial-health-header {
+        align-items: flex-start;
+        gap: 1rem;
+    }
+
+    .financial-health-score {
+        padding: 0.6rem 0.8rem;
+    }
+
+    .financial-health-score strong {
+        font-size: 2rem;
+    }
+
+    .financial-health-components {
+        grid-template-columns: 1fr;
+    }
+
+    .health-component:nth-last-child(-n + 2) {
+        border-bottom: 1px solid rgba(223, 230, 233, 0.75);
+    }
+
+    .health-component:last-child {
+        border-bottom: 0;
+    }
+}
+
+
+@media (max-width: 576px) {
+
+    .financial-health-header {
+        flex-direction: column;
+    }
+
+    .financial-health-score {
+        align-self: flex-start;
+    }
+
+    .financial-health-summary {
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .financial-health-components {
+        grid-template-columns: 1fr;
+    }
+}
+
+
+@media (max-width: 480px) {
+
+    .financial-health-card {
+        padding: 1rem;
+        border-radius: 16px;
+    }
+
+    .financial-health-header h3 {
+        font-size: 1.25rem;
+    }
+
+    .financial-health-header p {
+        font-size: 0.78rem;
+    }
+
+    .health-component {
+        padding: 0.85rem 0;
+    }
+}

@@ -1,5 +1,6 @@
 import secrets
 from datetime import datetime
+from decimal import Decimal
 
 from flask import (
     Flask,
@@ -18,16 +19,19 @@ from db import (
     delete_budget,
     filter_budgets,
     get_budget,
+    get_expense_summary,
     get_summary_stats,
+    get_transactions,
     init_db,
     login_user,
     register_user,
     update_budget,
 )
-from finsight.repositories.investment_repository import InvestmentRepository
-from finsight.services.investment_service import ASSET_TYPES, InvestmentService
-from finsight.repositories.goal_repository import GoalRepository
-from finsight.services.goal_service import GOAL_CATEGORIES, GoalService
+from investment_repository import InvestmentRepository
+from investment_service import ASSET_TYPES, InvestmentService
+from goal_repository import GoalRepository
+from goal_service import GOAL_CATEGORIES, GoalService
+from financial_health_service import calculate_financial_health
 
 app = Flask(__name__)
 app.config["SECRET_KEY"] = Config.SECRET_KEY or "finsight-dev-secret-key"
@@ -143,10 +147,106 @@ def dashboard():
     if redirect_response:
         return redirect_response
 
-    stats = get_summary_stats(current_user_id())
+    user_id = current_user_id()
+    # Existing M1/M2 dashboard data
+    stats = get_summary_stats(user_id)
+
+    expense_stats = get_expense_summary(user_id)
+    expense_transactions = get_transactions(user_id)
+    budget_rows = filter_budgets(user_id)
+
+    expense_total = float(expense_stats.get("total_spent") or 0)
+    category_totals = {}
+    for transaction in expense_transactions:
+        category = transaction.get("category") or "Other"
+        category_totals[category] = category_totals.get(category, 0) + float(
+            transaction.get("amount") or 0
+        )
+
+    expense_colors = [
+        "#2563EB",
+        "#22C55E",
+        "#F59E0B",
+        "#EF4444",
+        "#8B5CF6",
+        "#06B6D4",
+    ]
+    expense_breakdown = [
+        {
+            "category": category,
+            "amount": amount,
+            "percentage": (amount / expense_total * 100) if expense_total else 0,
+            "color": expense_colors[index % len(expense_colors)],
+        }
+        for index, (category, amount) in enumerate(
+            sorted(category_totals.items(), key=lambda item: item[1], reverse=True)
+        )
+    ]
+
+    budget_progress = []
+    for budget in budget_rows:
+        budget_amount = float(budget.get("budget_amount") or 0)
+        spent_amount = float(budget.get("spent_amount") or 0)
+        budget_progress.append(
+            {
+                "budget_name": budget.get("budget_name") or "Budget",
+                "budget_amount": budget_amount,
+                "spent_amount": spent_amount,
+                "remaining_amount": float(budget.get("remaining_amount") or 0),
+                "percentage": min(
+                    100,
+                    (spent_amount / budget_amount * 100) if budget_amount else 0,
+                ),
+            }
+        )
+    # Existing M2 goal data
+    goals = goal_service.list_for_user(user_id)
+
+    # Existing M2 investment analytics
+    _, investment_stats = investment_service.list_for_user(user_id)
+
+    # Aggregate goal progress using existing goal values
+    goal_total_current = sum(
+        Decimal(str(goal.get("current_amount") or 0))
+        for goal in goals
+    )
+    goal_total_target = sum(
+        Decimal(str(goal.get("target_amount") or 0))
+        for goal in goals
+    )
+
+    # Calculate M3 Financial Health Score
+    financial_health = calculate_financial_health(
+        budget_data={
+            "total_allocated": stats.get("total_allocated"),
+            "total_spent": stats.get("total_spent"),
+        },
+        spending_data={
+            "total_spent": expense_stats.get("total_spent"),
+            "average_expense": expense_stats.get("average_expense"),
+            "largest_expense": expense_stats.get("largest_expense"),
+            "expense_count": expense_stats.get("total_expenses"),
+            "month_spent": expense_stats.get("month_spent"),
+            "month_expenses": expense_stats.get("month_expenses"),
+        },
+        goal_data={
+            "total_current": goal_total_current,
+            "total_target": goal_total_target,
+        },
+        investment_data={
+            "return_percentage": investment_stats.get("return_percentage"),
+        },
+    )
+    print("DEBUG FINANCIAL HEALTH:", financial_health)
     return render_template(
-        "main_dashboard.html",
+        "dashboard.html",
         stats=stats,
+        financial_health=financial_health,
+        dashboard_month_spent=float(expense_stats.get("month_spent") or 0),
+        dashboard_budget_left=float(stats.get("total_remaining") or 0),
+        expense_breakdown=expense_breakdown,
+        budget_progress=budget_progress,
+        recent_transactions=expense_transactions[:5],
         current_username=session["username"],
     )
 
@@ -159,7 +259,7 @@ def expense():
 
     stats = get_summary_stats(current_user_id())
     return render_template(
-        "expense.jsx",
+        "expenses/dashboard.html",
         stats=stats,
         current_username=session["username"],
     )
@@ -188,7 +288,7 @@ def budgets():
     stats = get_summary_stats(current_user_id())
 
     return render_template(
-        "budget_dashboard.html",
+        "budgets/dashboard.html",
         budgets=budget_rows,
         stats=stats,
         search_query=search_query,
@@ -240,7 +340,7 @@ def validate_budget_form(form):
 
 def render_budget_form(budget=None, is_edit=False, budget_id=None):
     return render_template(
-        "budget_form.html",
+        "budgets/form.html",
         budget=budget or {},
         is_edit=is_edit,
         budget_id=budget_id,
@@ -395,7 +495,7 @@ def validate_expense_form(form):
 
 def render_expense_form(expense_row=None, is_edit=False, transaction_id=None):
     return render_template(
-        "expense_form.html",
+        "expenses/form.html",
         expense=expense_row or {},
         is_edit=is_edit,
         transaction_id=transaction_id,
@@ -427,7 +527,7 @@ def expenses():
     stats = get_expense_summary(current_user_id())
 
     return render_template(
-        "expense_dashboard.html",
+        "expenses/dashboard.html",
         expenses=expense_rows,
         stats=stats,
         categories=EXPENSE_CATEGORIES,
@@ -542,7 +642,7 @@ def delete_expense_route(transaction_id):
 
 def render_investment_form(investment=None, is_edit=False, investment_id=None, errors=None):
     return render_template(
-        "investment_form.html",
+        "investments/form.html",
         investment=investment or {},
         is_edit=is_edit,
         investment_id=investment_id,
@@ -562,7 +662,7 @@ def investments():
     rows, stats = investment_service.list_for_user(user_id)
     goals = goal_service.list_for_user(user_id)
     return render_template(
-        "investment_dashboard.html",
+        "investments/dashboard.html",
         investments=rows,
         stats=stats,
         goals=goals,
@@ -606,7 +706,7 @@ def view_investment(investment_id):
     if not investment:
         flash("Investment not found.", "danger")
         return redirect(url_for("investments"))
-    return render_template("investment_detail.html", investment=investment)
+    return render_template("investments/detail.html", investment=investment)
 
 
 @app.route("/investments/<int:investment_id>/edit", methods=["GET", "POST"])
@@ -660,7 +760,7 @@ def delete_investment(investment_id):
 
 def render_goal_form(goal=None, is_edit=False, goal_id=None, errors=None):
     return render_template(
-        "goal_form.html",
+        "goals/form.html",
         goal=goal or {},
         is_edit=is_edit,
         goal_id=goal_id,
@@ -675,7 +775,7 @@ def goals():
     redirect_response = login_required_redirect()
     if redirect_response:
         return redirect_response
-    return render_template("goals.html", goals=goal_service.list_for_user(current_user_id()))
+    return render_template("goals/dashboard.html", goals=goal_service.list_for_user(current_user_id()))
 
 
 @app.route("/goals/create", methods=["GET", "POST"])
@@ -706,7 +806,7 @@ def view_goal(goal_id):
     if not goal:
         flash("Goal not found.", "danger")
         return redirect(url_for("goals"))
-    return render_template("goal_detail.html", goal=goal)
+    return render_template("goals/detail.html", goal=goal)
 
 
 @app.route("/goals/<int:goal_id>/edit", methods=["GET", "POST"])
