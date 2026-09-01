@@ -87,7 +87,7 @@ def calculate_budget_score(total_allocated, total_spent):
         "message": message,
     }
 
-
+# spending Score
 def calculate_spending_score(
     total_spending=None,
     average_expense=None,
@@ -192,7 +192,7 @@ def calculate_spending_score(
         "message": message,
     }
 
-
+# Goal Score 
 def calculate_goal_score(total_current, total_target):
     """
     Calculate the Goal Progress component.
@@ -229,7 +229,7 @@ def calculate_goal_score(total_current, total_target):
         "message": "Goal progress is based on the combined progress of available financial goals.",
     }
 
-
+# Investment Score 
 def calculate_investment_score(return_percentage):
     """
     Calculate the Investment Performance component.
@@ -322,7 +322,7 @@ def calculate_financial_health(
 
     Returns individual component results plus the final normalized score.
     """
-
+# budget Score 
     budget = calculate_budget_score(
         budget_data.get("total_allocated"),
         budget_data.get("total_spent"),
