@@ -21,6 +21,9 @@
     <div class="header-date-badge mb-3">
       <i class="fa-regular fa-calendar-days"></i> {{ today_date }}
     </div>
+    <a href="{{ url_for('export_expenses') }}" class="btn btn-outline">
+      <i class="fa-solid fa-file-csv"></i> Export CSV
+    </a>
     <a href="{{ url_for('create_expense') }}" class="btn btn-emerald">
       <i class="fa-solid fa-plus"></i> Add Expense
     </a>

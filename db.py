@@ -604,3 +604,30 @@ def get_expense_summary(user_id):
         "month_spent": summary.get("month_spent", 0.0),
         "top_category": top_category.get("category", "No data") if top_category else "No data",
     }
+
+
+def get_monthly_expense_summary(user_id):
+    """Return user-scoped expense totals grouped by calendar month."""
+    ensure_transactions_table()
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    TO_CHAR(DATE_TRUNC('month', date), 'YYYY-MM') AS month,
+                    COALESCE(SUM(amount), 0) AS amount
+                FROM transactions
+                WHERE user_id = %s
+                AND type = 'Expense'
+                GROUP BY DATE_TRUNC('month', date)
+                ORDER BY DATE_TRUNC('month', date) ASC
+                """,
+                (user_id,),
+            )
+            return [
+                {
+                    "month": row["month"],
+                    "amount": float(row["amount"] or 0),
+                }
+                for row in cursor.fetchall()
+            ]

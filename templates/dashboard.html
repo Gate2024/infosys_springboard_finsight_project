@@ -225,29 +225,31 @@
   <!-- charts -->
   <div class="dashboard-container">
     <div class="container-fluid">
-      <div class="row">
-        <div class="col-12 col-md-12 col-lg-6 chart-card">
-          <span>
-            <h3>Expense Breakdown</h3>
-          </span>
-          <div class="d-flex flex-row dashboard-chart-split">
-            <div class="dashboard-chart-area">
-              <canvas id="expensePieChart"></canvas>
-            </div>
-
-            <div class="expense-summary">
-              {% for item in expense_breakdown %}
-              <div class="expense-row">
-                <span class="category">
-                  <span class="dot" style="background: {{ item.color }};"></span>
-                  {{ item.category }}
-                </span>
-                <span class="percentage">{{ "{:.2f}".format(item.percentage) }}%</span>
-                <span class="amount">₹{{ "{:,.2f}".format(item.amount) }}</span>
+      <div class="row dashboard-primary-row">
+        <div class="col-12 col-md-12 col-lg-6">
+          <div class="chart-card">
+            <span>
+              <h3>Expense Breakdown</h3>
+            </span>
+            <div class="d-flex flex-row dashboard-chart-split">
+              <div class="dashboard-chart-area">
+                <canvas id="expensePieChart"></canvas>
               </div>
-              {% else %}
-              <div class="expense-row">No expense data available.</div>
-              {% endfor %}
+
+              <div class="expense-summary">
+                {% for item in expense_breakdown %}
+                <div class="expense-row">
+                  <span class="category">
+                    <span class="dot" style="background: {{ item.color }};"></span>
+                    {{ item.category }}
+                  </span>
+                  <span class="percentage">{{ "{:.2f}".format(item.percentage) }}%</span>
+                  <span class="amount">₹{{ "{:,.2f}".format(item.amount) }}</span>
+                </div>
+                {% else %}
+                <div class="expense-row">No expense data available.</div>
+                {% endfor %}
+              </div>
             </div>
           </div>
         </div>
@@ -259,6 +261,9 @@
           </div>
         </div>
 
+      </div>
+
+      <div class="row dashboard-analytics-row">
         <div class="col-12 col-md-6 col-lg-4">
           <div class="chart-card">
             <h3>Monthly Cash Flow</h3>
@@ -289,82 +294,161 @@
           </div>
         </div>
 
-        <div class="col-12 col-md-6 col-lg-4 chart-card">
-          <span>
-            <h3>Budget Progress</h3>
-          </span>
-
-          {% for budget in budget_progress %}
-          <div class="budget-item">
-            <div class="budget-header">
-              <span>
-                <i class="bi bi-wallet2 category-icon"></i>
-                {{ budget.budget_name }}
-              </span>
-              <span>₹{{ "{:,.2f}".format(budget.spent_amount) }} / ₹{{ "{:,.2f}".format(budget.budget_amount) }}</span>
+        <div class="col-12 col-md-6 col-lg-4">
+          <div class="chart-card">
+            <h3>Spending Pattern</h3>
+            <p>Monthly expense trend</p>
+            {% if monthly_expenses %}
+            <div class="chart-container">
+              <canvas id="monthlySpendingChart"></canvas>
             </div>
-            <div class="progress">
-              <div class="progress-bar bg-primary" style="width:{{ budget.percentage }}%"></div>
-            </div>
+            {% else %}
+            <div class="chart-container chart-empty">No monthly spending data available.</div>
+            {% endif %}
           </div>
-          {% else %}
-          <div class="budget-item">No budget data available.</div>
-          {% endfor %}
         </div>
 
-        <div class="col-12 col-lg-4 mb-2">
+        <div class="col-12 col-md-6 col-lg-4">
+          <div class="chart-card budget-progress-card">
+            <span>
+              <h3>Budget Progress</h3>
+            </span>
+
+            {% for budget in budget_progress %}
+            <div class="budget-item">
+              <div class="budget-header">
+                <span>
+                  <i class="bi bi-wallet2 category-icon"></i>
+                  {{ budget.budget_name }}
+                </span>
+                <span>₹{{ "{:,.2f}".format(budget.spent_amount) }} / ₹{{ "{:,.2f}".format(budget.budget_amount) }}</span>
+              </div>
+              <div class="progress">
+                <div class="progress-bar bg-primary" style="width:{{ budget.percentage }}%"></div>
+              </div>
+            </div>
+            {% else %}
+            <div class="budget-item">No budget data available.</div>
+            {% endfor %}
+          </div>
+        </div>
+
+      </div>
+
+      <div class="row dashboard-budget-row">
+        <div class="col-12">
+          <div class="chart-card budget-analysis-card">
+            <div class="d-flex align-items-center justify-content-between mb-3">
+              <h3 class="mb-0">Budget vs Spending</h3>
+              {% if budget_spending_summary.status != "Unavailable" %}
+              <span class="badge {% if budget_spending_summary.status == 'Over Budget' %}bg-danger{% elif budget_spending_summary.status == 'Approaching Limit' %}bg-warning{% else %}bg-success{% endif %}">
+                {{ budget_spending_summary.status }}
+              </span>
+              {% endif %}
+            </div>
+
+            {% if budget_spending_analysis %}
+            <div class="budget-analysis-summary">
+              <div>
+                <span>Total Budget</span>
+                <strong>₹{{ "{:,.2f}".format(budget_spending_summary.total_budget) }}</strong>
+              </div>
+              <div>
+                <span>Total Spent</span>
+                <strong>₹{{ "{:,.2f}".format(budget_spending_summary.total_spent) }}</strong>
+              </div>
+              <div>
+                <span>Total Remaining</span>
+                <strong>₹{{ "{:,.2f}".format(budget_spending_summary.total_remaining) }}</strong>
+              </div>
+              <div>
+                <span>Overall Utilization</span>
+                <strong>
+                  {% if budget_spending_summary.utilization_percentage is not none %}
+                  {{ "{:.1f}".format(budget_spending_summary.utilization_percentage) }}%
+                  {% else %}Unavailable{% endif %}
+                </strong>
+              </div>
+            </div>
+
+            <div class="budget-analysis-list">
+              {% for budget in budget_spending_analysis %}
+              <div class="budget-analysis-item">
+                <div class="budget-analysis-header">
+                  <div>
+                    <strong>{{ budget.budget_name }}</strong>
+                    <small>{{ budget.category }}</small>
+                  </div>
+                  <span class="badge {% if budget.status == 'Over Budget' %}bg-danger{% elif budget.status == 'Approaching Limit' %}bg-warning{% elif budget.status == 'Healthy' %}bg-success{% else %}bg-secondary{% endif %}">
+                    {{ budget.status }}
+                  </span>
+                </div>
+                <div class="budget-analysis-values">
+                  <span>Spent ₹{{ "{:,.2f}".format(budget.spent_amount) }} / ₹{{ "{:,.2f}".format(budget.budget_amount) }}</span>
+                  <span>
+                    {% if budget.utilization_percentage is not none %}
+                    {{ "{:.1f}".format(budget.utilization_percentage) }}% used
+                    {% else %}Utilization unavailable{% endif %}
+                  </span>
+                </div>
+                <div class="progress">
+                  <div class="progress-bar {% if budget.status == 'Over Budget' %}bg-danger{% elif budget.status == 'Approaching Limit' %}bg-warning{% elif budget.status == 'Healthy' %}bg-success{% else %}bg-secondary{% endif %}"
+                    style="width: {{ budget.progress_percentage }}%"></div>
+                </div>
+                <div class="budget-analysis-remaining">
+                  Remaining ₹{{ "{:,.2f}".format(budget.remaining_amount) }}
+                </div>
+              </div>
+              {% endfor %}
+            </div>
+            {% else %}
+            <div class="budget-analysis-empty">No budgets available yet.</div>
+            {% endif %}
+          </div>
+        </div>
+
+      </div>
+
+      <div class="row dashboard-recommendations-row">
+        <div class="col-12">
           <div class="chart-card ai-insights-card">
             <div class="d-flex align-items-center justify-content-between mb-3">
               <h3 class="mb-0">
                 <i class="bi bi-stars text-primary"></i>
-                AI Insights
+                Spending Recommendations
               </h3>
 
-              <span class="badge bg-primary">Today</span>
+              <span class="badge bg-primary">Rule-based</span>
             </div>
 
-            <div class="insight-item success">
-              <div class="insight-icon">
-                <i class="bi bi-graph-up-arrow"></i>
+            {% if spending_recommendations %}
+              {% for recommendation in spending_recommendations %}
+              <div class="insight-item {{ recommendation.style }}">
+                <div class="insight-icon">
+                  <i class="{{ recommendation.icon }}"></i>
+                </div>
+                <div class="insight-content">
+                  <h6>{{ recommendation.title }}</h6>
+                  <p>{{ recommendation.message }}</p>
+                </div>
               </div>
-              <div class="insight-content">
-                <h6>Spending Improved</h6>
-                <p>Your expenses are <strong>12%</strong> lower than last month.</p>
+              {% endfor %}
+            {% else %}
+              <div class="insight-item info">
+                <div class="insight-icon">
+                  <i class="bi bi-check-circle-fill"></i>
+                </div>
+                <div class="insight-content">
+                  <p class="mb-0">No new spending recommendations based on your current data.</p>
+                </div>
               </div>
-            </div>
-
-            <div class="insight-item warning">
-              <div class="insight-icon">
-                <i class="bi bi-exclamation-triangle-fill"></i>
-              </div>
-              <div class="insight-content">
-                <h6>Budget Alert</h6>
-                <p>You've used <strong>85%</strong> of your Food budget.</p>
-              </div>
-            </div>
-
-            <div class="insight-item info">
-              <div class="insight-icon">
-                <i class="bi bi-lightbulb-fill"></i>
-              </div>
-              <div class="insight-content">
-                <h6>Saving Tip</h6>
-                <p>Reducing dining expenses by ₹2,000 could increase your monthly savings.</p>
-              </div>
-            </div>
-
-            <div class="insight-item danger">
-              <div class="insight-icon">
-                <i class="bi bi-arrow-up-circle-fill"></i>
-              </div>
-              <div class="insight-content">
-                <h6>Highest Expense</h6>
-                <p>Food is your largest spending category this month.</p>
-              </div>
-            </div>
+            {% endif %}
           </div>
         </div>
 
+      </div>
+
+      <div class="row dashboard-transactions-row">
         <div class="col-12">
           <div class="chart-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
@@ -408,6 +492,7 @@
             </div>
           </div>
         </div>
+
       </div>
     </div>
   </div>
@@ -418,5 +503,6 @@
 {% block scripts %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
 <script>window.dashboardExpenseBreakdown = {{ expense_breakdown|tojson }};</script>
+<script>window.dashboardMonthlyExpenses = {{ monthly_expenses|tojson }};</script>
 <script src="{{ url_for('static', filename='js/charts.js') }}"></script>
 {% endblock %}

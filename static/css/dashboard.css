@@ -1064,3 +1064,360 @@
         padding: 0.85rem 0;
     }
 }
+
+
+.dashboard-page .budget-analysis-summary {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1rem;
+    padding: 0.25rem 0 1.25rem;
+    margin-bottom: 1rem;
+    border-bottom: 1px solid rgba(223, 230, 233, 0.84);
+}
+
+.dashboard-page .budget-analysis-summary div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.dashboard-page .budget-analysis-summary span,
+.dashboard-page .budget-analysis-remaining,
+.dashboard-page .budget-analysis-values {
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 0.82rem;
+}
+
+.dashboard-page .budget-analysis-summary strong {
+    color: var(--text-main);
+    font-family: var(--font-heading);
+    font-size: 1.25rem;
+}
+
+.dashboard-page .budget-analysis-list {
+    display: grid;
+    gap: 1rem;
+}
+
+.dashboard-page .budget-analysis-item {
+    padding: 1rem 0;
+    border-bottom: 1px solid rgba(223, 230, 233, 0.84);
+}
+
+.dashboard-page .budget-analysis-item:last-child {
+    padding-bottom: 0;
+    border-bottom: 0;
+}
+
+.dashboard-page .budget-analysis-header,
+.dashboard-page .budget-analysis-values {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.dashboard-page .budget-analysis-header strong {
+    display: block;
+    color: var(--text-main);
+    font-family: var(--font-heading);
+}
+
+.dashboard-page .budget-analysis-header small {
+    display: block;
+    margin-top: 0.2rem;
+    color: var(--text-muted);
+}
+
+.dashboard-page .budget-analysis-item .progress {
+    margin: 0.65rem 0 0.45rem;
+}
+
+.dashboard-page .budget-analysis-empty {
+    padding: 1rem 0 0.25rem;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+}
+
+@media (max-width: 768px) {
+    .dashboard-page .budget-analysis-summary {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dashboard-page .budget-analysis-header,
+    .dashboard-page .budget-analysis-values {
+        align-items: flex-start;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-page .budget-analysis-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .dashboard-page .budget-analysis-header,
+    .dashboard-page .budget-analysis-values {
+        flex-direction: column;
+        gap: 0.45rem;
+    }
+}
+
+/* Dashboard layout polish */
+.dashboard-page .dashboard-container {
+    padding: 1rem 0 2rem;
+}
+
+.dashboard-page .dashboard-container > .container-fluid {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.dashboard-page .dashboard-container .row {
+    align-items: flex-start;
+}
+
+.dashboard-page .dashboard-container .row > [class*="col-"] {
+    margin-bottom: 1rem;
+}
+
+.dashboard-page .dashboard-container .chart-card {
+    width: 100%;
+    min-height: 0;
+    margin-bottom: 0;
+    font-size: 1rem;
+}
+
+.dashboard-page .dashboard-primary-row > [class*="col-"] {
+    display: flex;
+}
+
+.dashboard-page .dashboard-primary-row .chart-card {
+    min-height: 360px;
+    height: 100%;
+}
+
+.dashboard-page .dashboard-primary-row .dashboard-chart-split {
+    min-height: 275px;
+}
+
+.dashboard-page .dashboard-primary-row .dashboard-chart-area {
+    min-width: 0;
+}
+
+.dashboard-page .dashboard-primary-row .chart-card canvas {
+    height: 260px !important;
+}
+
+.dashboard-page .dashboard-analytics-row > [class*="col-"] {
+    display: flex;
+}
+
+.dashboard-page .dashboard-analytics-row > [class*="col-"] > .chart-card {
+    align-self: flex-start;
+}
+
+.dashboard-page .dashboard-analytics-row .chart-card h3 {
+    margin-bottom: 0.35rem;
+}
+
+.dashboard-page .dashboard-analytics-row .chart-card > p {
+    margin: 0;
+    color: var(--text-muted);
+}
+
+.dashboard-page .dashboard-analytics-row .chart-container {
+    position: relative;
+    height: 250px;
+    min-height: 250px;
+    margin-top: 0.9rem;
+    padding-top: 0.25rem;
+}
+
+.dashboard-page .dashboard-analytics-row .chart-container canvas {
+    height: 100% !important;
+    max-height: none;
+}
+
+.dashboard-page .dashboard-analytics-row .chart-container.chart-empty {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: auto;
+    min-height: 0;
+    padding: 1rem 0 0;
+    color: var(--text-muted);
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+}
+
+.dashboard-page .cashflow-header {
+    justify-content: flex-end;
+    margin: 0.9rem 0 0;
+}
+
+.dashboard-page .cashflow-filters {
+    width: 100%;
+    margin: 0 !important;
+}
+
+.dashboard-page .cashflow-filters .form-select {
+    flex: 1 1 0;
+    min-width: 0;
+    width: auto;
+}
+
+.dashboard-page .budget-progress-card .budget-item {
+    padding: 0.7rem 0;
+}
+
+.dashboard-page .budget-progress-card .budget-header {
+    align-items: center;
+}
+
+.dashboard-page .budget-analysis-card,
+.dashboard-page .ai-insights-card,
+.dashboard-page .dashboard-transactions-row .chart-card {
+    height: auto;
+}
+
+.dashboard-page .budget-analysis-summary {
+    gap: 1.25rem;
+    padding-bottom: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.dashboard-page .budget-analysis-list {
+    gap: 0;
+}
+
+.dashboard-page .budget-analysis-item {
+    padding: 0.75rem 0;
+}
+
+.dashboard-page .dashboard-recommendations-row > [class*="col-"] {
+    display: flex;
+}
+
+.dashboard-page .dashboard-recommendations-row .ai-insights-card {
+    height: auto;
+}
+
+.dashboard-page .dashboard-recommendations-row .ai-insights-card > .d-flex {
+    align-items: center;
+    gap: 1rem;
+    padding-bottom: 0.85rem;
+    margin-bottom: 0.85rem !important;
+    border-bottom: 1px solid rgba(223, 230, 233, 0.84);
+}
+
+.dashboard-page .dashboard-recommendations-row .ai-insights-card h3 {
+    margin-bottom: 0;
+}
+
+.dashboard-page .dashboard-recommendations-row .ai-insights-card .badge {
+    flex: 0 0 auto;
+}
+
+.dashboard-page .dashboard-recommendations-row .insight-item {
+    align-items: flex-start;
+    min-height: 0;
+    margin-bottom: 0.75rem;
+    padding: 1rem;
+}
+
+.dashboard-page .dashboard-recommendations-row .insight-item:last-child {
+    margin-bottom: 0;
+}
+
+.dashboard-page .dashboard-transactions-row > [class*="col-"] {
+    display: flex;
+}
+
+.dashboard-page .dashboard-transactions-row .chart-card > .d-flex {
+    flex-wrap: wrap;
+    gap: 0.75rem 1rem;
+}
+
+.dashboard-page .dashboard-transactions-row .chart-card > .d-flex h3 {
+    margin-bottom: 0;
+}
+
+.dashboard-page .dashboard-transactions-row .table-responsive {
+    width: 100%;
+}
+
+.dashboard-page .transaction-table {
+    min-width: 680px;
+}
+
+.dashboard-page .transaction-table th,
+.dashboard-page .transaction-table td {
+    padding: 0.8rem 0.75rem;
+}
+
+.dashboard-page .transaction-table th:last-child,
+.dashboard-page .transaction-table td:last-child {
+    text-align: right;
+    white-space: nowrap;
+}
+
+@media (max-width: 768px) {
+    .dashboard-page .dashboard-primary-row .chart-card {
+        min-height: 0;
+        height: auto;
+    }
+
+    .dashboard-page .dashboard-primary-row .dashboard-chart-split {
+        min-height: 0;
+    }
+
+    .dashboard-page .dashboard-primary-row .chart-card canvas {
+        height: 230px !important;
+    }
+
+    .dashboard-page .dashboard-analytics-row .chart-container {
+        height: 220px;
+        min-height: 220px;
+    }
+
+    .dashboard-page .dashboard-recommendations-row .ai-insights-card > .d-flex {
+        align-items: flex-start;
+    }
+
+    .dashboard-page .dashboard-recommendations-row .ai-insights-card h3 {
+        max-width: 70%;
+    }
+}
+
+@media (max-width: 576px) {
+    .dashboard-page .dashboard-primary-row .dashboard-chart-split {
+        gap: 1rem;
+    }
+
+    .dashboard-page .dashboard-primary-row .dashboard-chart-area {
+        width: 100%;
+    }
+
+    .dashboard-page .dashboard-primary-row .expense-summary {
+        width: 100%;
+        align-items: stretch;
+    }
+
+    .dashboard-page .dashboard-primary-row .expense-row {
+        min-width: 0;
+        grid-template-columns: minmax(0, 1fr) auto auto;
+    }
+
+    .dashboard-page .cashflow-filters {
+        flex-direction: column;
+    }
+
+    .dashboard-page .dashboard-recommendations-row .ai-insights-card > .d-flex {
+        flex-wrap: wrap;
+    }
+
+    .dashboard-page .dashboard-recommendations-row .ai-insights-card h3 {
+        max-width: 100%;
+    }
+}

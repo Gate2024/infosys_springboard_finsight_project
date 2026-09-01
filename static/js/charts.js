@@ -79,6 +79,61 @@ if (expenseCtx) {
 });
 
 
+document.addEventListener("DOMContentLoaded", function () {
+    const monthlySpendingChart = document.getElementById("monthlySpendingChart");
+    const monthlyExpenses = window.dashboardMonthlyExpenses || [];
+
+    if (monthlySpendingChart && monthlyExpenses.length) {
+        new Chart(monthlySpendingChart, {
+            type: "line",
+            data: {
+                labels: monthlyExpenses.map((item) => item.month),
+                datasets: [{
+                    label: "Expenses",
+                    data: monthlyExpenses.map((item) => item.amount),
+                    borderColor: "#EF4444",
+                    backgroundColor: "rgba(239, 68, 68, 0.15)",
+                    fill: true,
+                    tension: 0.35,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                }],
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: (context) => `₹${context.parsed.y.toLocaleString()}`,
+                        },
+                    },
+                },
+                scales: {
+                    x: {
+                        grid: {
+                            display: false,
+                        },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        grid: {
+                            display: false,
+                        },
+                        ticks: {
+                            callback: (value) => `₹${value.toLocaleString()}`,
+                        },
+                    },
+                },
+            },
+        });
+    }
+});
+
+
 
 // income vs expense line graph
 document.addEventListener("DOMContentLoaded", function () {

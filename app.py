@@ -1,6 +1,8 @@
+import csv
 import secrets
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
+from io import StringIO
 
 from flask import (
     Flask,
@@ -8,6 +10,7 @@ from flask import (
     jsonify,
     redirect,
     render_template,
+    Response,
     request,
     session,
     url_for,
@@ -19,6 +22,7 @@ from db import (
     delete_budget,
     filter_budgets,
     get_budget,
+    get_monthly_expense_summary,
     get_expense_summary,
     get_summary_stats,
     get_transactions,
@@ -41,6 +45,14 @@ investment_service = InvestmentService(InvestmentRepository())
 goal_service = GoalService(GoalRepository())
 
 
+BUDGET_HEALTHY_LIMIT = Decimal("80")
+BUDGET_APPROACHING_LIMIT = Decimal("100")
+CATEGORY_CONCENTRATION_THRESHOLD = Decimal("0.50")
+LARGE_EXPENSE_MULTIPLIER = Decimal("2")
+APPROACHING_BUDGET_THRESHOLD = Decimal("80")
+OVER_BUDGET_THRESHOLD = Decimal("100")
+
+
 def login_required_redirect():
     if not session.get("uid"):
         return redirect(url_for("login"))
@@ -49,6 +61,215 @@ def login_required_redirect():
 
 def current_user_id():
     return session["uid"]
+
+
+def _safe_non_negative_decimal(value):
+    try:
+        return max(Decimal(str(value or 0)), Decimal("0"))
+    except (InvalidOperation, ValueError, TypeError):
+        return Decimal("0")
+
+
+def calculate_budget_utilization(budget_amount, spent_amount):
+    budget = _safe_non_negative_decimal(budget_amount)
+    spent = _safe_non_negative_decimal(spent_amount)
+    if budget <= 0:
+        return None
+    return spent / budget * Decimal("100")
+
+
+def classify_budget_status(utilization_percentage):
+    if utilization_percentage is None:
+        return "Unavailable"
+    if utilization_percentage < BUDGET_HEALTHY_LIMIT:
+        return "Healthy"
+    if utilization_percentage <= BUDGET_APPROACHING_LIMIT:
+        return "Approaching Limit"
+    return "Over Budget"
+
+
+def build_budget_spending_analysis(budgets, stats):
+    analysis_rows = []
+    for budget in budgets:
+        budget_amount = _safe_non_negative_decimal(budget.get("budget_amount"))
+        spent_amount = _safe_non_negative_decimal(budget.get("spent_amount"))
+        remaining_value = budget.get("remaining_amount")
+        if remaining_value in (None, ""):
+            remaining_amount = budget_amount - spent_amount
+        else:
+            try:
+                remaining_amount = Decimal(str(remaining_value))
+            except (InvalidOperation, ValueError, TypeError):
+                remaining_amount = budget_amount - spent_amount
+
+        utilization = calculate_budget_utilization(budget_amount, spent_amount)
+        analysis_rows.append(
+            {
+                "budget_name": budget.get("budget_name") or "Budget",
+                "category": budget.get("category") or "Uncategorized",
+                "budget_amount": budget_amount,
+                "spent_amount": spent_amount,
+                "remaining_amount": remaining_amount,
+                "utilization_percentage": utilization,
+                "progress_percentage": min(utilization or Decimal("0"), Decimal("100")),
+                "status": classify_budget_status(utilization),
+            }
+        )
+
+    total_budget = _safe_non_negative_decimal(stats.get("total_allocated"))
+    total_spent = _safe_non_negative_decimal(stats.get("total_spent"))
+    total_remaining = stats.get("total_remaining")
+    if total_remaining in (None, ""):
+        total_remaining = total_budget - total_spent
+    else:
+        try:
+            total_remaining = Decimal(str(total_remaining))
+        except (InvalidOperation, ValueError, TypeError):
+            total_remaining = total_budget - total_spent
+
+    overall_utilization = calculate_budget_utilization(total_budget, total_spent)
+    return analysis_rows, {
+        "total_budget": total_budget,
+        "total_spent": total_spent,
+        "total_remaining": total_remaining,
+        "utilization_percentage": overall_utilization,
+        "status": classify_budget_status(overall_utilization),
+    }
+
+
+def _finite_decimal(value):
+    if value in (None, ""):
+        return None
+    try:
+        number = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    return number if number.is_finite() else None
+
+
+def build_spending_recommendations(
+    budget_spending_analysis,
+    expense_breakdown,
+    monthly_expenses,
+    expense_stats,
+):
+    recommendations = []
+
+    for budget in budget_spending_analysis or []:
+        budget_name = budget.get("budget_name") or "Budget"
+        utilization = _finite_decimal(budget.get("utilization_percentage"))
+        status = budget.get("status")
+
+        if status == "Over Budget" or (
+            utilization is not None and utilization > OVER_BUDGET_THRESHOLD
+        ):
+            recommendations.append(
+                {
+                    "priority": "High",
+                    "style": "danger",
+                    "icon": "bi bi-exclamation-octagon-fill",
+                    "title": "Budget Over Limit",
+                    "message": (
+                        f"Your {budget_name} budget is over its stored limit. "
+                        "Review spending in this budget."
+                    ),
+                }
+            )
+        elif (
+            utilization is not None
+            and APPROACHING_BUDGET_THRESHOLD <= utilization <= OVER_BUDGET_THRESHOLD
+        ):
+            recommendations.append(
+                {
+                    "priority": "Medium",
+                    "style": "warning",
+                    "icon": "bi bi-exclamation-triangle-fill",
+                    "title": "Budget Near Limit",
+                    "message": (
+                        f"Your {budget_name} budget is approaching its stored limit. "
+                        "Review remaining spending."
+                    ),
+                }
+            )
+
+    category_totals = []
+    for item in expense_breakdown or []:
+        amount = _finite_decimal(item.get("amount"))
+        if amount is not None and amount > 0:
+            category_totals.append((item.get("category") or "Other", amount))
+
+    total_category_expenses = sum(
+        (amount for _, amount in category_totals), Decimal("0")
+    )
+    if category_totals and total_category_expenses > 0:
+        largest_category, largest_category_amount = max(
+            category_totals, key=lambda item: item[1]
+        )
+        if (
+            largest_category_amount / total_category_expenses
+            >= CATEGORY_CONCENTRATION_THRESHOLD
+        ):
+            recommendations.append(
+                {
+                    "priority": "Medium",
+                    "style": "info",
+                    "icon": "bi bi-pie-chart-fill",
+                    "title": "Expense Concentration",
+                    "message": (
+                        "A large share of your recorded expenses is concentrated in "
+                        f"{largest_category}. Review this category for possible reductions."
+                    ),
+                }
+            )
+
+    if len(monthly_expenses or []) >= 2:
+        previous_amount = _finite_decimal(monthly_expenses[-2].get("amount"))
+        latest_amount = _finite_decimal(monthly_expenses[-1].get("amount"))
+        if (
+            previous_amount is not None
+            and latest_amount is not None
+            and latest_amount > previous_amount
+        ):
+            recommendations.append(
+                {
+                    "priority": "Medium",
+                    "style": "warning",
+                    "icon": "bi bi-graph-up-arrow",
+                    "title": "Spending Increased",
+                    "message": (
+                        "Recorded spending increased compared with the previous "
+                        "recorded month. Review recent expenses."
+                    ),
+                }
+            )
+
+    total_expenses = _finite_decimal((expense_stats or {}).get("total_expenses"))
+    average_expense = _finite_decimal((expense_stats or {}).get("average_expense"))
+    largest_expense = _finite_decimal((expense_stats or {}).get("largest_expense"))
+    if (
+        total_expenses is not None
+        and total_expenses > 0
+        and average_expense is not None
+        and average_expense > 0
+        and largest_expense is not None
+        and largest_expense >= LARGE_EXPENSE_MULTIPLIER * average_expense
+    ):
+        recommendations.append(
+            {
+                "priority": "Low",
+                "style": "info",
+                "icon": "bi bi-receipt-cutoff",
+                "title": "Large Expense",
+                "message": (
+                    "One recorded expense is substantially larger than your average "
+                    "expense. Review that transaction."
+                ),
+            }
+        )
+
+    priority_order = {"High": 0, "Medium": 1, "Low": 2}
+    recommendations.sort(key=lambda item: priority_order[item["priority"]])
+    return recommendations
 
 
 def investment_csrf_token():
@@ -153,7 +374,11 @@ def dashboard():
 
     expense_stats = get_expense_summary(user_id)
     expense_transactions = get_transactions(user_id)
+    monthly_expenses = get_monthly_expense_summary(user_id)
     budget_rows = filter_budgets(user_id)
+    budget_spending_analysis, budget_spending_summary = build_budget_spending_analysis(
+        budget_rows, stats
+    )
 
     expense_total = float(expense_stats.get("total_spent") or 0)
     category_totals = {}
@@ -182,6 +407,12 @@ def dashboard():
             sorted(category_totals.items(), key=lambda item: item[1], reverse=True)
         )
     ]
+    spending_recommendations = build_spending_recommendations(
+        budget_spending_analysis,
+        expense_breakdown,
+        monthly_expenses,
+        expense_stats,
+    )
 
     budget_progress = []
     for budget in budget_rows:
@@ -245,6 +476,10 @@ def dashboard():
         dashboard_month_spent=float(expense_stats.get("month_spent") or 0),
         dashboard_budget_left=float(stats.get("total_remaining") or 0),
         expense_breakdown=expense_breakdown,
+        monthly_expenses=monthly_expenses,
+        budget_spending_analysis=budget_spending_analysis,
+        budget_spending_summary=budget_spending_summary,
+        spending_recommendations=spending_recommendations,
         budget_progress=budget_progress,
         recent_transactions=expense_transactions[:5],
         current_username=session["username"],
@@ -538,6 +773,36 @@ def expenses():
         sort_by=sort_by,
         current_username=session["username"],
     )
+
+
+@app.get("/expenses/export")
+def export_expenses():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    expense_rows = get_transactions(current_user_id())
+    output = StringIO(newline="")
+    writer = csv.writer(output)
+    writer.writerow(["Date", "Category", "Description", "Payment Mode", "Type", "Amount"])
+
+    for expense in expense_rows:
+        writer.writerow(
+            [
+                expense.get("date", ""),
+                expense.get("category", ""),
+                expense.get("description") or "",
+                expense.get("payment_mode", ""),
+                expense.get("type", ""),
+                expense.get("amount", ""),
+            ]
+        )
+
+    response = Response(output.getvalue(), mimetype="text/csv")
+    response.headers["Content-Disposition"] = (
+        "attachment; filename=finsight_expenses.csv"
+    )
+    return response
 
 
 @app.route("/expense/create", methods=["GET", "POST"])
