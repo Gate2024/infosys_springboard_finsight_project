@@ -1,0 +1,255 @@
+{% extends "base.html" %}
+
+{% block title %}Reports Overview{% endblock %}
+
+{% block page_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/reports.css') }}">
+{% endblock %}
+
+{% block content %}
+<section class="reports-page animated-fade-in">
+  <header class="dashboard-header reports-header">
+    <div class="header-title-area">
+      <h1>Reports Overview</h1>
+      <div class="quote-banner">
+        <i class="fa-solid fa-file-invoice-dollar quote-icon"></i>
+        <span>A clear view of your recorded financial activity.</span>
+      </div>
+    </div>
+    <div class="header-action-area reports-header-actions">
+      <div class="header-date-badge">
+        <i class="fa-regular fa-calendar-days"></i>
+        {% if report and report.date_range.start_date %}
+          {{ report.date_range.start_date }} to {{ report.date_range.end_date }}
+        {% else %}
+          All recorded activity
+        {% endif %}
+      </div>
+      <div class="reports-export-actions">
+        {% if start_date and end_date %}
+        <a href="{{ url_for('export_pdf_report', start_date=start_date, end_date=end_date) }}" class="btn btn-outline" title="Export financial report as PDF">
+        {% else %}
+        <a href="{{ url_for('export_pdf_report') }}" class="btn btn-outline" title="Export financial report as PDF">
+        {% endif %}
+          <i class="fa-solid fa-file-pdf"></i> Export PDF
+        </a>
+        {% if start_date and end_date %}
+        <a href="{{ url_for('export_excel_report', start_date=start_date, end_date=end_date) }}" class="btn btn-outline" title="Export financial report as Excel">
+        {% else %}
+        <a href="{{ url_for('export_excel_report') }}" class="btn btn-outline" title="Export financial report as Excel">
+        {% endif %}
+          <i class="fa-solid fa-file-excel"></i> Export Excel
+        </a>
+      </div>
+    </div>
+  </header>
+
+  {% if error %}
+  <div class="report-message report-message-error" role="alert">
+    <i class="fa-solid fa-circle-exclamation"></i>
+    <span>{{ error }}</span>
+  </div>
+  {% endif %}
+
+  <section class="report-filter-panel">
+    <div>
+      <span class="report-eyebrow">Report period</span>
+      <h2>Select a date range</h2>
+      <p>Expense reporting follows the selected inclusive dates. Budget, investment, and goal values remain current snapshots.</p>
+    </div>
+    <form method="get" action="{{ url_for('reports_data') }}" class="report-date-form">
+      <label>
+        <span>Start date</span>
+        <input type="date" name="start_date" value="{{ start_date }}">
+      </label>
+      <label>
+        <span>End date</span>
+        <input type="date" name="end_date" value="{{ end_date }}">
+      </label>
+      <button type="submit" class="btn btn-emerald">
+        <i class="fa-solid fa-filter"></i> Apply Range
+      </button>
+      <a href="{{ url_for('reports_data') }}" class="btn btn-outline">Clear</a>
+    </form>
+  </section>
+
+  {% if report %}
+  {% set expense_summary = report.expenses.expense_summary %}
+  {% set total_expenses = expense_summary.total_expenses %}
+
+  <section class="reports-summary-grid" aria-label="Financial summary">
+    <article class="metric-card report-metric-card">
+      <div class="metric-header"><span class="metric-title">Total Expenses</span><div class="metric-icon-box"><i class="fa-solid fa-arrow-trend-down"></i></div></div>
+      <div class="metric-value">₹{{ "{:,.2f}".format(total_expenses) }}</div>
+      <span class="report-metric-note">{{ expense_summary.transaction_count }} recorded transactions</span>
+    </article>
+
+    <article class="metric-card report-metric-card">
+      <div class="metric-header"><span class="metric-title">Investment Value</span><div class="metric-icon-box"><i class="fa-solid fa-vault"></i></div></div>
+      <div class="metric-value">
+        {% if report.investments.stats.current_value is not none %}
+          ₹{{ "{:,.2f}".format(report.investments.stats.current_value) }}
+        {% else %}Unavailable{% endif %}
+      </div>
+      <span class="report-metric-note">Current portfolio snapshot</span>
+    </article>
+
+    <article class="metric-card report-metric-card">
+      <div class="metric-header"><span class="metric-title">Financial Goals</span><div class="metric-icon-box"><i class="fa-solid fa-bullseye"></i></div></div>
+      <div class="metric-value">{{ report.goals.goal_count }}</div>
+      <span class="report-metric-note">Current goals with progress</span>
+    </article>
+
+    <article class="metric-card report-metric-card">
+      <div class="metric-header"><span class="metric-title">Financial Health</span><div class="metric-icon-box"><i class="fa-solid fa-heart-pulse"></i></div></div>
+      <div class="metric-value">
+        {% if report.financial_health.available %}{{ report.financial_health.score }}/100{% else %}Unavailable{% endif %}
+      </div>
+      <span class="report-metric-note">{% if report.financial_health.available %}{{ report.financial_health.grade }}{% else %}Insufficient data{% endif %}</span>
+    </article>
+
+    <article class="metric-card report-metric-card report-unavailable-card">
+      <div class="metric-header"><span class="metric-title">Total Income</span><div class="metric-icon-box"><i class="fa-solid fa-arrow-down"></i></div></div>
+      <div class="metric-value">Not available</div>
+      <span class="report-metric-note">No actual income source</span>
+    </article>
+
+    <article class="metric-card report-metric-card report-unavailable-card">
+      <div class="metric-header"><span class="metric-title">Total Savings</span><div class="metric-icon-box"><i class="fa-solid fa-piggy-bank"></i></div></div>
+      <div class="metric-value">Not available</div>
+      <span class="report-metric-note">No actual savings balance</span>
+    </article>
+
+    <article class="metric-card report-metric-card report-unavailable-card">
+      <div class="metric-header"><span class="metric-title">Net Worth</span><div class="metric-icon-box"><i class="fa-solid fa-scale-balanced"></i></div></div>
+      <div class="metric-value">Not available</div>
+      <span class="report-metric-note">Complete asset and liability data is unavailable</span>
+    </article>
+  </section>
+
+  <section class="reports-two-column">
+    <article class="report-panel report-chart-panel">
+      <div class="report-panel-header">
+        <div><span class="report-eyebrow">Financial trend</span><h2>Income vs Expenses</h2><p>Recorded expense trend for the selected period.</p></div>
+        <span class="report-status-badge report-status-muted">Income unavailable</span>
+      </div>
+      {% if report.expenses.monthly_totals %}
+      <div class="report-chart-container"><canvas id="reportsMonthlyExpenseChart"></canvas></div>
+      {% else %}
+      <div class="report-empty-state"><i class="fa-solid fa-chart-line"></i><span>No monthly expense data available.</span></div>
+      {% endif %}
+      <div class="report-note"><i class="fa-solid fa-circle-info"></i> Actual income data is not available for comparison.</div>
+    </article>
+
+    <article class="report-panel report-chart-panel">
+      <div class="report-panel-header">
+        <div><span class="report-eyebrow">Expense analysis</span><h2>Expense Category Breakdown</h2><p>Recorded expenses grouped by their stored category.</p></div>
+      </div>
+      {% if report.expenses.category_totals %}
+      <div class="report-chart-container report-doughnut-container"><canvas id="reportsExpenseCategoryChart"></canvas></div>
+      <div class="report-breakdown-list">
+        {% for item in report.expenses.category_totals %}
+        <div class="report-breakdown-row">
+          <span><i class="report-category-dot"></i>{{ item.category }}</span>
+          <strong>₹{{ "{:,.2f}".format(item.amount) }}</strong>
+          <small>{% if total_expenses > 0 %}{{ "{:.1f}".format(item.amount / total_expenses * 100) }}%{% else %}0.0%{% endif %}</small>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="report-empty-state"><i class="fa-solid fa-receipt"></i><span>No expense categories in this period.</span></div>
+      {% endif %}
+    </article>
+  </section>
+
+  <section class="report-panel report-goals-panel">
+    <div class="report-panel-header">
+      <div><span class="report-eyebrow">Current snapshot</span><h2>Goal Progress Summary</h2><p>Progress calculated from each goal's current and target amounts.</p></div>
+    </div>
+    {% if report.goals.goals %}
+    <div class="report-goal-list">
+      {% for goal in report.goals.goals %}
+      <div class="report-goal-row">
+        <div class="report-goal-heading"><div><strong>{{ goal.goal_name }}</strong><span>{{ goal.goal_category }}</span></div><span class="report-status-badge">{{ goal.status }}</span></div>
+        <div class="report-progress-meta"><span>{{ "{:.2f}".format(goal.progress_percentage) }}% complete</span><strong>₹{{ "{:,.2f}".format(goal.current_amount) }} / ₹{{ "{:,.2f}".format(goal.target_amount) }}</strong></div>
+        <div class="report-progress-track"><div class="report-progress-fill" style="width: {{ goal.progress_percentage }}%;"></div></div>
+        <div class="report-goal-footer"><span>Remaining ₹{{ "{:,.2f}".format(goal.remaining_amount) }}</span><span>Target date {{ goal.target_date }}</span></div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="report-empty-state"><i class="fa-solid fa-bullseye"></i><span>No financial goals available.</span></div>
+    {% endif %}
+  </section>
+
+  <section class="reports-two-column">
+    <article class="report-panel">
+      <div class="report-panel-header"><div><span class="report-eyebrow">Current snapshot</span><h2>Portfolio Performance</h2><p>Based on saved purchase and current values.</p></div></div>
+      <div class="report-stat-list">
+        <div><span>Invested value</span><strong>₹{{ "{:,.2f}".format(report.investments.stats.total_invested) }}</strong></div>
+        <div><span>Current value</span><strong>{% if report.investments.stats.current_value is not none %}₹{{ "{:,.2f}".format(report.investments.stats.current_value) }}{% else %}Unavailable{% endif %}</strong></div>
+        <div><span>Absolute return</span><strong>{% if report.investments.stats.absolute_return is not none %}₹{{ "{:+,.2f}".format(report.investments.stats.absolute_return) }}{% else %}Unavailable{% endif %}</strong></div>
+        <div><span>Return percentage</span><strong>{% if report.investments.stats.return_percentage is not none %}{{ "{:+.2f}".format(report.investments.stats.return_percentage) }}%{% else %}Unavailable{% endif %}</strong></div>
+      </div>
+      {% if report.investments.stats.allocation %}
+      <div class="report-allocation-list">
+        {% for allocation in report.investments.stats.allocation %}
+        <div><span>{{ allocation.asset_type }}</span><span>{{ "{:.1f}".format(allocation.percentage) }}%</span><div class="report-progress-track"><div class="report-progress-fill" style="width: {{ allocation.percentage }}%;"></div></div></div>
+        {% endfor %}
+      </div>
+      {% endif %}
+      <div class="report-note"><i class="fa-solid fa-circle-info"></i> Historical portfolio performance is not available.</div>
+    </article>
+
+    <article class="report-panel">
+      <div class="report-panel-header"><div><span class="report-eyebrow">Recorded activity</span><h2>Monthly Summary Report</h2><p>Expense totals returned for the selected period.</p></div></div>
+      <div class="report-stat-list">
+        <div><span>Total recorded expenses</span><strong>₹{{ "{:,.2f}".format(total_expenses) }}</strong></div>
+        <div><span>Expense transactions</span><strong>{{ expense_summary.transaction_count }}</strong></div>
+        <div><span>Average expense</span><strong>₹{{ "{:,.2f}".format(expense_summary.average_expense) }}</strong></div>
+        <div><span>Largest expense</span><strong>₹{{ "{:,.2f}".format(expense_summary.largest_expense) }}</strong></div>
+        <div><span>Top spending category</span><strong>{% if report.expenses.category_totals %}{{ report.expenses.category_totals[0].category }}{% else %}No data{% endif %}</strong></div>
+        <div><span>Current budget utilization</span><strong>{% if report.budgets.overall_utilization is not none %}{{ "{:.1f}".format(report.budgets.overall_utilization) }}%{% else %}Unavailable{% endif %}</strong></div>
+      </div>
+    </article>
+  </section>
+
+  <section class="reports-two-column">
+    <article class="report-panel">
+      <div class="report-panel-header"><div><span class="report-eyebrow">Current snapshot</span><h2>Financial Health</h2><p>Existing Financial Health calculation and available component details.</p></div></div>
+      {% if report.financial_health.available %}
+      <div class="report-health-score"><strong>{{ report.financial_health.score }}</strong><span>/100</span><em>{{ report.financial_health.grade }}</em></div>
+      <div class="report-health-list">
+        {% for name, component in report.financial_health.components.items() %}
+        <div><span>{{ name|replace('_', ' ')|title }}</span><strong>{% if component.available %}{{ component.score|round|int }}{% else %}Unavailable{% endif %}</strong><small>{{ component.message }}</small></div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="report-empty-state"><i class="fa-solid fa-heart-pulse"></i><span>Financial Health is unavailable with the current data.</span></div>
+      {% endif %}
+    </article>
+
+    <article class="report-panel report-alert-panel">
+      <div class="report-panel-header"><div><span class="report-eyebrow">Report status</span><h2>Recent Alerts</h2><p>Persisted notifications are not part of the current reporting data.</p></div></div>
+      <div class="report-empty-state"><i class="fa-solid fa-bell-slash"></i><span>{{ report.unavailable_metrics.recent_alerts.reason }}</span></div>
+    </article>
+  </section>
+  {% endif %}
+</section>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+{% if report %}
+<script>
+  window.reportsExpenseCategories = {{ report.expenses.category_totals|tojson }};
+  window.reportsMonthlyExpenses = {{ report.expenses.monthly_totals|tojson }};
+</script>
+{% else %}
+<script>
+  window.reportsExpenseCategories = [];
+  window.reportsMonthlyExpenses = [];
+</script>
+{% endif %}
+<script src="{{ url_for('static', filename='js/reports.js') }}"></script>
+{% endblock %}

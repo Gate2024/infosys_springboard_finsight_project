@@ -5,7 +5,7 @@ const expenseCtx = document
 
 const expenseBreakdown = window.dashboardExpenseBreakdown || [];
 
-if (expenseCtx) {
+if (expenseCtx && typeof Chart !== "undefined") {
 
     new Chart(expenseCtx, {
 
@@ -49,7 +49,7 @@ if (expenseCtx) {
                 legend: {
 
                     position: "bottom",
-                    display:"false",
+                    display: false,
 
                     labels: {
 
@@ -83,7 +83,7 @@ document.addEventListener("DOMContentLoaded", function () {
     const monthlySpendingChart = document.getElementById("monthlySpendingChart");
     const monthlyExpenses = window.dashboardMonthlyExpenses || [];
 
-    if (monthlySpendingChart && monthlyExpenses.length) {
+    if (monthlySpendingChart && monthlyExpenses.length && typeof Chart !== "undefined") {
         new Chart(monthlySpendingChart, {
             type: "line",
             data: {
@@ -140,7 +140,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const incomeChart = document.getElementById("incomeExpenseChart");
 
-    if (incomeChart) {
+    if (incomeChart && typeof Chart !== "undefined") {
 
         const ctx = incomeChart.getContext("2d");
 
@@ -228,51 +228,12 @@ document.addEventListener("DOMContentLoaded", function () {
 });
 
 
-// Expense Pie Chart
-document.addEventListener("DOMContentLoaded", function () {
-    const expenseCtx = document
-    .getElementById("expensePie");
-
-if (expenseCtx) {
-
-    new Chart(expenseCtx, {
-
-
-
-    type:"doughnut",
-
-    data:{
-        labels:["Food","Bills","Travel","Shopping","Others"],
-
-        datasets:[{
-
-            data:[25,20,15,30,10],
-
-            backgroundColor:[
-                "#2563EB",
-                "#22C55E",
-                "#F59E0B",
-                "#EF4444",
-                "#8B5CF6"
-            ]
-
-        }]
-    },  options: {
-             responsive: true,
-             maintainAspectRatio: false
-    }
-
-})
-}
-});
-
-
 // Monthly Cash Flow
 
 document.addEventListener("DOMContentLoaded", function () {
     const monthlycashflow = document.getElementById("cashFlowChart");
 
-    if (monthlycashflow) {
+    if (monthlycashflow && typeof Chart !== "undefined") {
 
         const cashFlowChart = new Chart(monthlycashflow, {
             type: "bar",
@@ -355,14 +316,3 @@ document.addEventListener("DOMContentLoaded", function () {
 
     }
 });
-
-
-const spent = 12500;
-const budget = 15000;
-
-const percentage = (spent / budget) * 100;
-
-const foodProgress = document.getElementById("food-progress");
-if (foodProgress) {
-    foodProgress.style.width = percentage + "%";
-}

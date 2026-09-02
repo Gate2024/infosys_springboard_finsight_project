@@ -339,7 +339,6 @@ def calculate_financial_health(
     
    
 
-    print("DEBUG SPENDING RESULT:", spending)
     goals = calculate_goal_score(
         goal_data.get("total_current"),
         goal_data.get("total_target"),

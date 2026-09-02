@@ -27,6 +27,7 @@
     action="{% if is_edit %}{{ url_for('edit_budget', budget_id=budget_id) }}{% else %}{{ url_for('create_budget_route') }}{% endif %}" 
     method="POST"
   >
+    <input type="hidden" name="_budget_csrf_token" value="{{ budget_csrf_token }}">
     <div class="form-grid">
       
       <!-- Budget Name -->

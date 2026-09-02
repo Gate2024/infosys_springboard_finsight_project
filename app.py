@@ -1,8 +1,11 @@
 import csv
+import os
 import secrets
+import time
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
-from io import StringIO
+from html import escape
+from io import BytesIO, StringIO
 
 from flask import (
     Flask,
@@ -15,6 +18,14 @@ from flask import (
     session,
     url_for,
 )
+from openpyxl import Workbook
+from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
+from openpyxl.utils import get_column_letter
+from reportlab.lib import colors
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 
 from config import Config
 from db import (
@@ -36,9 +47,120 @@ from investment_service import ASSET_TYPES, InvestmentService
 from goal_repository import GoalRepository
 from goal_service import GOAL_CATEGORIES, GoalService
 from financial_health_service import calculate_financial_health
+from report_service import ReportValidationError, build_reporting_data
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = Config.SECRET_KEY or "finsight-dev-secret-key"
+
+
+def _is_production_environment():
+    production_values = {"production", "prod"}
+    environment_names = ("FLASK_ENV", "APP_ENV", "ENVIRONMENT", "VERCEL_ENV", "ENV")
+    return any(
+        os.getenv(name, "").strip().lower() in production_values
+        for name in environment_names
+    )
+
+
+def _get_secret_key():
+    if Config.SECRET_KEY:
+        return Config.SECRET_KEY
+    if _is_production_environment():
+        raise RuntimeError("SECRET_KEY must be set in production.")
+    return secrets.token_urlsafe(32)
+
+
+def _debug_enabled():
+    return os.getenv("FLASK_DEBUG", "").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+
+
+app.config["SECRET_KEY"] = _get_secret_key()
+
+
+def _secure_session_cookie_enabled():
+    if _is_production_environment():
+        return True
+    return os.getenv("SESSION_COOKIE_SECURE", "").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+
+
+def _configure_security_settings():
+    app.config.update(
+        SESSION_COOKIE_HTTPONLY=True,
+        SESSION_COOKIE_SAMESITE="Lax",
+        SESSION_COOKIE_SECURE=_secure_session_cookie_enabled(),
+    )
+
+
+SECURITY_HEADERS = {
+    "X-Content-Type-Options": "nosniff",
+    "X-Frame-Options": "SAMEORIGIN",
+    "Referrer-Policy": "strict-origin-when-cross-origin",
+    "Permissions-Policy": "camera=(), geolocation=(), microphone=()",
+    "Content-Security-Policy": (
+        "default-src 'self'; "
+        "base-uri 'self'; "
+        "object-src 'none'; "
+        "frame-ancestors 'self'; "
+        "form-action 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; "
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com "
+        "https://cdnjs.cloudflare.com https://cdn.jsdelivr.net; "
+        "font-src 'self' https://fonts.gstatic.com https://cdnjs.cloudflare.com; "
+        "img-src 'self' data:; "
+        "connect-src 'self'"
+    ),
+}
+
+
+@app.after_request
+def add_security_headers(response):
+    for header, value in SECURITY_HEADERS.items():
+        response.headers.setdefault(header, value)
+    return response
+
+
+_configure_security_settings()
+
+
+LOGIN_MAX_FAILURES = 5
+LOGIN_RATE_WINDOW_SECONDS = 300
+_login_failures = {}
+
+
+def _login_rate_limit_key():
+    return request.remote_addr or "unknown"
+
+
+def _active_login_failures(key, now=None):
+    now = time.monotonic() if now is None else now
+    timestamps = [
+        timestamp
+        for timestamp in _login_failures.get(key, [])
+        if now - timestamp < LOGIN_RATE_WINDOW_SECONDS
+    ]
+    if timestamps:
+        _login_failures[key] = timestamps
+    else:
+        _login_failures.pop(key, None)
+    return timestamps
+
+
+def _login_rate_limited():
+    return len(_active_login_failures(_login_rate_limit_key())) >= LOGIN_MAX_FAILURES
+
+
+def _record_login_failure():
+    key = _login_rate_limit_key()
+    timestamps = _active_login_failures(key)
+    timestamps.append(time.monotonic())
+    _login_failures[key] = timestamps
+
+
+def _clear_login_failures():
+    _login_failures.pop(_login_rate_limit_key(), None)
 
 init_db()
 investment_service = InvestmentService(InvestmentRepository())
@@ -300,6 +422,34 @@ def goal_csrf_valid():
     return bool(expected and supplied and secrets.compare_digest(expected, supplied))
 
 
+def budget_csrf_token():
+    token = session.get("budget_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["budget_csrf_token"] = token
+    return token
+
+
+def budget_csrf_valid():
+    expected = session.get("budget_csrf_token")
+    supplied = request.form.get("_budget_csrf_token", "")
+    return bool(expected and supplied and secrets.compare_digest(expected, supplied))
+
+
+def expense_csrf_token():
+    token = session.get("expense_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["expense_csrf_token"] = token
+    return token
+
+
+def expense_csrf_valid():
+    expected = session.get("expense_csrf_token")
+    supplied = request.form.get("_expense_csrf_token", "")
+    return bool(expected and supplied and secrets.compare_digest(expected, supplied))
+
+
 @app.route("/")
 def home():
     if session.get("uid"):
@@ -316,14 +466,22 @@ def login():
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
 
+        if _login_rate_limited():
+            return render_template(
+                "login.html",
+                error="Too many failed login attempts. Please try again later.",
+            ), 429
+
         success, user = login_user(email, password)
         if success:
+            _clear_login_failures()
             session.clear()
             session["uid"] = user["id"]
             session["username"] = user["username"]
             session["email"] = user["email"]
             return redirect(url_for("dashboard"))
 
+        _record_login_failure()
         return render_template("login.html", error="Invalid email or password.")
 
     return render_template("login.html", error=None)
@@ -468,7 +626,6 @@ def dashboard():
             "return_percentage": investment_stats.get("return_percentage"),
         },
     )
-    print("DEBUG FINANCIAL HEALTH:", financial_health)
     return render_template(
         "dashboard.html",
         stats=stats,
@@ -483,6 +640,934 @@ def dashboard():
         budget_progress=budget_progress,
         recent_transactions=expense_transactions[:5],
         current_username=session["username"],
+    )
+
+
+@app.get("/reports")
+def reports_data():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    accepts = request.headers.get("Accept", "").lower()
+    wants_json = (
+        request.args.get("format") == "json"
+        or not accepts
+        or ("application/json" in accepts and "text/html" not in accepts)
+    )
+
+    try:
+        report_data = build_reporting_data(
+            current_user_id(),
+            request.args.get("start_date"),
+            request.args.get("end_date"),
+            investment_service=investment_service,
+            goal_service=goal_service,
+        )
+    except ReportValidationError as error:
+        if wants_json:
+            return jsonify({"error": str(error)}), 400
+        return render_template(
+            "reports/dashboard.html",
+            report=None,
+            error=str(error),
+            start_date=request.args.get("start_date", ""),
+            end_date=request.args.get("end_date", ""),
+        ), 400
+
+    if wants_json:
+        return jsonify(report_data)
+    return render_template(
+        "reports/dashboard.html",
+        report=report_data,
+        start_date=request.args.get("start_date", ""),
+        end_date=request.args.get("end_date", ""),
+    )
+
+
+def _pdf_decimal(value):
+    if value in (None, ""):
+        return None
+    try:
+        number = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        return None
+    return number if number.is_finite() else None
+
+
+def _pdf_amount(value):
+    number = _pdf_decimal(value)
+    return "Unavailable" if number is None else f"INR {number:,.2f}"
+
+
+def _pdf_percent(value):
+    number = _pdf_decimal(value)
+    return "Unavailable" if number is None else f"{number:,.2f}%"
+
+
+def _pdf_number(value):
+    number = _pdf_decimal(value)
+    if number is None:
+        return "Unavailable"
+    if number == number.to_integral_value():
+        return str(int(number))
+    return f"{number:,.2f}"
+
+
+def _pdf_count(value):
+    number = _pdf_decimal(value)
+    return "0" if number is None else str(int(number))
+
+
+def _pdf_date(value):
+    if not value:
+        return "Unavailable"
+    try:
+        return datetime.strptime(str(value), "%Y-%m-%d").strftime("%B %d, %Y").replace(
+            " 0", " "
+        )
+    except (TypeError, ValueError):
+        return str(value)
+
+
+def _pdf_period(report_data):
+    date_range = report_data.get("date_range") or {}
+    start_date = date_range.get("start_date")
+    end_date = date_range.get("end_date")
+    if start_date and end_date:
+        return f"{_pdf_date(start_date)} - {_pdf_date(end_date)}"
+    return "All Available Expense History"
+
+
+def _pdf_styles():
+    styles = getSampleStyleSheet()
+    return {
+        "title": ParagraphStyle(
+            "PDFTitle",
+            parent=styles["Title"],
+            fontName="Helvetica-Bold",
+            fontSize=24,
+            leading=28,
+            textColor=colors.HexColor("#091A2B"),
+            alignment=TA_LEFT,
+            spaceAfter=2,
+        ),
+        "subtitle": ParagraphStyle(
+            "PDFSubtitle",
+            parent=styles["Normal"],
+            fontName="Helvetica",
+            fontSize=13,
+            leading=16,
+            textColor=colors.HexColor("#138A70"),
+            spaceAfter=12,
+        ),
+        "section": ParagraphStyle(
+            "PDFSection",
+            parent=styles["Heading2"],
+            fontName="Helvetica-Bold",
+            fontSize=14,
+            leading=18,
+            textColor=colors.HexColor("#138A70"),
+            spaceBefore=14,
+            spaceAfter=7,
+        ),
+        "body": ParagraphStyle(
+            "PDFBody",
+            parent=styles["BodyText"],
+            fontName="Helvetica",
+            fontSize=9,
+            leading=13,
+            textColor=colors.HexColor("#122333"),
+            spaceAfter=5,
+        ),
+        "muted": ParagraphStyle(
+            "PDFMuted",
+            parent=styles["BodyText"],
+            fontName="Helvetica-Oblique",
+            fontSize=8.5,
+            leading=12,
+            textColor=colors.HexColor("#71808D"),
+            spaceAfter=5,
+        ),
+        "table_header": ParagraphStyle(
+            "PDFTableHeader",
+            parent=styles["BodyText"],
+            fontName="Helvetica-Bold",
+            fontSize=8,
+            leading=10,
+            textColor=colors.white,
+        ),
+        "table_body": ParagraphStyle(
+            "PDFTableBody",
+            parent=styles["BodyText"],
+            fontName="Helvetica",
+            fontSize=8,
+            leading=10,
+            textColor=colors.HexColor("#122333"),
+        ),
+        "summary_label": ParagraphStyle(
+            "PDFSummaryLabel",
+            parent=styles["BodyText"],
+            fontName="Helvetica-Bold",
+            fontSize=8,
+            leading=10,
+            textColor=colors.HexColor("#71808D"),
+            alignment=TA_CENTER,
+        ),
+        "summary_value": ParagraphStyle(
+            "PDFSummaryValue",
+            parent=styles["BodyText"],
+            fontName="Helvetica-Bold",
+            fontSize=10,
+            leading=13,
+            textColor=colors.HexColor("#091A2B"),
+            alignment=TA_CENTER,
+        ),
+    }
+
+
+def _pdf_cell(value, style):
+    text = "" if value is None else str(value)
+    return Paragraph(escape(text), style)
+
+
+def _pdf_table(rows, widths, styles):
+    formatted_rows = []
+    for index, row in enumerate(rows):
+        style = styles["table_header"] if index == 0 else styles["table_body"]
+        formatted_rows.append([_pdf_cell(value, style) for value in row])
+
+    table = Table(formatted_rows, colWidths=widths, repeatRows=1, hAlign="LEFT")
+    table.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#091A2B")),
+                ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#DFE6E9")),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F6F9F9")),
+                ("ROWBACKGROUNDS", (0, 1), (-1, -1), [
+                    colors.white,
+                    colors.HexColor("#F6F9F9"),
+                ]),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 6),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ]
+        )
+    )
+    return table
+
+
+def _pdf_summary_table(items, styles):
+    return _pdf_table(
+        [
+            [item[0] for item in items],
+            [item[1] for item in items],
+        ],
+        [540 / len(items)] * len(items),
+        {
+            **styles,
+            "table_header": styles["summary_label"],
+            "table_body": styles["summary_value"],
+        },
+    )
+
+
+def _draw_pdf_header_footer(canvas, document):
+    width, height = letter
+    canvas.saveState()
+    canvas.setFillColor(colors.HexColor("#091A2B"))
+    canvas.rect(0, height - 36, width, 36, fill=1, stroke=0)
+    canvas.setFillColor(colors.white)
+    canvas.setFont("Helvetica-Bold", 10)
+    canvas.drawString(document.leftMargin, height - 23, "FinSight")
+    canvas.setFont("Helvetica", 8)
+    canvas.drawRightString(width - document.rightMargin, height - 23, "Financial Report")
+    canvas.setFillColor(colors.HexColor("#71808D"))
+    canvas.drawRightString(width - document.rightMargin, 20, f"Page {document.page}")
+    canvas.restoreState()
+
+
+def _build_pdf_report(report_data):
+    styles = _pdf_styles()
+    expenses = report_data.get("expenses") or {}
+    expense_summary = expenses.get("expense_summary") or {}
+    budgets = report_data.get("budgets") or {}
+    investments = report_data.get("investments") or {}
+    investment_stats = investments.get("stats") or {}
+    goals = report_data.get("goals") or {}
+    health = report_data.get("financial_health") or {}
+    story = [
+        Paragraph("FinSight", styles["title"]),
+        Paragraph("Financial Report", styles["subtitle"]),
+        Paragraph(
+            f"<b>Reporting Period:</b> {escape(_pdf_period(report_data))}",
+            styles["body"],
+        ),
+        Paragraph(
+            f"<b>Generated:</b> {escape(datetime.now().strftime('%B %d, %Y %H:%M'))}",
+            styles["muted"],
+        ),
+    ]
+
+    story.append(Paragraph("1. Expense Summary", styles["section"]))
+    story.append(
+        _pdf_summary_table(
+            [
+                ("Total Expenses", _pdf_amount(expense_summary.get("total_expenses"))),
+                ("Transaction Count", _pdf_count(expense_summary.get("transaction_count"))),
+                ("Average Expense", _pdf_amount(expense_summary.get("average_expense"))),
+                ("Largest Expense", _pdf_amount(expense_summary.get("largest_expense"))),
+            ],
+            styles,
+        )
+    )
+
+    story.append(Paragraph("2. Expense by Category", styles["section"]))
+    category_totals = expenses.get("category_totals") or []
+    if category_totals:
+        story.append(
+            _pdf_table(
+                [["Category", "Amount"]]
+                + [
+                    [item.get("category") or "Uncategorized", _pdf_amount(item.get("amount"))]
+                    for item in category_totals
+                ],
+                [360, 180],
+                styles,
+            )
+        )
+    else:
+        story.append(Paragraph("No expense data available for the selected period.", styles["muted"]))
+
+    story.append(Paragraph("3. Monthly Spending", styles["section"]))
+    monthly_totals = expenses.get("monthly_totals") or []
+    if monthly_totals:
+        story.append(
+            _pdf_table(
+                [["Month", "Amount"]]
+                + [[item.get("month") or "Unknown", _pdf_amount(item.get("amount"))] for item in monthly_totals],
+                [360, 180],
+                styles,
+            )
+        )
+    else:
+        story.append(Paragraph("No monthly expense data available.", styles["muted"]))
+
+    story.append(Paragraph("4. Budget Snapshot - Current Snapshot", styles["section"]))
+    story.append(Paragraph("Budget data represents the current stored budget snapshot.", styles["muted"]))
+    story.append(
+        _pdf_summary_table(
+            [
+                ("Total Budget", _pdf_amount(budgets.get("total_budget"))),
+                ("Total Spent", _pdf_amount(budgets.get("total_spent"))),
+                ("Total Remaining", _pdf_amount(budgets.get("total_remaining"))),
+                ("Utilization", _pdf_percent(budgets.get("overall_utilization"))),
+                ("Budget Count", _pdf_count(budgets.get("budget_count"))),
+            ],
+            styles,
+        )
+    )
+    budget_rows = budgets.get("budgets") or []
+    if budget_rows:
+        story.append(Spacer(1, 8))
+        story.append(
+            _pdf_table(
+                [["Budget", "Category", "Budget Amount", "Spent", "Remaining", "Status"]]
+                + [
+                    [
+                        item.get("budget_name") or "Budget",
+                        item.get("category") or "Uncategorized",
+                        _pdf_amount(item.get("budget_amount")),
+                        _pdf_amount(item.get("spent_amount")),
+                        _pdf_amount(item.get("remaining_amount")),
+                        item.get("status") or "Unavailable",
+                    ]
+                    for item in budget_rows
+                ],
+                [120, 80, 90, 80, 90, 80],
+                styles,
+            )
+        )
+
+    story.append(Paragraph("5. Investment Snapshot - Current Snapshot", styles["section"]))
+    story.append(Paragraph("Investment data represents the current portfolio snapshot.", styles["muted"]))
+    story.append(
+        _pdf_summary_table(
+            [
+                ("Invested Value", _pdf_amount(investment_stats.get("total_invested"))),
+                ("Current Value", _pdf_amount(investment_stats.get("current_value"))),
+                ("Absolute Return", _pdf_amount(investment_stats.get("absolute_return"))),
+                ("Return Percentage", _pdf_percent(investment_stats.get("return_percentage"))),
+                ("Holding Count", _pdf_count(investments.get("holding_count"))),
+            ],
+            styles,
+        )
+    )
+    allocation = investment_stats.get("allocation") or []
+    if allocation:
+        story.append(Spacer(1, 8))
+        story.append(
+            _pdf_table(
+                [["Asset Type", "Allocation"]]
+                + [[item.get("asset_type") or "Unknown", _pdf_percent(item.get("percentage"))] for item in allocation],
+                [360, 180],
+                styles,
+            )
+        )
+
+    story.append(Paragraph("6. Goal Progress - Current Snapshot", styles["section"]))
+    story.append(Paragraph("Goal values represent current saved progress; historical contributions are not available.", styles["muted"]))
+    goal_rows = goals.get("goals") or []
+    if goal_rows:
+        story.append(
+            _pdf_table(
+                [["Goal", "Target", "Current", "Progress", "Remaining", "Status", "Target Date"]]
+                + [
+                    [
+                        item.get("goal_name") or "Goal",
+                        _pdf_amount(item.get("target_amount")),
+                        _pdf_amount(item.get("current_amount")),
+                        _pdf_percent(item.get("progress_percentage")),
+                        _pdf_amount(item.get("remaining_amount")),
+                        item.get("status") or "Unavailable",
+                        _pdf_date(item.get("target_date")),
+                    ]
+                    for item in goal_rows
+                ],
+                [110, 75, 75, 65, 75, 80, 60],
+                styles,
+            )
+        )
+    else:
+        story.append(Paragraph("No financial goals available.", styles["muted"]))
+
+    story.append(Paragraph("7. Financial Health", styles["section"]))
+    if health.get("available"):
+        story.append(
+            _pdf_summary_table(
+                [
+                    ("Score", f"{_pdf_number(health.get('score'))}/100"),
+                    ("Grade", health.get("grade") or "Unavailable"),
+                    ("Coverage", _pdf_percent(health.get("coverage"))),
+                    ("Earned Points", _pdf_number(health.get("earned_points"))),
+                    ("Available Weight", _pdf_number(health.get("available_weight"))),
+                ],
+                styles,
+            )
+        )
+        components = health.get("components") or {}
+        if components:
+            story.append(Spacer(1, 8))
+            story.append(
+                _pdf_table(
+                    [["Component", "Status", "Score", "Details"]]
+                    + [
+                        [
+                            name.replace("_", " ").title(),
+                            "Available" if component.get("available") else "Unavailable",
+                            _pdf_number(component.get("score")),
+                            component.get("message") or "",
+                        ]
+                        for name, component in components.items()
+                    ],
+                    [110, 80, 70, 280],
+                    styles,
+                )
+            )
+    else:
+        story.append(Paragraph("Financial Health: Unavailable with the current data.", styles["muted"]))
+
+    story.append(Paragraph("8. Unavailable Metrics", styles["section"]))
+    unavailable = report_data.get("unavailable_metrics") or {}
+    unavailable_rows = [["Metric", "Status", "Reason"]]
+    for name, metric in unavailable.items():
+        if isinstance(metric, dict) and not metric.get("available", False):
+            unavailable_rows.append(
+                [
+                    name.replace("_", " ").title(),
+                    "Unavailable",
+                    metric.get("reason") or "No reliable data source exists.",
+                ]
+            )
+    if len(unavailable_rows) > 1:
+        story.append(_pdf_table(unavailable_rows, [150, 80, 310], styles))
+    else:
+        story.append(Paragraph("No additional unavailable metrics were reported.", styles["muted"]))
+
+    buffer = BytesIO()
+    document = SimpleDocTemplate(
+        buffer,
+        pagesize=letter,
+        leftMargin=36,
+        rightMargin=36,
+        topMargin=54,
+        bottomMargin=34,
+        title="FinSight Financial Report",
+        author="FinSight",
+        pageCompression=0,
+    )
+    document.build(story, onFirstPage=_draw_pdf_header_footer, onLaterPages=_draw_pdf_header_footer)
+    return buffer.getvalue()
+
+
+@app.get("/reports/export/pdf")
+def export_pdf_report():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    try:
+        report_data = build_reporting_data(
+            current_user_id(),
+            request.args.get("start_date"),
+            request.args.get("end_date"),
+            investment_service=investment_service,
+            goal_service=goal_service,
+        )
+    except ReportValidationError as error:
+        return jsonify({"error": str(error)}), 400
+
+    return Response(
+        _build_pdf_report(report_data),
+        mimetype="application/pdf",
+        headers={
+            "Content-Disposition": (
+                "attachment; filename=\"finsight_financial_report.pdf\""
+            )
+        },
+    )
+
+
+EXCEL_CURRENCY_FORMAT = '"INR" #,##0.00'
+EXCEL_PERCENT_FORMAT = "0.00%"
+
+
+def _excel_amount(value):
+    number = _pdf_decimal(value)
+    return "Unavailable" if number is None else float(number)
+
+
+def _excel_percent(value):
+    number = _pdf_decimal(value)
+    return "Unavailable" if number is None else float(number) / 100
+
+
+def _excel_number(value):
+    number = _pdf_decimal(value)
+    if number is None:
+        return "Unavailable"
+    if number == number.to_integral_value():
+        return int(number)
+    return float(number)
+
+
+def _excel_count(value):
+    number = _pdf_decimal(value)
+    return 0 if number is None else int(number)
+
+
+def _excel_value(value):
+    if isinstance(value, Decimal):
+        return float(value)
+    if isinstance(value, str) and value[:1] in ("=", "+", "-", "@"):
+        return "'" + value
+    return value
+
+
+def _excel_setup_sheet(workbook, name, title, report_data):
+    worksheet = workbook.create_sheet(name)
+    worksheet.sheet_view.showGridLines = False
+    worksheet.merge_cells("A1:H1")
+    worksheet["A1"] = "FinSight"
+    worksheet["A1"].font = Font(name="Calibri", size=16, bold=True, color="FFFFFF")
+    worksheet["A1"].fill = PatternFill("solid", fgColor="091A2B")
+    worksheet["A1"].alignment = Alignment(vertical="center")
+    worksheet.row_dimensions[1].height = 26
+
+    worksheet.merge_cells("A2:H2")
+    worksheet["A2"] = title
+    worksheet["A2"].font = Font(name="Calibri", size=14, bold=True, color="138A70")
+    worksheet["A2"].alignment = Alignment(vertical="center")
+    worksheet.row_dimensions[2].height = 23
+
+    worksheet["A3"] = "Reporting Period"
+    worksheet["B3"] = _pdf_period(report_data)
+    worksheet["A4"] = "Generated"
+    worksheet["B4"] = datetime.now()
+    worksheet["B4"].number_format = "mmmm d, yyyy h:mm AM/PM"
+    for cell in (worksheet["A3"], worksheet["A4"]):
+        cell.font = Font(bold=True, color="71808D")
+    worksheet["B3"].alignment = Alignment(wrap_text=True)
+    worksheet["B4"].alignment = Alignment(wrap_text=True)
+    return worksheet
+
+
+def _excel_section(worksheet, row, title, end_column):
+    worksheet.merge_cells(
+        start_row=row,
+        start_column=1,
+        end_row=row,
+        end_column=end_column,
+    )
+    cell = worksheet.cell(row=row, column=1, value=title)
+    cell.font = Font(bold=True, color="FFFFFF")
+    cell.fill = PatternFill("solid", fgColor="138A70")
+    cell.alignment = Alignment(vertical="center")
+    worksheet.row_dimensions[row].height = 20
+
+
+def _excel_table(worksheet, row, headers, rows, number_formats=None):
+    number_formats = number_formats or {}
+    header_fill = PatternFill("solid", fgColor="091A2B")
+    border = Border(
+        left=Side(style="thin", color="DFE6E9"),
+        right=Side(style="thin", color="DFE6E9"),
+        top=Side(style="thin", color="DFE6E9"),
+        bottom=Side(style="thin", color="DFE6E9"),
+    )
+
+    for column, header in enumerate(headers, start=1):
+        cell = worksheet.cell(row=row, column=column, value=header)
+        cell.font = Font(bold=True, color="FFFFFF")
+        cell.fill = header_fill
+        cell.alignment = Alignment(horizontal="center", vertical="center", wrap_text=True)
+        cell.border = border
+
+    for row_offset, values in enumerate(rows, start=1):
+        for column, value in enumerate(values, start=1):
+            cell = worksheet.cell(
+                row=row + row_offset,
+                column=column,
+                value=_excel_value(value),
+            )
+            cell.alignment = Alignment(vertical="top", wrap_text=True)
+            cell.border = border
+            if column in number_formats:
+                cell.number_format = number_formats[column]
+
+    return row + len(rows) + 1
+
+
+def _excel_empty(worksheet, row, message, end_column):
+    worksheet.merge_cells(
+        start_row=row,
+        start_column=1,
+        end_row=row,
+        end_column=end_column,
+    )
+    cell = worksheet.cell(row=row, column=1, value=message)
+    cell.font = Font(italic=True, color="71808D")
+    cell.alignment = Alignment(wrap_text=True)
+
+
+def _excel_set_widths(worksheet, widths):
+    for column, width in enumerate(widths, start=1):
+        worksheet.column_dimensions[get_column_letter(column)].width = width
+
+
+def _excel_finalize(worksheet, freeze_panes):
+    worksheet.freeze_panes = freeze_panes
+    worksheet.sheet_properties.pageSetUpPr.fitToPage = True
+    worksheet.page_setup.fitToWidth = 1
+    worksheet.page_setup.fitToHeight = 0
+    worksheet.page_setup.orientation = "landscape"
+
+
+def _build_excel_report(report_data):
+    workbook = Workbook()
+    workbook.remove(workbook.active)
+    workbook.properties.title = "FinSight Financial Report"
+    workbook.properties.creator = "FinSight"
+
+    expenses = report_data.get("expenses") or {}
+    expense_summary = expenses.get("expense_summary") or {}
+    budgets = report_data.get("budgets") or {}
+    investments = report_data.get("investments") or {}
+    investment_stats = investments.get("stats") or {}
+    goals = report_data.get("goals") or {}
+    health = report_data.get("financial_health") or {}
+
+    summary = _excel_setup_sheet(workbook, "Summary", "Financial Report", report_data)
+    _excel_section(summary, 6, "Expense Summary", 4)
+    _excel_table(
+        summary,
+        7,
+        ["Total Expenses", "Transaction Count", "Average Expense", "Largest Expense"],
+        [[
+            _excel_amount(expense_summary.get("total_expenses")),
+            _excel_count(expense_summary.get("transaction_count")),
+            _excel_amount(expense_summary.get("average_expense")),
+            _excel_amount(expense_summary.get("largest_expense")),
+        ]],
+        {1: EXCEL_CURRENCY_FORMAT, 3: EXCEL_CURRENCY_FORMAT, 4: EXCEL_CURRENCY_FORMAT},
+    )
+    _excel_section(summary, 10, "Financial Health", 3)
+    _excel_table(
+        summary,
+        11,
+        ["Overall Score", "Grade", "Coverage"],
+        [[
+            _excel_number(health.get("score")),
+            health.get("grade") or "Unavailable",
+            _excel_percent(health.get("coverage")),
+        ]],
+        {3: EXCEL_PERCENT_FORMAT},
+    )
+    unavailable_rows = []
+    for name, metric in (report_data.get("unavailable_metrics") or {}).items():
+        if isinstance(metric, dict) and not metric.get("available", False):
+            unavailable_rows.append([
+                name.replace("_", " ").title(),
+                "Unavailable",
+                metric.get("reason") or "No reliable data source exists.",
+            ])
+    _excel_section(summary, 14, "Unavailable Metrics", 3)
+    if unavailable_rows:
+        _excel_table(summary, 15, ["Metric", "Status", "Reason"], unavailable_rows)
+    else:
+        _excel_empty(summary, 15, "No additional unavailable metrics were reported.", 3)
+    _excel_set_widths(summary, [24, 32, 24, 24, 14, 14, 14, 14])
+    _excel_finalize(summary, None)
+
+    expense_sheet = _excel_setup_sheet(workbook, "Expense Analysis", "Expense Analysis", report_data)
+    _excel_section(expense_sheet, 6, "Expense Summary", 4)
+    _excel_table(
+        expense_sheet,
+        7,
+        ["Total Expenses", "Transaction Count", "Average Expense", "Largest Expense"],
+        [[
+            _excel_amount(expense_summary.get("total_expenses")),
+            _excel_count(expense_summary.get("transaction_count")),
+            _excel_amount(expense_summary.get("average_expense")),
+            _excel_amount(expense_summary.get("largest_expense")),
+        ]],
+        {1: EXCEL_CURRENCY_FORMAT, 3: EXCEL_CURRENCY_FORMAT, 4: EXCEL_CURRENCY_FORMAT},
+    )
+    _excel_section(expense_sheet, 10, "Category Analysis", 2)
+    category_rows = [
+        [item.get("category") or "Uncategorized", _excel_amount(item.get("amount"))]
+        for item in (expenses.get("category_totals") or [])
+    ]
+    if category_rows:
+        _excel_table(expense_sheet, 11, ["Category", "Amount"], category_rows, {2: EXCEL_CURRENCY_FORMAT})
+    else:
+        _excel_empty(expense_sheet, 11, "No expense data available for the selected period.", 2)
+    monthly_start = 12 + len(category_rows)
+    _excel_section(expense_sheet, monthly_start, "Monthly Analysis", 2)
+    monthly_rows = [
+        [item.get("month") or "Unknown", _excel_amount(item.get("amount"))]
+        for item in (expenses.get("monthly_totals") or [])
+    ]
+    if monthly_rows:
+        _excel_table(expense_sheet, monthly_start + 1, ["Month", "Amount"], monthly_rows, {2: EXCEL_CURRENCY_FORMAT})
+    else:
+        _excel_empty(expense_sheet, monthly_start + 1, "No monthly expense data available.", 2)
+    _excel_set_widths(expense_sheet, [30, 22, 24, 24, 14, 14, 14, 14])
+    _excel_finalize(expense_sheet, "A8")
+
+    budget_sheet = _excel_setup_sheet(workbook, "Budget Summary", "Budget Summary - Current Snapshot", report_data)
+    _excel_section(budget_sheet, 6, "Current Budget Snapshot", 5)
+    _excel_table(
+        budget_sheet,
+        7,
+        ["Total Budget", "Total Spent", "Total Remaining", "Overall Utilization", "Budget Count"],
+        [[
+            _excel_amount(budgets.get("total_budget")),
+            _excel_amount(budgets.get("total_spent")),
+            _excel_amount(budgets.get("total_remaining")),
+            _excel_percent(budgets.get("overall_utilization")),
+            _excel_count(budgets.get("budget_count")),
+        ]],
+        {
+            1: EXCEL_CURRENCY_FORMAT,
+            2: EXCEL_CURRENCY_FORMAT,
+            3: EXCEL_CURRENCY_FORMAT,
+            4: EXCEL_PERCENT_FORMAT,
+        },
+    )
+    _excel_empty(budget_sheet, 10, "Budget data represents the current stored budget snapshot.", 6)
+    _excel_section(budget_sheet, 12, "Budgets", 6)
+    budget_rows = [
+        [
+            item.get("budget_name") or "Budget",
+            item.get("category") or "Uncategorized",
+            _excel_amount(item.get("budget_amount")),
+            _excel_amount(item.get("spent_amount")),
+            _excel_amount(item.get("remaining_amount")),
+            item.get("status") or "Unavailable",
+        ]
+        for item in (budgets.get("budgets") or [])
+    ]
+    if budget_rows:
+        _excel_table(
+            budget_sheet,
+            13,
+            ["Budget Name", "Category", "Budget Amount", "Spent Amount", "Remaining Amount", "Status"],
+            budget_rows,
+            {3: EXCEL_CURRENCY_FORMAT, 4: EXCEL_CURRENCY_FORMAT, 5: EXCEL_CURRENCY_FORMAT},
+        )
+    else:
+        _excel_empty(budget_sheet, 13, "No current budget data available.", 6)
+    _excel_set_widths(budget_sheet, [26, 20, 18, 18, 20, 18, 14, 14])
+    _excel_finalize(budget_sheet, "A8")
+
+    investment_sheet = _excel_setup_sheet(workbook, "Investments", "Investments - Current Snapshot", report_data)
+    _excel_section(investment_sheet, 6, "Current Portfolio Snapshot", 5)
+    _excel_table(
+        investment_sheet,
+        7,
+        ["Invested Value", "Current Value", "Absolute Return", "Return Percentage", "Holding Count"],
+        [[
+            _excel_amount(investment_stats.get("total_invested")),
+            _excel_amount(investment_stats.get("current_value")),
+            _excel_amount(investment_stats.get("absolute_return")),
+            _excel_percent(investment_stats.get("return_percentage")),
+            _excel_count(investments.get("holding_count")),
+        ]],
+        {
+            1: EXCEL_CURRENCY_FORMAT,
+            2: EXCEL_CURRENCY_FORMAT,
+            3: EXCEL_CURRENCY_FORMAT,
+            4: EXCEL_PERCENT_FORMAT,
+        },
+    )
+    _excel_empty(investment_sheet, 10, "Investment data represents the current portfolio snapshot.", 7)
+    _excel_section(investment_sheet, 12, "Holdings", 7)
+    holding_rows = [
+        [
+            item.get("asset_name") or "Asset",
+            item.get("asset_type") or "Unknown",
+            item.get("quantity"),
+            _excel_amount(item.get("purchase_price")),
+            _excel_amount(item.get("current_value")),
+            _excel_amount(item.get("invested_value")),
+            item.get("purchase_date") or "Unavailable",
+        ]
+        for item in (investments.get("holdings") or [])
+    ]
+    if holding_rows:
+        _excel_table(
+            investment_sheet,
+            13,
+            ["Asset Name", "Asset Type", "Quantity", "Purchase Price", "Current Value", "Invested Value", "Purchase Date"],
+            holding_rows,
+            {4: EXCEL_CURRENCY_FORMAT, 5: EXCEL_CURRENCY_FORMAT, 6: EXCEL_CURRENCY_FORMAT},
+        )
+    else:
+        _excel_empty(investment_sheet, 13, "No investment holdings available.", 7)
+    allocation_start = 14 + len(holding_rows)
+    _excel_section(investment_sheet, allocation_start, "Asset Allocation", 2)
+    allocation_rows = [
+        [item.get("asset_type") or "Unknown", _excel_percent(item.get("percentage"))]
+        for item in (investment_stats.get("allocation") or [])
+    ]
+    if allocation_rows:
+        _excel_table(investment_sheet, allocation_start + 1, ["Asset Type", "Allocation"], allocation_rows, {2: EXCEL_PERCENT_FORMAT})
+    else:
+        _excel_empty(investment_sheet, allocation_start + 1, "No asset allocation data available.", 2)
+    _excel_set_widths(investment_sheet, [25, 18, 14, 18, 18, 18, 18, 14])
+    _excel_finalize(investment_sheet, "A8")
+
+    goal_sheet = _excel_setup_sheet(workbook, "Goals", "Goals - Current Progress", report_data)
+    _excel_section(goal_sheet, 6, "Current Goal Progress", 7)
+    goal_rows = [
+        [
+            item.get("goal_name") or "Goal",
+            item.get("goal_category") or "Uncategorized",
+            _excel_amount(item.get("target_amount")),
+            _excel_amount(item.get("current_amount")),
+            _excel_percent(item.get("progress_percentage")),
+            _excel_amount(item.get("remaining_amount")),
+            item.get("status") or "Unavailable",
+        ]
+        for item in (goals.get("goals") or [])
+    ]
+    if goal_rows:
+        _excel_table(
+            goal_sheet,
+            7,
+            ["Goal Name", "Category", "Target Amount", "Current Amount", "Progress Percentage", "Remaining Amount", "Status"],
+            goal_rows,
+            {
+                3: EXCEL_CURRENCY_FORMAT,
+                4: EXCEL_CURRENCY_FORMAT,
+                5: EXCEL_PERCENT_FORMAT,
+                6: EXCEL_CURRENCY_FORMAT,
+            },
+        )
+    else:
+        _excel_empty(goal_sheet, 7, "No financial goals available.", 7)
+    _excel_set_widths(goal_sheet, [25, 18, 18, 18, 20, 20, 18, 14])
+    _excel_finalize(goal_sheet, "A8")
+
+    health_sheet = _excel_setup_sheet(workbook, "Financial Health", "Financial Health", report_data)
+    _excel_section(health_sheet, 6, "Existing Financial Health Score", 5)
+    if health.get("available"):
+        _excel_table(
+            health_sheet,
+            7,
+            ["Overall Score", "Grade", "Coverage", "Earned Points", "Available Weight"],
+            [[
+                _excel_number(health.get("score")),
+                health.get("grade") or "Unavailable",
+                _excel_percent(health.get("coverage")),
+                _excel_number(health.get("earned_points")),
+                _excel_number(health.get("available_weight")),
+            ]],
+            {3: EXCEL_PERCENT_FORMAT},
+        )
+        component_rows = [
+            [
+                name.replace("_", " ").title(),
+                "Available" if component.get("available") else "Unavailable",
+                _excel_number(component.get("score")),
+                component.get("message") or "",
+            ]
+            for name, component in (health.get("components") or {}).items()
+        ]
+        _excel_section(health_sheet, 10, "Components", 4)
+        if component_rows:
+            _excel_table(health_sheet, 11, ["Component", "Status", "Score", "Message"], component_rows)
+        else:
+            _excel_empty(health_sheet, 11, "No Financial Health component details available.", 4)
+    else:
+        _excel_empty(health_sheet, 7, "Financial Health is unavailable with the current data.", 5)
+    _excel_set_widths(health_sheet, [24, 18, 16, 70, 14, 14, 14, 14])
+    _excel_finalize(health_sheet, "A8")
+
+    buffer = BytesIO()
+    workbook.save(buffer)
+    return buffer.getvalue()
+
+
+@app.get("/reports/export/excel")
+def export_excel_report():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    try:
+        report_data = build_reporting_data(
+            current_user_id(),
+            request.args.get("start_date"),
+            request.args.get("end_date"),
+            investment_service=investment_service,
+            goal_service=goal_service,
+        )
+    except ReportValidationError as error:
+        return jsonify({"error": str(error)}), 400
+
+    return Response(
+        _build_excel_report(report_data),
+        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": (
+                "attachment; filename=\"finsight_financial_report.xlsx\""
+            )
+        },
     )
 
 
@@ -532,6 +1617,7 @@ def budgets():
         priority_filter=priority_filter,
         sort_by=sort_by,
         current_username=session["username"],
+        budget_csrf_token=budget_csrf_token(),
     )
 @app.context_processor
 def inject_template_globals():
@@ -579,6 +1665,7 @@ def render_budget_form(budget=None, is_edit=False, budget_id=None):
         budget=budget or {},
         is_edit=is_edit,
         budget_id=budget_id,
+        budget_csrf_token=budget_csrf_token(),
     )
 
 @app.route("/budget/create", methods=["GET", "POST"])
@@ -588,6 +1675,9 @@ def create_budget_route():
         return redirect_response
 
     if request.method == "POST":
+        if not budget_csrf_valid():
+            flash("The form security token is missing or invalid.", "danger")
+            return render_budget_form(request.form, is_edit=False), 400
         errors = validate_budget_form(request.form)
         if errors:
             for error in errors:
@@ -621,6 +1711,9 @@ def edit_budget(budget_id):
         return redirect(url_for("budgets"))
 
     if request.method == "POST":
+        if not budget_csrf_valid():
+            flash("The form security token is missing or invalid.", "danger")
+            return render_budget_form(request.form, is_edit=True, budget_id=budget_id), 400
         errors = validate_budget_form(request.form)
         if errors:
             for error in errors:
@@ -654,11 +1747,14 @@ def view_budget(budget_id):
     return jsonify({"success": True, "budget": budget})
 
 
-@app.route("/budget/delete/<int:budget_id>", methods=["GET", "POST"])
+@app.post("/budget/delete/<int:budget_id>")
 def remove_budget(budget_id):
     redirect_response = login_required_redirect()
     if redirect_response:
         return redirect_response
+    if not budget_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return redirect(url_for("budgets"))
 
     result = delete_budget(budget_id, current_user_id())
 
@@ -736,6 +1832,7 @@ def render_expense_form(expense_row=None, is_edit=False, transaction_id=None):
         transaction_id=transaction_id,
         categories=EXPENSE_CATEGORIES,
         payment_modes=PAYMENT_MODES,
+        expense_csrf_token=expense_csrf_token(),
     )
 
 
@@ -772,7 +1869,17 @@ def expenses():
         payment_filter=payment_filter,
         sort_by=sort_by,
         current_username=session["username"],
+        expense_csrf_token=expense_csrf_token(),
     )
+
+
+CSV_FORMULA_PREFIXES = ("=", "+", "-", "@")
+
+
+def _csv_safe_text(value):
+    if isinstance(value, str) and value.startswith(CSV_FORMULA_PREFIXES):
+        return "'" + value
+    return value
 
 
 @app.get("/expenses/export")
@@ -789,11 +1896,11 @@ def export_expenses():
     for expense in expense_rows:
         writer.writerow(
             [
-                expense.get("date", ""),
-                expense.get("category", ""),
-                expense.get("description") or "",
-                expense.get("payment_mode", ""),
-                expense.get("type", ""),
+                _csv_safe_text(expense.get("date", "")),
+                _csv_safe_text(expense.get("category", "")),
+                _csv_safe_text(expense.get("description") or ""),
+                _csv_safe_text(expense.get("payment_mode", "")),
+                _csv_safe_text(expense.get("type", "")),
                 expense.get("amount", ""),
             ]
         )
@@ -812,6 +1919,9 @@ def create_expense():
         return redirect_response
 
     if request.method == "POST":
+        if not expense_csrf_valid():
+            flash("The form security token is missing or invalid.", "danger")
+            return render_expense_form(request.form, is_edit=False), 400
         errors = validate_expense_form(request.form)
         if errors:
             for error in errors:
@@ -846,6 +1956,13 @@ def edit_expense(transaction_id):
         return redirect(url_for("expenses"))
 
     if request.method == "POST":
+        if not expense_csrf_valid():
+            flash("The form security token is missing or invalid.", "danger")
+            return render_expense_form(
+                request.form,
+                is_edit=True,
+                transaction_id=transaction_id,
+            ), 400
         errors = validate_expense_form(request.form)
         if errors:
             for error in errors:
@@ -888,11 +2005,14 @@ def view_expense(transaction_id):
     return jsonify({"success": True, "expense": expense_row})
 
 
-@app.route("/expense/delete/<int:transaction_id>", methods=["GET", "POST"])
+@app.post("/expense/delete/<int:transaction_id>")
 def delete_expense_route(transaction_id):
     redirect_response = login_required_redirect()
     if redirect_response:
         return redirect_response
+    if not expense_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return redirect(url_for("expenses"))
 
     from db import delete_transaction
 
@@ -1115,4 +2235,4 @@ def delete_goal(goal_id):
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=_debug_enabled())

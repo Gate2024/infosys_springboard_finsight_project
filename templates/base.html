@@ -94,6 +94,13 @@
             </a>
           </li>
 
+          <li class="{% if request.endpoint == 'reports_data' %}active{% endif %}">
+            <a href="{{ url_for('reports_data') }}">
+              <i class="bi bi-file-earmark-bar-graph"></i>
+              <span>Reports</span>
+            </a>
+          </li>
+
           <li class="logout">
             <a href="{{ url_for('logout') }}">
               <i class="bi bi-box-arrow-right"></i>

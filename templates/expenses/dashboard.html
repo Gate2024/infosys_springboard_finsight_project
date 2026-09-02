@@ -194,6 +194,7 @@
                     class="delete-expense-form"
                     data-expense-name="{{ expense.description or expense.category }}"
                   >
+                    <input type="hidden" name="_expense_csrf_token" value="{{ expense_csrf_token }}">
                     <button type="submit" class="icon-btn icon-btn-delete" title="Delete Expense">
                       <i class="fa-regular fa-trash-can"></i>
                     </button>

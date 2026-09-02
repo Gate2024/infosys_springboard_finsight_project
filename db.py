@@ -1,3 +1,4 @@
+import os
 from contextlib import contextmanager
 from datetime import date, datetime
 from decimal import Decimal
@@ -9,8 +10,41 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from config import Config
 
 
+DATABASE_SSL_MODES = {
+    "disable",
+    "allow",
+    "prefer",
+    "require",
+    "verify-ca",
+    "verify-full",
+}
+
+
+def _is_production_environment():
+    production_values = {"production", "prod"}
+    environment_names = ("FLASK_ENV", "APP_ENV", "ENVIRONMENT", "VERCEL_ENV", "ENV")
+    return any(
+        os.getenv(name, "").strip().lower() in production_values
+        for name in environment_names
+    )
+
+
+def _database_sslmode():
+    configured_mode = (Config.DB_SSLMODE or "").strip().lower()
+    sslmode = configured_mode or ("require" if _is_production_environment() else None)
+    if sslmode and sslmode not in DATABASE_SSL_MODES:
+        raise RuntimeError(
+            "DB_SSLMODE must be one of disable, allow, prefer, require, verify-ca, or verify-full."
+        )
+    if _is_production_environment() and sslmode in {"disable", "allow", "prefer"}:
+        raise RuntimeError(
+            "DB_SSLMODE must require encrypted PostgreSQL connections in production."
+        )
+    return sslmode
+
+
 def _connection_kwargs():
-    return {
+    kwargs = {
         "host": Config.DB_HOST,
         "database": Config.DB_NAME,
         "user": Config.DB_USER,
@@ -18,6 +52,12 @@ def _connection_kwargs():
         "port": Config.DB_PORT or 5432,
         "cursor_factory": RealDictCursor,
     }
+    sslmode = _database_sslmode()
+    if sslmode:
+        kwargs["sslmode"] = sslmode
+    if Config.DB_SSLROOTCERT:
+        kwargs["sslrootcert"] = Config.DB_SSLROOTCERT
+    return kwargs
 
 
 @contextmanager

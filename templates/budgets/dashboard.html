@@ -212,6 +212,7 @@
                 class="delete-budget-form"
                 data-budget-name="{{ b.budget_name }}"
               >
+                <input type="hidden" name="_budget_csrf_token" value="{{ budget_csrf_token }}">
                 <button type="submit" class="icon-btn icon-btn-delete" title="Delete Budget">
                   <i class="fa-regular fa-trash-can"></i>
                 </button>

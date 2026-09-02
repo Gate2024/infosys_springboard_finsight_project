@@ -21,6 +21,30 @@ document.addEventListener('DOMContentLoaded', () => {
   if (filterSort) filterSort.addEventListener('change', triggerSearchAndFilter);
 });
 
+const ALLOWED_BUDGET_COLORS = new Set(['#0E5A4E']);
+const ALLOWED_BUDGET_ICONS = new Set(['fa-wallet']);
+const ALLOWED_BUDGET_PRIORITIES = new Set(['Low', 'Medium', 'High', 'Urgent']);
+const ALLOWED_BUDGET_STATUSES = new Set(['Active', 'Completed']);
+
+function escapeBudgetHtml(value) {
+  return String(value)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+function normalizeBudgetNumber(value, fallback = 0) {
+  if (value === null || value === undefined || value === '') return fallback;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : fallback;
+}
+
+function allowedBudgetValue(value, allowedValues, fallback) {
+  return allowedValues.has(value) ? value : fallback;
+}
+
 /**
   Performs real-time filtering and sorting on budget cards.
 */
@@ -99,23 +123,38 @@ async function openViewModal(budgetId) {
 
     if (data.success && data.budget) {
       const b = data.budget;
-      const spent = parseFloat(b.spent_amount || 0);
-      const total = parseFloat(b.budget_amount || 0);
-      const rem = parseFloat(b.remaining_amount || (total - spent));
+      const spent = normalizeBudgetNumber(b.spent_amount);
+      const total = normalizeBudgetNumber(b.budget_amount);
+      const rem = normalizeBudgetNumber(b.remaining_amount, total - spent);
       const pct = total > 0 ? ((spent / total) * 100).toFixed(1) : 0;
+      const safeBudgetId = Number(b.budget_id);
+      const safeEditHref = Number.isInteger(safeBudgetId) && safeBudgetId > 0
+        ? `/budget/edit/${safeBudgetId}`
+        : '#';
+      const safeBudgetColor = allowedBudgetValue(b.color_label, ALLOWED_BUDGET_COLORS, '#0E5A4E');
+      const safeBudgetIcon = allowedBudgetValue(b.budget_icon, ALLOWED_BUDGET_ICONS, 'fa-wallet');
+      const safePriority = allowedBudgetValue(b.priority, ALLOWED_BUDGET_PRIORITIES, 'Medium');
+      const safeStatus = allowedBudgetValue(b.status, ALLOWED_BUDGET_STATUSES, 'Active');
+      const safeBudgetName = escapeBudgetHtml(b.budget_name || 'Budget');
+      const safeCategory = escapeBudgetHtml(b.category || '');
+      const safeCurrency = escapeBudgetHtml(b.currency || '');
+      const safeDescription = escapeBudgetHtml(b.description || 'No detailed description provided.');
+      const safeStartDate = escapeBudgetHtml(b.start_date || '');
+      const safeEndDate = escapeBudgetHtml(b.end_date || '');
+      const safeNotes = escapeBudgetHtml(b.notes || '');
 
       modalBody.innerHTML = `
         <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 1rem;">
-          <div style="width: 48px; height: 48px; border-radius: 12px; background: ${b.color_label || '#0E5A4E'}; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
-            <i class="fa-solid ${b.budget_icon || 'fa-wallet'}"></i>
+          <div style="width: 48px; height: 48px; border-radius: 12px; background: ${safeBudgetColor}; color: white; display: flex; align-items: center; justify-content: center; font-size: 1.4rem;">
+            <i class="fa-solid ${safeBudgetIcon}"></i>
           </div>
           <div>
-            <h2 style="font-size: 1.5rem; color: var(--navy-dark);">${b.budget_name}</h2>
-            <span style="font-size: 0.82rem; color: var(--text-muted);">${b.category} • ${b.currency}</span>
+            <h2 style="font-size: 1.5rem; color: var(--navy-dark);">${safeBudgetName}</h2>
+            <span style="font-size: 0.82rem; color: var(--text-muted);">${safeCategory} • ${safeCurrency}</span>
           </div>
         </div>
 
-        <p style="color: var(--text-main); font-size: 0.95rem; margin-bottom: 1.5rem;">${b.description || 'No detailed description provided.'}</p>
+        <p style="color: var(--text-main); font-size: 0.95rem; margin-bottom: 1.5rem;">${safeDescription}</p>
 
         <div class="amounts-row" style="margin-bottom: 1.5rem;">
           <div class="amount-box">
@@ -135,15 +174,15 @@ async function openViewModal(budgetId) {
         <div style="background: rgba(17, 24, 32, 0.04); border-radius: 14px; padding: 1.2rem; margin-bottom: 1.5rem;">
           <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
             <strong>Duration Window</strong>
-            <span>${b.start_date} to ${b.end_date}</span>
+            <span>${safeStartDate} to ${safeEndDate}</span>
           </div>
           <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
             <strong>Priority Level</strong>
-            <span class="card-priority-badge priority-${b.priority}">${b.priority}</span>
+            <span class="card-priority-badge priority-${safePriority}">${safePriority}</span>
           </div>
           <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
             <strong>Status</strong>
-            <span>${b.status}</span>
+            <span>${safeStatus}</span>
           </div>
           <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
             <strong>Recurring Monthly</strong>
@@ -153,12 +192,12 @@ async function openViewModal(budgetId) {
 
         ${b.notes ? `
           <div style="font-size: 0.88rem; color: var(--text-muted); background: #FFF; border: 1px solid var(--border-subtle); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
-            <strong>Notes:</strong> ${b.notes}
+            <strong>Notes:</strong> ${safeNotes}
           </div>
         ` : ''}
 
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
-          <a href="/budget/edit/${b.budget_id}" class="btn btn-emerald">
+          <a href="${safeEditHref}" class="btn btn-emerald">
             <i class="fa-regular fa-pen-to-square"></i> Edit Budget
           </a>
           <button type="button" class="btn btn-outline" onclick="closeViewModal()">Close</button>
