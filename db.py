@@ -175,6 +175,21 @@ def login_user(email, password):
     return True, serialize_row(user)
 
 
+def get_user_by_id(user_id):
+    """Return only the user fields safe to display in a profile view."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, username, email
+                FROM users
+                WHERE id = %s
+                """,
+                (user_id,),
+            )
+            return serialize_row(cursor.fetchone())
+
+
 def create_budget(user_id, data):
     payload = _clean_budget_data(data)
 
@@ -671,3 +686,424 @@ def get_monthly_expense_summary(user_id):
                 }
                 for row in cursor.fetchall()
             ]
+
+
+USER_PREFERENCE_COLUMNS = (
+    "user_id",
+    "theme",
+    "currency",
+    "language",
+    "budget_overspending_alerts",
+    "weekly_savings_digest_enabled",
+    "sip_due_date_reminders_enabled",
+    "bill_due_date_reminders_enabled",
+    "two_factor_enabled",
+    "created_at",
+    "updated_at",
+)
+USER_PREFERENCE_SELECT = ", ".join(USER_PREFERENCE_COLUMNS)
+USER_PREFERENCE_BOOLEAN_FIELDS = (
+    "budget_overspending_alerts",
+    "weekly_savings_digest_enabled",
+    "sip_due_date_reminders_enabled",
+    "bill_due_date_reminders_enabled",
+    "two_factor_enabled",
+)
+
+
+def list_preference_currencies():
+    """Return display-safe currency metadata for the preferences form."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT code, display_name, symbol
+                FROM preference_currencies
+                ORDER BY sort_order, code
+                """
+            )
+            return serialize_rows(cursor.fetchall())
+
+
+def list_preference_languages():
+    """Return display-safe language metadata for the preferences form."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT code, display_name
+                FROM preference_languages
+                ORDER BY sort_order, code
+                """
+            )
+            return serialize_rows(cursor.fetchall())
+
+
+def ensure_user_preferences(user_id):
+    """Return a user's preferences, creating default settings when absent."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT {USER_PREFERENCE_SELECT}
+                FROM user_preferences
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cursor.fetchone()
+            if row is None:
+                cursor.execute(
+                    f"""
+                    INSERT INTO user_preferences (user_id)
+                    VALUES (%s)
+                    ON CONFLICT (user_id) DO NOTHING
+                    RETURNING {USER_PREFERENCE_SELECT}
+                    """,
+                    (user_id,),
+                )
+                row = cursor.fetchone()
+
+            if row is None:
+                cursor.execute(
+                    f"""
+                    SELECT {USER_PREFERENCE_SELECT}
+                    FROM user_preferences
+                    WHERE user_id = %s
+                    """,
+                    (user_id,),
+                )
+                row = cursor.fetchone()
+
+    return serialize_row(row)
+
+
+def get_user_preferences(user_id):
+    """Return existing preferences for a user without creating a record."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT {USER_PREFERENCE_SELECT}
+                FROM user_preferences
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def _clean_user_preferences(data):
+    cleaned = {}
+    if "theme" in data:
+        cleaned["theme"] = str(data.get("theme") or "").strip().lower()
+    if "currency" in data:
+        cleaned["currency"] = str(data.get("currency") or "").strip().upper()
+    if "language" in data:
+        cleaned["language"] = str(data.get("language") or "").strip()
+    for field in USER_PREFERENCE_BOOLEAN_FIELDS:
+        if field in data:
+            cleaned[field] = _to_bool(data.get(field))
+    return cleaned
+
+
+def update_user_preferences(user_id, data):
+    """Update only preference fields for the authenticated user's record."""
+    payload = _clean_user_preferences(data)
+    if not payload:
+        return get_user_preferences(user_id)
+
+    assignments = [f"{field} = %s" for field in payload]
+    values = list(payload.values())
+    values.append(user_id)
+
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"""
+                UPDATE user_preferences
+                SET {", ".join(assignments)}, updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s
+                RETURNING {USER_PREFERENCE_SELECT}
+                """,
+                tuple(values),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+USER_SESSION_SELECT = """
+    id,
+    device_info,
+    ip_address,
+    created_at,
+    last_active_at
+"""
+
+
+def create_user_session(user_id, session_token_hash, device_info, ip_address):
+    """Persist the hash of a newly authenticated browser session."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"""
+                INSERT INTO user_sessions (
+                    user_id, session_token_hash, device_info, ip_address
+                )
+                VALUES (%s, %s, %s, %s)
+                RETURNING {USER_SESSION_SELECT}
+                """,
+                (user_id, session_token_hash, device_info, ip_address),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def is_user_session_active(user_id, session_token_hash):
+    """Verify an active session and record its latest protected activity."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE user_sessions
+                SET last_active_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s
+                  AND session_token_hash = %s
+                  AND revoked_at IS NULL
+                RETURNING id
+                """,
+                (user_id, session_token_hash),
+            )
+            return cursor.fetchone() is not None
+
+
+def list_active_user_sessions(user_id, current_session_token_hash):
+    """Return display-safe active session details for one user only."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT {USER_SESSION_SELECT},
+                       session_token_hash = %s AS is_current
+                FROM user_sessions
+                WHERE user_id = %s
+                  AND revoked_at IS NULL
+                ORDER BY last_active_at DESC, id DESC
+                """,
+                (current_session_token_hash, user_id),
+            )
+            return serialize_rows(cursor.fetchall())
+
+
+def revoke_user_session(session_id, user_id, current_session_token_hash):
+    """Revoke one other active session owned by the authenticated user."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE user_sessions
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                  AND user_id = %s
+                  AND session_token_hash <> %s
+                  AND revoked_at IS NULL
+                RETURNING id
+                """,
+                (session_id, user_id, current_session_token_hash),
+            )
+            return cursor.fetchone() is not None
+
+
+def revoke_current_user_session(user_id, session_token_hash):
+    """Revoke the active session associated with a normal logout."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE user_sessions
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s
+                  AND session_token_hash = %s
+                  AND revoked_at IS NULL
+                RETURNING id
+                """,
+                (user_id, session_token_hash),
+            )
+            return cursor.fetchone() is not None
+
+
+def revoke_all_user_sessions(user_id):
+    """Revoke every active session owned by one authenticated user."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE user_sessions
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s
+                  AND revoked_at IS NULL
+                """,
+                (user_id,),
+            )
+            return cursor.rowcount
+
+
+def update_user_password_and_revoke_other_sessions(
+    user_id, new_password, current_session_token_hash
+):
+    """Replace one user's password hash and revoke their other tracked sessions."""
+    new_password_hash = generate_password_hash(new_password)
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE users
+                SET password_hash = %s
+                WHERE id = %s
+                RETURNING id
+                """,
+                (new_password_hash, user_id),
+            )
+            if cursor.fetchone() is None:
+                return False
+
+            cursor.execute(
+                """
+                UPDATE user_sessions
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s
+                  AND session_token_hash <> %s
+                  AND revoked_at IS NULL
+                """,
+                (user_id, current_session_token_hash),
+            )
+    return True
+
+
+def verify_user_password(user_id, password):
+    """Verify a current password without returning the stored hash."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT password_hash FROM users WHERE id = %s",
+                (user_id,),
+            )
+            row = cursor.fetchone()
+    return bool(row and check_password_hash(row["password_hash"], password))
+
+
+def save_pending_totp_secret(user_id, secret_encrypted):
+    """Store an encrypted, not-yet-enabled TOTP secret for one user."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO user_totp_credentials (user_id, secret_encrypted)
+                VALUES (%s, %s)
+                ON CONFLICT (user_id) DO UPDATE
+                SET secret_encrypted = EXCLUDED.secret_encrypted,
+                    enabled_at = NULL,
+                    updated_at = CURRENT_TIMESTAMP
+                RETURNING user_id
+                """,
+                (user_id, secret_encrypted),
+            )
+            return cursor.fetchone() is not None
+
+
+def get_totp_credential(user_id):
+    """Return the encrypted credential only for the owning authenticated user."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT secret_encrypted, enabled_at
+                FROM user_totp_credentials
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def get_totp_status(user_id):
+    """Return display-safe TOTP state without exposing an encrypted secret."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT enabled_at IS NOT NULL AS is_enabled
+                FROM user_totp_credentials
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            row = cursor.fetchone()
+    return {
+        "is_enabled": bool(row and row["is_enabled"]),
+        "setup_pending": bool(row and not row["is_enabled"]),
+    }
+
+
+def enable_totp_for_user(user_id):
+    """Enable a verified credential and the existing preference flag together."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO user_preferences (user_id)
+                VALUES (%s)
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                (user_id,),
+            )
+            cursor.execute(
+                """
+                UPDATE user_totp_credentials
+                SET enabled_at = CURRENT_TIMESTAMP,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s
+                  AND enabled_at IS NULL
+                RETURNING user_id
+                """,
+                (user_id,),
+            )
+            enabled = cursor.fetchone() is not None
+            if enabled:
+                cursor.execute(
+                    """
+                    UPDATE user_preferences
+                    SET two_factor_enabled = TRUE,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = %s
+                    """,
+                    (user_id,),
+                )
+            return enabled
+
+
+def disable_totp_for_user(user_id):
+    """Remove a user's credential and clear the existing preference flag."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO user_preferences (user_id)
+                VALUES (%s)
+                ON CONFLICT (user_id) DO NOTHING
+                """,
+                (user_id,),
+            )
+            cursor.execute(
+                "DELETE FROM user_totp_credentials WHERE user_id = %s RETURNING user_id",
+                (user_id,),
+            )
+            disabled = cursor.fetchone() is not None
+            cursor.execute(
+                """
+                UPDATE user_preferences
+                SET two_factor_enabled = FALSE,
+                    updated_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s
+                """,
+                (user_id,),
+            )
+            return disabled

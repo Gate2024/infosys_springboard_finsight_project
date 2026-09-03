@@ -106,6 +106,7 @@ body::after {
 
 .navbar-user {
   gap: 15px;
+  position: relative;
 }
 
 .user-badge {
@@ -115,6 +116,70 @@ body::after {
   border-radius: 30px;
   border: 1px solid rgba(255, 255, 255, 0.12);
   font-size: 0.88rem;
+}
+
+.account-menu-trigger {
+  color: #EAF6F3;
+  cursor: pointer;
+  font-family: var(--font-accent);
+  font-weight: 700;
+  text-align: left;
+  transition: var(--transition-fast);
+}
+
+.account-menu-trigger:hover,
+.account-menu-trigger[aria-expanded="true"] {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(101, 208, 178, 0.42);
+}
+
+.account-menu-chevron {
+  font-size: 0.68rem;
+  transition: transform 0.2s ease;
+}
+
+.account-menu-trigger[aria-expanded="true"] .account-menu-chevron {
+  transform: rotate(180deg);
+}
+
+.account-menu {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 0.6rem);
+  right: 0;
+  min-width: 210px;
+  padding: 0.45rem;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--white-pure);
+  box-shadow: var(--shadow-lg);
+}
+
+.account-menu a {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.72rem 0.8rem;
+  border-radius: 8px;
+  color: var(--text-main);
+  font-family: var(--font-accent);
+  font-size: 0.84rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: var(--transition-fast);
+}
+
+.account-menu a:hover,
+.account-menu a:focus-visible {
+  background: rgba(19, 138, 112, 0.1);
+  color: var(--emerald-hover);
+  outline: none;
+}
+
+.account-menu a i {
+  width: 1rem;
+  color: var(--emerald-green);
+  text-align: center;
 }
 
 .user-avatar {
@@ -306,7 +371,7 @@ body::after {
   background: rgba(185, 28, 28, 0.88);
 }
 
-.nav-links .bi {
+.nav-links .fa-solid {
   font-size: 20px;
 }
 
@@ -843,7 +908,7 @@ h4 {
   transform: translateZ(0);
 }
 
-.nav-links .bi {
+.nav-links .fa-solid {
   width: 22px;
   min-width: 22px;
   text-align: center;

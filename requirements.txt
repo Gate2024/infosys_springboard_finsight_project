@@ -4,3 +4,5 @@ Werkzeug==3.0.4
 python-dotenv==1.0.1
 reportlab==5.0.1
 openpyxl==3.1.5
+pyotp==2.9.0
+cryptography==43.0.3

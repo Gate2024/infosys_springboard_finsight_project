@@ -182,6 +182,7 @@ def test_session_cookie_flags_are_hardened_for_local_authenticated_sessions(monk
         "login_user",
         lambda email, password: (True, {"id": 7, "username": "Tester", "email": email}),
     )
+    monkeypatch.setattr(application, "create_user_session", lambda *args: {"id": 1})
     response = application.app.test_client().post(
         "/login",
         data={"email": "tester@example.com", "password": "password"},
@@ -239,6 +240,7 @@ def test_successful_login_still_works_and_clears_failures(monkeypatch):
         ]
     )
     monkeypatch.setattr(application, "login_user", lambda email, password: next(outcomes))
+    monkeypatch.setattr(application, "create_user_session", lambda *args: {"id": 1})
     client = application.app.test_client()
 
     assert client.post(

@@ -17,14 +17,43 @@ function showToast(message, category = "info") {
 
 document.addEventListener("DOMContentLoaded", () => {
   const sidebarToggle = document.querySelector("[data-sidebar-toggle]");
-  if (!sidebarToggle) return;
+  if (sidebarToggle) {
+    sidebarToggle.addEventListener("click", () => {
+      if (window.matchMedia("(max-width: 768px)").matches) {
+        document.body.classList.toggle("sidebar-open");
+        return;
+      }
 
-  sidebarToggle.addEventListener("click", () => {
-    if (window.matchMedia("(max-width: 768px)").matches) {
-      document.body.classList.toggle("sidebar-open");
-      return;
+      document.body.classList.toggle("sidebar-collapsed");
+    });
+  }
+
+  const accountMenu = document.querySelector("[data-account-menu]");
+  if (!accountMenu) return;
+
+  const trigger = accountMenu.querySelector("[data-account-menu-trigger]");
+  const panel = accountMenu.querySelector("[data-account-menu-panel]");
+  if (!trigger || !panel) return;
+
+  const closeMenu = () => {
+    trigger.setAttribute("aria-expanded", "false");
+    panel.hidden = true;
+  };
+
+  trigger.addEventListener("click", () => {
+    const isOpen = trigger.getAttribute("aria-expanded") === "true";
+    trigger.setAttribute("aria-expanded", String(!isOpen));
+    panel.hidden = isOpen;
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!accountMenu.contains(event.target)) closeMenu();
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      closeMenu();
+      trigger.focus();
     }
-
-    document.body.classList.toggle("sidebar-collapsed");
   });
 });

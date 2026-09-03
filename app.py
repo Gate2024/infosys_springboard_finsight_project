@@ -1,4 +1,6 @@
 import csv
+import base64
+import hashlib
 import os
 import secrets
 import time
@@ -18,6 +20,8 @@ from flask import (
     session,
     url_for,
 )
+import pyotp
+from cryptography.fernet import Fernet, InvalidToken
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -30,16 +34,35 @@ from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, Tabl
 from config import Config
 from db import (
     create_budget,
+    create_user_session,
     delete_budget,
+    disable_totp_for_user,
+    enable_totp_for_user,
     filter_budgets,
     get_budget,
     get_monthly_expense_summary,
     get_expense_summary,
     get_summary_stats,
     get_transactions,
+    get_totp_credential,
+    get_totp_status,
+    get_user_by_id,
+    get_user_preferences,
+    is_user_session_active,
+    ensure_user_preferences,
     init_db,
+    list_preference_currencies,
+    list_preference_languages,
+    list_active_user_sessions,
     login_user,
     register_user,
+    revoke_all_user_sessions,
+    revoke_current_user_session,
+    revoke_user_session,
+    save_pending_totp_secret,
+    update_user_preferences,
+    update_user_password_and_revoke_other_sessions,
+    verify_user_password,
     update_budget,
 )
 from investment_repository import InvestmentRepository
@@ -173,16 +196,94 @@ CATEGORY_CONCENTRATION_THRESHOLD = Decimal("0.50")
 LARGE_EXPENSE_MULTIPLIER = Decimal("2")
 APPROACHING_BUDGET_THRESHOLD = Decimal("80")
 OVER_BUDGET_THRESHOLD = Decimal("100")
+PREFERENCE_THEME_OPTIONS = ("default",)
+PREFERENCE_BOOLEAN_FIELDS = (
+    "budget_overspending_alerts",
+    "weekly_savings_digest_enabled",
+    "sip_due_date_reminders_enabled",
+    "bill_due_date_reminders_enabled",
+)
+PREFERENCE_DEFAULTS = {
+    "theme": "default",
+    "currency": "USD",
+    "language": "en",
+    "budget_overspending_alerts": False,
+    "weekly_savings_digest_enabled": False,
+    "sip_due_date_reminders_enabled": False,
+    "bill_due_date_reminders_enabled": False,
+}
 
 
 def login_required_redirect():
     if not session.get("uid"):
         return redirect(url_for("login"))
+
+    session_token_hash = current_session_token_hash()
+    if session_token_hash and not is_user_session_active(
+        current_user_id(), session_token_hash
+    ):
+        session.clear()
+        flash("Your session is no longer active. Please sign in again.", "danger")
+        return redirect(url_for("login"))
+
     return None
 
 
 def current_user_id():
     return session["uid"]
+
+
+def current_session_token_hash():
+    session_token = session.get("auth_session_token")
+    if not isinstance(session_token, str) or not session_token:
+        return None
+    return hashlib.sha256(session_token.encode("utf-8")).hexdigest()
+
+
+def request_device_info():
+    return (request.headers.get("User-Agent") or "Unknown device").strip()[:255]
+
+
+def request_ip_address():
+    remote_addr = request.remote_addr or ""
+    return remote_addr[:45] or None
+
+
+def _totp_cipher():
+    key_material = hashlib.sha256(
+        app.config["SECRET_KEY"].encode("utf-8")
+    ).digest()
+    return Fernet(base64.urlsafe_b64encode(key_material))
+
+
+def encrypt_totp_secret(secret):
+    return _totp_cipher().encrypt(secret.encode("utf-8")).decode("utf-8")
+
+
+def decrypt_totp_secret(secret_encrypted):
+    return _totp_cipher().decrypt(secret_encrypted.encode("utf-8")).decode("utf-8")
+
+
+def establish_authenticated_session(user):
+    """Create the Flask and tracked-device session after all auth checks pass."""
+    session_token = secrets.token_urlsafe(32)
+    try:
+        create_user_session(
+            user["id"],
+            hashlib.sha256(session_token.encode("utf-8")).hexdigest(),
+            request_device_info(),
+            request_ip_address(),
+        )
+    except Exception:
+        app.logger.exception("Authenticated session registration failed")
+        return False
+
+    session.clear()
+    session["uid"] = user["id"]
+    session["username"] = user["username"]
+    session["email"] = user["email"]
+    session["auth_session_token"] = session_token
+    return True
 
 
 def _safe_non_negative_decimal(value):
@@ -450,6 +551,48 @@ def expense_csrf_valid():
     return bool(expected and supplied and secrets.compare_digest(expected, supplied))
 
 
+def preferences_csrf_token():
+    token = session.get("preferences_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["preferences_csrf_token"] = token
+    return token
+
+
+def preferences_csrf_valid():
+    expected = session.get("preferences_csrf_token")
+    supplied = request.form.get("_preferences_csrf_token", "")
+    return bool(expected and supplied and secrets.compare_digest(expected, supplied))
+
+
+def security_sessions_csrf_token():
+    token = session.get("security_sessions_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["security_sessions_csrf_token"] = token
+    return token
+
+
+def security_sessions_csrf_valid():
+    expected = session.get("security_sessions_csrf_token")
+    supplied = request.form.get("_security_sessions_csrf_token", "")
+    return bool(expected and supplied and secrets.compare_digest(expected, supplied))
+
+
+def two_factor_login_csrf_token():
+    token = session.get("two_factor_login_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["two_factor_login_csrf_token"] = token
+    return token
+
+
+def two_factor_login_csrf_valid():
+    expected = session.get("two_factor_login_csrf_token")
+    supplied = request.form.get("_two_factor_login_csrf_token", "")
+    return bool(expected and supplied and secrets.compare_digest(expected, supplied))
+
+
 @app.route("/")
 def home():
     if session.get("uid"):
@@ -460,7 +603,12 @@ def home():
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("uid"):
-        return redirect(url_for("dashboard"))
+        session_token_hash = current_session_token_hash()
+        if not session_token_hash or is_user_session_active(
+            current_user_id(), session_token_hash
+        ):
+            return redirect(url_for("dashboard"))
+        session.clear()
 
     if request.method == "POST":
         email = request.form.get("email", "").strip().lower()
@@ -476,15 +624,79 @@ def login():
         if success:
             _clear_login_failures()
             session.clear()
-            session["uid"] = user["id"]
-            session["username"] = user["username"]
-            session["email"] = user["email"]
+            if get_totp_status(user["id"])["is_enabled"]:
+                session["pending_2fa_user_id"] = user["id"]
+                return redirect(url_for("login_two_factor"))
+
+            if not establish_authenticated_session(user):
+                return render_template(
+                    "login.html",
+                    error="Unable to start a secure session. Please try again.",
+                ), 503
             return redirect(url_for("dashboard"))
 
         _record_login_failure()
         return render_template("login.html", error="Invalid email or password.")
 
     return render_template("login.html", error=None)
+
+
+@app.route("/login/2fa", methods=["GET", "POST"])
+def login_two_factor():
+    pending_user_id = session.get("pending_2fa_user_id")
+    if not pending_user_id:
+        return redirect(url_for("login"))
+
+    if request.method == "GET":
+        return render_template(
+            "two_factor_login.html",
+            two_factor_login_csrf_token=two_factor_login_csrf_token(),
+            error=None,
+        )
+
+    if not two_factor_login_csrf_valid():
+        return render_template(
+            "two_factor_login.html",
+            two_factor_login_csrf_token=two_factor_login_csrf_token(),
+            error="The form security token is missing or invalid.",
+        ), 400
+    if _login_rate_limited():
+        return render_template(
+            "two_factor_login.html",
+            two_factor_login_csrf_token=two_factor_login_csrf_token(),
+            error="Too many failed verification attempts. Please try again later.",
+        ), 429
+
+    credential = get_totp_credential(pending_user_id)
+    if not credential or credential["enabled_at"] is None:
+        session.clear()
+        return redirect(url_for("login"))
+
+    try:
+        is_valid = pyotp.TOTP(
+            decrypt_totp_secret(credential["secret_encrypted"])
+        ).verify(request.form.get("totp_code", ""), valid_window=0)
+    except (InvalidToken, ValueError):
+        is_valid = False
+
+    if not is_valid:
+        _record_login_failure()
+        return render_template(
+            "two_factor_login.html",
+            two_factor_login_csrf_token=two_factor_login_csrf_token(),
+            error="Invalid verification code.",
+        )
+
+    user = get_user_by_id(pending_user_id)
+    if not user or not establish_authenticated_session(user):
+        session.clear()
+        return render_template(
+            "login.html",
+            error="Unable to start a secure session. Please try again.",
+        ), 503
+
+    _clear_login_failures()
+    return redirect(url_for("dashboard"))
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -516,8 +728,326 @@ def register():
 
 @app.route("/logout")
 def logout():
+    user_id = session.get("uid")
+    session_token_hash = current_session_token_hash()
+    if user_id and session_token_hash:
+        try:
+            revoke_current_user_session(user_id, session_token_hash)
+        except Exception:
+            app.logger.exception("Authenticated session revocation failed during logout")
     session.clear()
     return redirect(url_for("login"))
+
+
+@app.get("/profile")
+def profile():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    user = get_user_by_id(current_user_id())
+    if not user:
+        flash("Profile not found.", "danger")
+        return redirect(url_for("dashboard"))
+
+    return render_template("profile/dashboard.html", user=user)
+
+
+def security_page_data(user_id):
+    return (
+        list_active_user_sessions(user_id, current_session_token_hash() or ""),
+        get_totp_status(user_id),
+    )
+
+
+def render_security_sessions(
+    active_sessions, totp_status, status=200, setup_secret=None
+):
+    return render_template(
+        "profile/security.html",
+        active_sessions=active_sessions,
+        totp_status=totp_status,
+        setup_secret=setup_secret,
+        security_sessions_csrf_token=security_sessions_csrf_token(),
+    ), status
+
+
+@app.get("/profile/security")
+def profile_security():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    active_sessions, totp_status = security_page_data(current_user_id())
+    return render_security_sessions(active_sessions, totp_status)
+
+
+@app.post("/profile/security/password")
+def change_password():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    user_id = current_user_id()
+    active_sessions, totp_status = security_page_data(user_id)
+    if not security_sessions_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+
+    current_password = request.form.get("current_password", "")
+    new_password = request.form.get("new_password", "")
+    confirm_password = request.form.get("confirm_password", "")
+    if not current_password or not new_password or not confirm_password:
+        flash("All password fields are required.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+    if not verify_user_password(user_id, current_password):
+        flash("Current password is incorrect.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+    if new_password != confirm_password:
+        flash("New password and confirmation do not match.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+    if verify_user_password(user_id, new_password):
+        flash("New password must be different from the current password.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+    if len(new_password) < 6:
+        flash("Password must contain at least 6 characters.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+
+    try:
+        changed = update_user_password_and_revoke_other_sessions(
+            user_id, new_password, current_session_token_hash() or ""
+        )
+    except Exception:
+        app.logger.exception("Password change failed")
+        flash("Unable to change password. Please try again.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 503)
+
+    if not changed:
+        flash("Unable to change password. Please try again.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 503)
+
+    flash("Password changed successfully. Other active devices were signed out.", "success")
+    return redirect(url_for("profile_security"))
+
+
+@app.post("/profile/security/totp/setup")
+def setup_totp():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    user_id = current_user_id()
+    active_sessions, totp_status = security_page_data(user_id)
+    if not security_sessions_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+    if totp_status["is_enabled"]:
+        flash("Two-factor authentication is already enabled.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+
+    secret = pyotp.random_base32()
+    try:
+        save_pending_totp_secret(user_id, encrypt_totp_secret(secret))
+    except Exception:
+        app.logger.exception("Two-factor setup could not be saved")
+        flash("Unable to start two-factor setup. Please try again.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 503)
+
+    active_sessions, totp_status = security_page_data(user_id)
+    return render_security_sessions(
+        active_sessions, totp_status, setup_secret=secret
+    )
+
+
+@app.post("/profile/security/totp/verify")
+def verify_totp_setup():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    user_id = current_user_id()
+    active_sessions, totp_status = security_page_data(user_id)
+    if not security_sessions_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+
+    credential = get_totp_credential(user_id)
+    if not credential or credential["enabled_at"] is not None:
+        flash("No pending two-factor setup was found.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+
+    try:
+        is_valid = pyotp.TOTP(
+            decrypt_totp_secret(credential["secret_encrypted"])
+        ).verify(request.form.get("totp_code", ""), valid_window=0)
+    except (InvalidToken, ValueError):
+        is_valid = False
+
+    if not is_valid or not enable_totp_for_user(user_id):
+        flash("Invalid verification code.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+
+    flash("Two-factor authentication is enabled.", "success")
+    return redirect(url_for("profile_security"))
+
+
+@app.post("/profile/security/totp/disable")
+def disable_totp():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    user_id = current_user_id()
+    active_sessions, totp_status = security_page_data(user_id)
+    if not security_sessions_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+    if not totp_status["is_enabled"]:
+        flash("Two-factor authentication is not enabled.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+    if not verify_user_password(user_id, request.form.get("current_password", "")):
+        flash("Current password is incorrect.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+
+    credential = get_totp_credential(user_id)
+    try:
+        is_valid = credential and pyotp.TOTP(
+            decrypt_totp_secret(credential["secret_encrypted"])
+        ).verify(request.form.get("totp_code", ""), valid_window=0)
+    except (InvalidToken, ValueError):
+        is_valid = False
+
+    if not is_valid:
+        flash("Invalid verification code.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 400)
+    if not disable_totp_for_user(user_id):
+        flash("Unable to disable two-factor authentication.", "danger")
+        return render_security_sessions(active_sessions, totp_status, 503)
+
+    flash("Two-factor authentication is disabled.", "success")
+    return redirect(url_for("profile_security"))
+
+
+@app.post("/profile/security/sessions/<int:session_id>/logout")
+def logout_device_session(session_id):
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    user_id = current_user_id()
+    session_token_hash = current_session_token_hash() or ""
+    if not security_sessions_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        active_sessions, totp_status = security_page_data(user_id)
+        return render_security_sessions(active_sessions, totp_status, 400)
+
+    if revoke_user_session(session_id, user_id, session_token_hash):
+        flash("Device signed out successfully.", "success")
+    else:
+        flash("Active device not found.", "danger")
+    return redirect(url_for("profile_security"))
+
+
+@app.post("/profile/security/sessions/logout-all")
+def logout_all_device_sessions():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    if not security_sessions_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        active_sessions, totp_status = security_page_data(current_user_id())
+        return render_security_sessions(active_sessions, totp_status, 400)
+
+    revoke_all_user_sessions(current_user_id())
+    session.clear()
+    flash("You have been signed out from all devices.", "success")
+    return redirect(url_for("login"))
+
+
+def preference_reference_options():
+    return list_preference_currencies(), list_preference_languages()
+
+
+def validate_preferences_form(form, currency_options, language_options):
+    preferences = {
+        "theme": form.get("theme", "").strip().lower(),
+        "currency": form.get("currency", "").strip().upper(),
+        "language": form.get("language", "").strip().lower(),
+    }
+    errors = []
+
+    if preferences["theme"] not in PREFERENCE_THEME_OPTIONS:
+        errors.append("Select a supported theme.")
+    currency_codes = {option["code"] for option in currency_options}
+    language_codes = {option["code"] for option in language_options}
+    if preferences["currency"] not in currency_codes:
+        errors.append("Select a supported currency.")
+    if preferences["language"] not in language_codes:
+        errors.append("Select a supported language.")
+
+    for field in PREFERENCE_BOOLEAN_FIELDS:
+        preferences[field] = field in form
+
+    return preferences, errors
+
+
+def render_preferences(preferences, currency_options, language_options, status=200):
+    return render_template(
+        "profile/preferences.html",
+        preferences=preferences or PREFERENCE_DEFAULTS,
+        theme_options=PREFERENCE_THEME_OPTIONS,
+        currency_options=currency_options,
+        language_options=language_options,
+        preferences_csrf_token=preferences_csrf_token(),
+    ), status
+
+
+@app.route("/profile/preferences", methods=["GET", "POST"])
+def profile_preferences():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    user_id = current_user_id()
+    currency_options, language_options = preference_reference_options()
+
+    if request.method == "GET":
+        return render_preferences(
+            ensure_user_preferences(user_id), currency_options, language_options
+        )
+
+    if not preferences_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return render_preferences(
+            get_user_preferences(user_id), currency_options, language_options, 400
+        )
+
+    updated_preferences, errors = validate_preferences_form(
+        request.form, currency_options, language_options
+    )
+    if errors:
+        for error in errors:
+            flash(error, "danger")
+        return render_preferences(
+            get_user_preferences(user_id), currency_options, language_options, 400
+        )
+
+    preferences = ensure_user_preferences(user_id)
+
+    try:
+        saved_preferences = update_user_preferences(user_id, updated_preferences)
+    except Exception:
+        app.logger.exception("Preference update failed")
+        flash("Unable to save preferences. Please try again.", "danger")
+        return render_preferences(preferences, currency_options, language_options, 503)
+
+    if not saved_preferences:
+        flash("Unable to save preferences. Please try again.", "danger")
+        return render_preferences(preferences, currency_options, language_options, 503)
+
+    flash("Preferences saved successfully.", "success")
+    return redirect(url_for("profile_preferences"))
 
 
 @app.route("/dashboard")
@@ -1737,7 +2267,7 @@ def edit_budget(budget_id):
 
 @app.route("/budget/view/<int:budget_id>")
 def view_budget(budget_id):
-    if not session.get("uid"):
+    if login_required_redirect():
         return jsonify({"success": False, "message": "Unauthorized"}), 401
 
     budget = get_budget(budget_id, current_user_id())
@@ -1993,7 +2523,7 @@ def edit_expense(transaction_id):
 
 @app.route("/expense/view/<int:transaction_id>")
 def view_expense(transaction_id):
-    if not session.get("uid"):
+    if login_required_redirect():
         return jsonify({"success": False, "message": "Unauthorized"}), 401
 
     from db import get_transaction

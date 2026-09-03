@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+
+{% block title %}Security &amp; 2FA{% endblock %}
+
+{% block content %}
+<div class="form-header-bar animated-fade-in">
+  <div>
+    <h1 class="form-header-title"><i class="fa-solid fa-shield-halved" style="color: var(--emerald-green);"></i> Security &amp; 2FA</h1>
+    <p class="form-header-subtitle">Manage your password, signed-in devices, and two-factor authentication.</p>
+  </div>
+  <div class="actions-right">
+    <a href="{{ url_for('profile') }}" class="btn btn-outline"><i class="fa-solid fa-user"></i> My Profile</a>
+    <a href="{{ url_for('profile_preferences') }}" class="btn btn-outline"><i class="fa-solid fa-sliders"></i> Preferences</a>
+    <a href="{{ url_for('profile_security') }}" class="btn btn-emerald"><i class="fa-solid fa-shield-halved"></i> Security &amp; 2FA</a>
+  </div>
+</div>
+
+<section class="form-card animated-fade-in" aria-labelledby="change-password-title">
+  <h2 id="change-password-title" class="toggle-title">Change Password</h2>
+  <form method="POST" action="{{ url_for('change_password') }}" class="form-grid">
+    <input type="hidden" name="_security_sessions_csrf_token" value="{{ security_sessions_csrf_token }}">
+    <div>
+      <label for="password_current" class="form-label">Current Password</label>
+      <input id="password_current" name="current_password" type="password" class="input-control" autocomplete="current-password" required>
+    </div>
+    <div>
+      <label for="password_new" class="form-label">New Password</label>
+      <input id="password_new" name="new_password" type="password" class="input-control" autocomplete="new-password" minlength="6" required>
+    </div>
+    <div>
+      <label for="password_confirm" class="form-label">Confirm New Password</label>
+      <input id="password_confirm" name="confirm_password" type="password" class="input-control" autocomplete="new-password" minlength="6" required>
+    </div>
+    <div class="form-group-full form-actions-bar">
+      <button type="submit" class="btn btn-emerald"><i class="fa-solid fa-key"></i> Change Password</button>
+    </div>
+  </form>
+</section>
+
+<section class="form-card animated-fade-in" aria-labelledby="two-factor-title">
+  <h2 id="two-factor-title" class="toggle-title">Two-Factor Authentication</h2>
+  {% if totp_status.is_enabled %}
+    <div class="toggle-switch-wrapper">
+      <div class="toggle-info">
+        <span class="toggle-title">2FA Enabled</span>
+        <span class="toggle-desc">Your account requires an authenticator code when signing in.</span>
+      </div>
+      <span class="toggle-title">Enabled</span>
+    </div>
+    <form method="POST" action="{{ url_for('disable_totp') }}" class="form-grid">
+      <input type="hidden" name="_security_sessions_csrf_token" value="{{ security_sessions_csrf_token }}">
+      <div>
+        <label for="current_password" class="form-label">Current Password</label>
+        <input id="current_password" name="current_password" type="password" class="input-control" autocomplete="current-password" required>
+      </div>
+      <div>
+        <label for="disable_totp_code" class="form-label">Authenticator Code</label>
+        <input id="disable_totp_code" name="totp_code" type="text" class="input-control" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+      </div>
+      <div class="form-group-full form-actions-bar">
+        <span class="toggle-desc">Disabling 2FA removes the saved authenticator credential.</span>
+        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-shield-halved"></i> Disable 2FA</button>
+      </div>
+    </form>
+  {% elif setup_secret %}
+    <div class="toggle-switch-wrapper">
+      <div class="toggle-info">
+        <span class="toggle-title">Verification Required</span>
+        <span class="toggle-desc">Add this key to an authenticator app, then enter its current six-digit code.</span>
+      </div>
+    </div>
+    <div class="form-group-full">
+      <span class="form-label">Manual Setup Key</span>
+      <div class="input-control">{{ setup_secret }}</div>
+    </div>
+    <form method="POST" action="{{ url_for('verify_totp_setup') }}" class="form-grid">
+      <input type="hidden" name="_security_sessions_csrf_token" value="{{ security_sessions_csrf_token }}">
+      <div>
+        <label for="setup_totp_code" class="form-label">Authenticator Code</label>
+        <input id="setup_totp_code" name="totp_code" type="text" class="input-control" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
+      </div>
+      <div class="form-group-full form-actions-bar">
+        <span class="toggle-desc">2FA remains disabled until this code is verified.</span>
+        <button type="submit" class="btn btn-emerald"><i class="fa-solid fa-circle-check"></i> Verify and Enable</button>
+      </div>
+    </form>
+  {% else %}
+    <div class="toggle-switch-wrapper">
+      <div class="toggle-info">
+        <span class="toggle-title">{% if totp_status.setup_pending %}Verification Required{% else %}2FA Disabled{% endif %}</span>
+        <span class="toggle-desc">{% if totp_status.setup_pending %}Start setup again to display a new manual key.{% else %}Protect your account with an authenticator app.{% endif %}</span>
+      </div>
+      <form method="POST" action="{{ url_for('setup_totp') }}">
+        <input type="hidden" name="_security_sessions_csrf_token" value="{{ security_sessions_csrf_token }}">
+        <button type="submit" class="btn btn-emerald"><i class="fa-solid fa-shield-halved"></i> Setup 2FA</button>
+      </form>
+    </div>
+  {% endif %}
+</section>
+
+<section class="form-card animated-fade-in" aria-labelledby="active-devices-title">
+  <h2 id="active-devices-title" class="toggle-title">Active Logged-In Devices</h2>
+  <div class="form-grid">
+    {% for device in active_sessions %}
+      <div class="form-group-full toggle-switch-wrapper">
+        <div class="toggle-info">
+          <span class="toggle-title">{{ device.device_info }}</span>
+          <span class="toggle-desc">
+            {% if device.ip_address %}IP address: {{ device.ip_address }} · {% endif %}
+            Signed in: {{ device.created_at }} · Last active: {{ device.last_active_at }}
+          </span>
+        </div>
+        {% if device.is_current %}
+          <span class="toggle-title">Current device</span>
+        {% else %}
+          <form method="POST" action="{{ url_for('logout_device_session', session_id=device.id) }}">
+            <input type="hidden" name="_security_sessions_csrf_token" value="{{ security_sessions_csrf_token }}">
+            <button type="submit" class="btn btn-outline"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
+          </form>
+        {% endif %}
+      </div>
+    {% else %}
+      <div class="form-group-full">
+        <span class="toggle-desc">No tracked active devices are available for this session.</span>
+      </div>
+    {% endfor %}
+  </div>
+
+  <div class="form-actions-bar">
+    <a href="{{ url_for('profile') }}" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Back to Profile</a>
+    <form method="POST" action="{{ url_for('logout_all_device_sessions') }}">
+      <input type="hidden" name="_security_sessions_csrf_token" value="{{ security_sessions_csrf_token }}">
+      <button type="submit" class="btn btn-danger"><i class="fa-solid fa-right-from-bracket"></i> Logout from All Devices</button>
+    </form>
+  </div>
+</section>
+{% endblock %}
