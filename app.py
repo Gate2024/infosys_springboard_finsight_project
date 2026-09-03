@@ -196,7 +196,8 @@ CATEGORY_CONCENTRATION_THRESHOLD = Decimal("0.50")
 LARGE_EXPENSE_MULTIPLIER = Decimal("2")
 APPROACHING_BUDGET_THRESHOLD = Decimal("80")
 OVER_BUDGET_THRESHOLD = Decimal("100")
-PREFERENCE_THEME_OPTIONS = ("default",)
+PREFERENCE_THEME_OPTIONS = ("default", "light", "dark")
+PREFERENCE_THEME_DISPLAY_OPTIONS = ("light", "dark")
 PREFERENCE_BOOLEAN_FIELDS = (
     "budget_overspending_alerts",
     "weekly_savings_digest_enabled",
@@ -212,6 +213,15 @@ PREFERENCE_DEFAULTS = {
     "sip_due_date_reminders_enabled": False,
     "bill_due_date_reminders_enabled": False,
 }
+
+
+def normalize_theme(theme):
+    """Map persisted theme values to the themes supported by the UI."""
+    return "dark" if str(theme or "").strip().lower() == "dark" else "light"
+
+
+def sync_theme_session(preferences):
+    session["theme"] = normalize_theme((preferences or {}).get("theme"))
 
 
 def login_required_redirect():
@@ -283,6 +293,12 @@ def establish_authenticated_session(user):
     session["username"] = user["username"]
     session["email"] = user["email"]
     session["auth_session_token"] = session_token
+    try:
+        preferences = get_user_preferences(user["id"])
+    except Exception:
+        app.logger.exception("Unable to load the user's theme preference")
+        preferences = None
+    sync_theme_session(preferences)
     return True
 
 
@@ -993,10 +1009,11 @@ def validate_preferences_form(form, currency_options, language_options):
 
 
 def render_preferences(preferences, currency_options, language_options, status=200):
+    sync_theme_session(preferences)
     return render_template(
         "profile/preferences.html",
         preferences=preferences or PREFERENCE_DEFAULTS,
-        theme_options=PREFERENCE_THEME_OPTIONS,
+        theme_options=PREFERENCE_THEME_DISPLAY_OPTIONS,
         currency_options=currency_options,
         language_options=language_options,
         preferences_csrf_token=preferences_csrf_token(),

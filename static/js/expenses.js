@@ -70,7 +70,7 @@ async function openExpenseModal(transactionId) {
     const data = await response.json();
 
     if (!data.success || !data.expense) {
-      modalBody.innerHTML = `<p style="color:#B91C1C;">Unable to load expense details.</p>`;
+      modalBody.innerHTML = `<p style="color:var(--danger);">Unable to load expense details.</p>`;
       return;
     }
 
@@ -114,7 +114,7 @@ async function openExpenseModal(transactionId) {
       </div>
     `;
   } catch (error) {
-    modalBody.innerHTML = `<p style="color:#B91C1C;">Failed to connect to the server.</p>`;
+    modalBody.innerHTML = `<p style="color:var(--danger);">Failed to connect to the server.</p>`;
   }
 }
 

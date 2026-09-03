@@ -2,37 +2,78 @@
 
 {% block title %}My Profile{% endblock %}
 
+{% block page_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="form-header-bar animated-fade-in">
+<div class="profile-page profile-dashboard-page">
+<header class="profile-page-header animated-fade-in">
   <div>
-    <h1 class="form-header-title"><i class="fa-solid fa-user" style="color: var(--emerald-green);"></i> My Profile</h1>
-    <p class="form-header-subtitle">Your currently signed-in account details.</p>
+    <div class="profile-heading-eyebrow">Account center</div>
+    <h1 class="profile-page-title"><i class="fa-solid fa-user"></i> My Profile</h1>
+    <p class="profile-page-subtitle">Your currently signed-in account details.</p>
   </div>
-  <div class="actions-right">
-    <a href="{{ url_for('profile') }}" class="btn btn-emerald">
-      <i class="fa-solid fa-user"></i> My Profile
-    </a>
+  <nav class="profile-nav" aria-label="Profile management">
     <a href="{{ url_for('profile_preferences') }}" class="btn btn-outline">
       <i class="fa-solid fa-sliders"></i> Preferences
     </a>
     <a href="{{ url_for('profile_security') }}" class="btn btn-outline">
       <i class="fa-solid fa-shield-halved"></i> Security &amp; 2FA
     </a>
-  </div>
-</div>
+  </nav>
+</header>
 
-<section class="form-card animated-fade-in" aria-labelledby="profile-details-title">
-  <h2 id="profile-details-title" class="form-section-title">Account Details</h2>
-  <p class="form-header-subtitle">These details are managed by your registered FinSight account.</p>
-  <div class="form-grid">
-    <div class="form-group-full">
-      <span class="form-label">Username</span>
-      <div class="input-control">{{ user.username }}</div>
+<section class="profile-card profile-summary-card animated-fade-in" aria-label="Signed-in account">
+  <div class="profile-summary-identity">
+    <span class="profile-avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span>
+    <div>
+      <div class="profile-summary-kicker">Signed in account</div>
+      <div class="profile-summary-name">{{ user.username }}</div>
+      <p class="profile-summary-note">Your FinSight account is ready to manage.</p>
     </div>
-    <div class="form-group-full">
-      <span class="form-label">Email</span>
-      <div class="input-control">{{ user.email }}</div>
-    </div>
+  </div>
+  <div class="profile-summary-action">
+    <a href="{{ url_for('profile_preferences') }}" class="btn btn-emerald">
+      <i class="fa-solid fa-sliders"></i> Manage Preferences
+    </a>
   </div>
 </section>
+
+<div class="profile-layout">
+  <section class="profile-card animated-fade-in" aria-labelledby="profile-details-title">
+    <div class="profile-card-heading">
+      <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-id-card"></i></span>
+      <div>
+        <h2 id="profile-details-title" class="profile-card-title">Account Details</h2>
+        <p class="profile-card-description">These details are managed by your registered FinSight account.</p>
+      </div>
+    </div>
+    <div class="profile-details-grid">
+      <div>
+        <span class="profile-field-label">Username</span>
+        <div class="profile-readonly">{{ user.username }}</div>
+      </div>
+      <div>
+        <span class="profile-field-label">Email</span>
+        <div class="profile-readonly">{{ user.email }}</div>
+      </div>
+    </div>
+  </section>
+
+  <section class="profile-card animated-fade-in" aria-labelledby="profile-access-title">
+    <div class="profile-card-heading">
+      <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-compass"></i></span>
+      <div>
+        <h2 id="profile-access-title" class="profile-card-title">Profile Management</h2>
+        <p class="profile-card-description">Update the settings that shape your account experience.</p>
+      </div>
+    </div>
+    <ul class="profile-access-list">
+      <li><a href="{{ url_for('profile_preferences') }}"><i class="fa-solid fa-sliders"></i> Preferences <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></li>
+      <li><a href="{{ url_for('profile_security') }}"><i class="fa-solid fa-shield-halved"></i> Security &amp; 2FA <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></li>
+    </ul>
+  </section>
+</div>
+</div>
 {% endblock %}

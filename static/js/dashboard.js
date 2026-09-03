@@ -149,7 +149,7 @@ async function openViewModal(budgetId) {
             <i class="fa-solid ${safeBudgetIcon}"></i>
           </div>
           <div>
-            <h2 style="font-size: 1.5rem; color: var(--navy-dark);">${safeBudgetName}</h2>
+            <h2 style="font-size: 1.5rem; color: var(--text-primary);">${safeBudgetName}</h2>
             <span style="font-size: 0.82rem; color: var(--text-muted);">${safeCategory} • ${safeCurrency}</span>
           </div>
         </div>
@@ -163,15 +163,15 @@ async function openViewModal(budgetId) {
           </div>
           <div class="amount-box">
             <span class="amount-label">Spent</span>
-            <span class="amount-val" style="color: #B91C1C;">$${spent.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+            <span class="amount-val" style="color: var(--danger);">$${spent.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
           </div>
           <div class="amount-box">
             <span class="amount-label">Remaining</span>
-            <span class="amount-val" style="color: #059669;">$${rem.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+            <span class="amount-val" style="color: var(--success);">$${rem.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
           </div>
         </div>
 
-        <div style="background: rgba(17, 24, 32, 0.04); border-radius: 14px; padding: 1.2rem; margin-bottom: 1.5rem;">
+        <div style="background: var(--bg-surface-muted); border-radius: 14px; padding: 1.2rem; margin-bottom: 1.5rem;">
           <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
             <strong>Duration Window</strong>
             <span>${safeStartDate} to ${safeEndDate}</span>
@@ -191,7 +191,7 @@ async function openViewModal(budgetId) {
         </div>
 
         ${b.notes ? `
-          <div style="font-size: 0.88rem; color: var(--text-muted); background: #FFF; border: 1px solid var(--border-subtle); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
+          <div style="font-size: 0.88rem; color: var(--text-muted); background: var(--bg-surface-elevated); border: 1px solid var(--border-color); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
             <strong>Notes:</strong> ${safeNotes}
           </div>
         ` : ''}
@@ -204,10 +204,10 @@ async function openViewModal(budgetId) {
         </div>
       `;
     } else {
-      modalBody.innerHTML = `<p style="color: #DC2626;">Error loading budget details.</p>`;
+      modalBody.innerHTML = `<p style="color: var(--danger);">Error loading budget details.</p>`;
     }
   } catch (err) {
-    modalBody.innerHTML = `<p style="color: #DC2626;">Failed to connect to server.</p>`;
+    modalBody.innerHTML = `<p style="color: var(--danger);">Failed to connect to server.</p>`;
   }
 }
 

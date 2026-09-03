@@ -1,8 +1,35 @@
+function reportThemeColor(name, fallback) {
+    const value = getComputedStyle(document.documentElement)
+        .getPropertyValue(name)
+        .trim();
+    return value || fallback;
+}
+
+function reportChartTheme() {
+    return {
+        axis: reportThemeColor("--chart-axis", "#64748B"),
+        grid: reportThemeColor("--chart-grid", "rgba(18, 35, 51, 0.12)"),
+        tooltipBackground: reportThemeColor("--chart-tooltip-bg", "#1E293B"),
+        tooltipText: reportThemeColor("--chart-tooltip-text", "#F8FAFC"),
+        primary: reportThemeColor("--chart-primary", "#2563EB"),
+        accent: reportThemeColor("--accent-primary", "#138A70"),
+        accentFill: reportThemeColor("--chart-accent-fill", "rgba(19, 138, 112, 0.14)"),
+        series: [
+            reportThemeColor("--chart-report-series-1", "#138A70"),
+            reportThemeColor("--chart-report-series-2", "#65D0B2"),
+            reportThemeColor("--chart-report-series-3", "#A8864B"),
+            reportThemeColor("--chart-report-series-4", "#B91C1C"),
+            reportThemeColor("--chart-report-series-5", "#7C3AED"),
+        ],
+    };
+}
+
 document.addEventListener("DOMContentLoaded", function () {
     const categoryCanvas = document.getElementById("reportsExpenseCategoryChart");
     const categoryData = window.reportsExpenseCategories || [];
     const monthlyCanvas = document.getElementById("reportsMonthlyExpenseChart");
     const monthlyData = window.reportsMonthlyExpenses || [];
+    const theme = reportChartTheme();
 
     if (categoryCanvas && categoryData.length && typeof Chart !== "undefined") {
         new Chart(categoryCanvas, {
@@ -11,7 +38,7 @@ document.addEventListener("DOMContentLoaded", function () {
                 labels: categoryData.map((item) => item.category),
                 datasets: [{
                     data: categoryData.map((item) => item.amount),
-                    backgroundColor: ["#138A70", "#65D0B2", "#A8864B", "#2563EB", "#B91C1C", "#7C3AED"],
+                    backgroundColor: theme.series.concat([theme.primary]),
                     borderWidth: 0,
                     hoverOffset: 8,
                 }],
@@ -21,8 +48,14 @@ document.addEventListener("DOMContentLoaded", function () {
                 maintainAspectRatio: false,
                 cutout: "68%",
                 plugins: {
-                    legend: { position: "bottom" },
+                    legend: {
+                        position: "bottom",
+                        labels: { color: theme.axis },
+                    },
                     tooltip: {
+                        backgroundColor: theme.tooltipBackground,
+                        titleColor: theme.tooltipText,
+                        bodyColor: theme.tooltipText,
                         callbacks: {
                             label: (context) => ` ₹${context.parsed.toLocaleString()}`,
                         },
@@ -40,8 +73,8 @@ document.addEventListener("DOMContentLoaded", function () {
                 datasets: [{
                     label: "Recorded Expenses",
                     data: monthlyData.map((item) => item.amount),
-                    borderColor: "#138A70",
-                    backgroundColor: "rgba(19, 138, 112, 0.14)",
+                    borderColor: theme.accent,
+                    backgroundColor: theme.accentFill,
                     fill: true,
                     tension: 0.3,
                     pointRadius: 4,
@@ -51,13 +84,29 @@ document.addEventListener("DOMContentLoaded", function () {
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
-                plugins: { legend: { position: "bottom" } },
+                plugins: {
+                    legend: {
+                        position: "bottom",
+                        labels: { color: theme.axis },
+                    },
+                    tooltip: {
+                        backgroundColor: theme.tooltipBackground,
+                        titleColor: theme.tooltipText,
+                        bodyColor: theme.tooltipText,
+                    },
+                },
                 scales: {
-                    x: { grid: { display: false } },
+                    x: {
+                        grid: { display: false, color: theme.grid },
+                        ticks: { color: theme.axis },
+                    },
                     y: {
                         beginAtZero: true,
-                        grid: { display: false },
-                        ticks: { callback: (value) => `₹${value.toLocaleString()}` },
+                        grid: { display: false, color: theme.grid },
+                        ticks: {
+                            color: theme.axis,
+                            callback: (value) => `₹${value.toLocaleString()}`,
+                        },
                     },
                 },
             },

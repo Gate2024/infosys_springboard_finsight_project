@@ -2,21 +2,34 @@
 
 {% block title %}Security &amp; 2FA{% endblock %}
 
+{% block page_styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+{% endblock %}
+
 {% block content %}
-<div class="form-header-bar animated-fade-in">
+<div class="profile-page profile-security-page">
+<header class="profile-page-header animated-fade-in">
   <div>
-    <h1 class="form-header-title"><i class="fa-solid fa-shield-halved" style="color: var(--emerald-green);"></i> Security &amp; 2FA</h1>
-    <p class="form-header-subtitle">Manage your password, signed-in devices, and two-factor authentication.</p>
+    <div class="profile-heading-eyebrow">Account protection</div>
+    <h1 class="profile-page-title"><i class="fa-solid fa-shield-halved"></i> Security &amp; 2FA</h1>
+    <p class="profile-page-subtitle">Manage your password, signed-in devices, and two-factor authentication.</p>
   </div>
-  <div class="actions-right">
+  <nav class="profile-nav" aria-label="Profile management">
     <a href="{{ url_for('profile') }}" class="btn btn-outline"><i class="fa-solid fa-user"></i> My Profile</a>
     <a href="{{ url_for('profile_preferences') }}" class="btn btn-outline"><i class="fa-solid fa-sliders"></i> Preferences</a>
     <a href="{{ url_for('profile_security') }}" class="btn btn-emerald"><i class="fa-solid fa-shield-halved"></i> Security &amp; 2FA</a>
-  </div>
-</div>
+  </nav>
+</header>
 
-<section class="form-card animated-fade-in" aria-labelledby="change-password-title">
-  <h2 id="change-password-title" class="toggle-title">Change Password</h2>
+<div class="security-page-grid">
+<section class="profile-card security-card animated-fade-in" aria-labelledby="change-password-title">
+  <div class="profile-card-heading">
+    <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-key"></i></span>
+    <div>
+      <h2 id="change-password-title" class="profile-card-title">Change Password</h2>
+      <p class="profile-card-description">Keep your account protected with a strong, current password.</p>
+    </div>
+  </div>
   <form method="POST" action="{{ url_for('change_password') }}" class="form-grid">
     <input type="hidden" name="_security_sessions_csrf_token" value="{{ security_sessions_csrf_token }}">
     <div>
@@ -37,8 +50,14 @@
   </form>
 </section>
 
-<section class="form-card animated-fade-in" aria-labelledby="two-factor-title">
-  <h2 id="two-factor-title" class="toggle-title">Two-Factor Authentication</h2>
+<section class="profile-card security-card animated-fade-in" aria-labelledby="two-factor-title">
+  <div class="profile-card-heading">
+    <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>
+    <div>
+      <h2 id="two-factor-title" class="profile-card-title">Two-Factor Authentication</h2>
+      <p class="profile-card-description">Add an authenticator step to strengthen sign-in protection.</p>
+    </div>
+  </div>
   {% if totp_status.is_enabled %}
     <div class="toggle-switch-wrapper">
       <div class="toggle-info">
@@ -98,8 +117,14 @@
   {% endif %}
 </section>
 
-<section class="form-card animated-fade-in" aria-labelledby="active-devices-title">
-  <h2 id="active-devices-title" class="toggle-title">Active Logged-In Devices</h2>
+<section class="profile-card security-card animated-fade-in" aria-labelledby="active-devices-title">
+  <div class="profile-card-heading">
+    <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-laptop"></i></span>
+    <div>
+      <h2 id="active-devices-title" class="profile-card-title">Active Logged-In Devices</h2>
+      <p class="profile-card-description">Review the devices currently connected to your account.</p>
+    </div>
+  </div>
   <div class="form-grid">
     {% for device in active_sessions %}
       <div class="form-group-full toggle-switch-wrapper">
@@ -134,4 +159,6 @@
     </form>
   </div>
 </section>
+</div>
+</div>
 {% endblock %}

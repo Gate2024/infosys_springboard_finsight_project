@@ -28,6 +28,14 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  const themeSelect = document.querySelector("[data-theme-select]");
+  if (themeSelect) {
+    themeSelect.addEventListener("change", () => {
+      document.documentElement.dataset.theme =
+        themeSelect.value === "dark" ? "dark" : "light";
+    });
+  }
+
   const accountMenu = document.querySelector("[data-account-menu]");
   if (!accountMenu) return;
 

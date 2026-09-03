@@ -1,0 +1,667 @@
+/* Theme-aware presentation layer. Structural and sidebar styles stay in their
+   existing component stylesheets; this file only changes Dark-mode values. */
+
+html[data-theme="dark"],
+html[data-theme="dark"] body {
+  background: var(--bg-primary);
+  background-image: none;
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] body::before,
+html[data-theme="dark"] body::after {
+  background: none;
+  opacity: 0;
+}
+
+html[data-theme="dark"] .app-container,
+html[data-theme="dark"] .dashboard-page {
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] h1,
+html[data-theme="dark"] h2,
+html[data-theme="dark"] h3,
+html[data-theme="dark"] h4,
+html[data-theme="dark"] strong {
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .dashboard-header,
+html[data-theme="dark"] .form-header-bar,
+html[data-theme="dark"] .dashboard-page .card,
+html[data-theme="dark"] .dashboard-page .chart-card,
+html[data-theme="dark"] .financial-health-card,
+html[data-theme="dark"] .metric-card,
+html[data-theme="dark"] .controls-bar,
+html[data-theme="dark"] .budget-card,
+html[data-theme="dark"] .empty-state,
+html[data-theme="dark"] .form-card,
+html[data-theme="dark"] .expense-panel,
+html[data-theme="dark"] .expense-detail-card,
+html[data-theme="dark"] .investment-analysis-card,
+html[data-theme="dark"] .investment-panel,
+html[data-theme="dark"] .investment-detail-card,
+html[data-theme="dark"] .goal-card,
+html[data-theme="dark"] .goal-detail-card,
+html[data-theme="dark"] .report-filter-panel,
+html[data-theme="dark"] .report-panel {
+  background: var(--bg-surface);
+  background-image: none;
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-card);
+}
+
+html[data-theme="dark"] .dashboard-header,
+html[data-theme="dark"] .form-header-bar {
+  border-bottom-color: var(--border-color);
+}
+
+html[data-theme="dark"] .header-title-area h1,
+html[data-theme="dark"] .form-header-title,
+html[data-theme="dark"] .dashboard-page .card-info h2,
+html[data-theme="dark"] .dashboard-page .chart-card h3,
+html[data-theme="dark"] .metric-value,
+html[data-theme="dark"] .card-title,
+html[data-theme="dark"] .amount-val,
+html[data-theme="dark"] .expense-panel-header h2,
+html[data-theme="dark"] .expense-detail-head h2,
+html[data-theme="dark"] .investment-panel-header h2,
+html[data-theme="dark"] .investment-detail-heading h2,
+html[data-theme="dark"] .investment-goal-heading h3,
+html[data-theme="dark"] .investment-detail-grid strong,
+html[data-theme="dark"] .investment-notes strong,
+html[data-theme="dark"] .goal-card-header h2,
+html[data-theme="dark"] .goal-detail-card h2,
+html[data-theme="dark"] .goal-progress-meta strong,
+html[data-theme="dark"] .goal-amounts strong,
+html[data-theme="dark"] .report-filter-panel h2,
+html[data-theme="dark"] .report-panel h2,
+html[data-theme="dark"] .report-goal-heading strong,
+html[data-theme="dark"] .report-progress-meta strong,
+html[data-theme="dark"] .report-stat-list strong,
+html[data-theme="dark"] .report-health-score strong,
+html[data-theme="dark"] .report-health-list strong {
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .dashboard-page .card-info h4,
+html[data-theme="dark"] .dashboard-page .card-info small,
+html[data-theme="dark"] .dashboard-page .chart-card p,
+html[data-theme="dark"] .dashboard-page .percentage,
+html[data-theme="dark"] .dashboard-page .budget-header,
+html[data-theme="dark"] .dashboard-page .transaction-table th,
+html[data-theme="dark"] .metric-title,
+html[data-theme="dark"] .amount-label,
+html[data-theme="dark"] .card-dates,
+html[data-theme="dark"] .progress-info,
+html[data-theme="dark"] .financial-health-label,
+html[data-theme="dark"] .financial-health-coverage,
+html[data-theme="dark"] .health-component small,
+html[data-theme="dark"] .header-date-badge,
+html[data-theme="dark"] .report-metric-note,
+html[data-theme="dark"] .report-panel-header p,
+html[data-theme="dark"] .report-breakdown-row small,
+html[data-theme="dark"] .report-goal-heading span,
+html[data-theme="dark"] .report-goal-footer,
+html[data-theme="dark"] .report-progress-meta,
+html[data-theme="dark"] .report-stat-list span,
+html[data-theme="dark"] .report-health-list small,
+html[data-theme="dark"] .investment-muted,
+html[data-theme="dark"] .investment-goal-category,
+html[data-theme="dark"] .investment-goal-meta,
+html[data-theme="dark"] .investment-panel-header p,
+html[data-theme="dark"] .investment-detail-card span,
+html[data-theme="dark"] .goal-category,
+html[data-theme="dark"] .goal-card-footer,
+html[data-theme="dark"] .expense-panel-header p,
+html[data-theme="dark"] .expense-payment,
+html[data-theme="dark"] .expense-description span,
+html[data-theme="dark"] .expense-detail-head p,
+html[data-theme="dark"] .expense-detail-item span {
+  color: var(--text-muted);
+}
+
+html[data-theme="dark"] .dashboard-page .expense-row,
+html[data-theme="dark"] .dashboard-page .insight-content p,
+html[data-theme="dark"] .dashboard-page .budget-analysis-values,
+html[data-theme="dark"] .dashboard-page .budget-analysis-remaining,
+html[data-theme="dark"] .dashboard-page .transaction-table td,
+html[data-theme="dark"] .health-component-header span {
+  color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .dashboard-page .insight-content h6,
+html[data-theme="dark"] .dashboard-page .budget-analysis-summary strong,
+html[data-theme="dark"] .dashboard-page .budget-analysis-header strong {
+  color: var(--text-primary);
+}
+
+/* Dashboard and financial-health surfaces. */
+html[data-theme="dark"] .financial-health-summary,
+html[data-theme="dark"] .health-component,
+html[data-theme="dark"] .dashboard-page .expense-row,
+html[data-theme="dark"] .dashboard-page .table th,
+html[data-theme="dark"] .dashboard-page .table td {
+  border-color: var(--border-color);
+}
+
+html[data-theme="dark"] .financial-health-score {
+  background: rgba(101, 208, 178, 0.14);
+  border-color: rgba(101, 208, 178, 0.3);
+}
+
+html[data-theme="dark"] .financial-health-score.unavailable,
+html[data-theme="dark"] .financial-health-empty {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-color);
+}
+
+html[data-theme="dark"] .financial-health-score.unavailable strong {
+  color: var(--text-disabled);
+}
+
+html[data-theme="dark"] .dashboard-page .budget-analysis-summary,
+html[data-theme="dark"] .dashboard-page .budget-analysis-item,
+html[data-theme="dark"] .dashboard-page .dashboard-recommendations-row .ai-insights-card > .d-flex {
+  border-color: var(--border-color);
+}
+
+html[data-theme="dark"] .dashboard-page .insight-item.success {
+  background: rgba(101, 208, 178, 0.12);
+  border-color: rgba(101, 208, 178, 0.24);
+}
+
+html[data-theme="dark"] .dashboard-page .insight-item.warning {
+  background: rgba(246, 196, 83, 0.12);
+  border-color: rgba(246, 196, 83, 0.24);
+}
+
+html[data-theme="dark"] .dashboard-page .insight-item.info {
+  background: rgba(114, 183, 255, 0.12);
+  border-color: rgba(114, 183, 255, 0.24);
+}
+
+html[data-theme="dark"] .dashboard-page .insight-item.danger {
+  background: rgba(255, 129, 120, 0.12);
+  border-color: rgba(255, 129, 120, 0.24);
+}
+
+html[data-theme="dark"] .financial-health-grade {
+  background: var(--status-active-bg);
+  color: var(--status-active-text);
+}
+
+html[data-theme="dark"] .health-progress,
+html[data-theme="dark"] .dashboard-page .progress,
+html[data-theme="dark"] .progress-track,
+html[data-theme="dark"] .goal-progress-track,
+html[data-theme="dark"] .report-progress-track,
+html[data-theme="dark"] .allocation-track {
+  background: #203B48;
+}
+
+html[data-theme="dark"] .dashboard-page .budget-item:hover,
+html[data-theme="dark"] .dashboard-page .transaction-table tbody tr:hover {
+  background: rgba(101, 208, 178, 0.08);
+}
+
+/* Forms, filters, selects, and native control rendering. */
+html[data-theme="dark"] .form-label,
+html[data-theme="dark"] .form-header-subtitle,
+html[data-theme="dark"] .form-section-title,
+html[data-theme="dark"] .report-date-form label {
+  color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .input-control,
+html[data-theme="dark"] .search-input,
+html[data-theme="dark"] .filter-select,
+html[data-theme="dark"] .form-select,
+html[data-theme="dark"] .report-date-form input {
+  background-color: var(--input-bg);
+  background-image: none;
+  border-color: var(--input-border);
+  color: var(--input-text);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] select.input-control,
+html[data-theme="dark"] .form-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23B5C9CD' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-position: right 1rem center;
+  background-repeat: no-repeat;
+  background-size: 1em;
+}
+
+html[data-theme="dark"] .input-control::placeholder,
+html[data-theme="dark"] .search-input::placeholder {
+  color: var(--input-placeholder);
+}
+
+html[data-theme="dark"] .input-control:hover,
+html[data-theme="dark"] .input-control:focus,
+html[data-theme="dark"] .search-input:hover,
+html[data-theme="dark"] .search-input:focus,
+html[data-theme="dark"] .filter-select:hover,
+html[data-theme="dark"] .filter-select:focus,
+html[data-theme="dark"] .form-select:focus,
+html[data-theme="dark"] .report-date-form input:focus {
+  background-color: var(--bg-surface-elevated);
+  border-color: var(--border-focus);
+  box-shadow: var(--shadow-glow);
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] select option {
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .input-control:disabled,
+html[data-theme="dark"] .search-input:disabled,
+html[data-theme="dark"] .filter-select:disabled,
+html[data-theme="dark"] .form-select:disabled {
+  background: var(--bg-secondary);
+  color: var(--text-disabled);
+  opacity: 0.72;
+}
+
+html[data-theme="dark"] input[type="date"],
+html[data-theme="dark"] input[type="number"],
+html[data-theme="dark"] input[type="password"] {
+  color-scheme: dark;
+}
+
+html[data-theme="dark"] .input-group-addon,
+html[data-theme="dark"] .chip-label,
+html[data-theme="dark"] .amounts-row,
+html[data-theme="dark"] .goal-amounts > div,
+html[data-theme="dark"] .investment-detail-grid > div,
+html[data-theme="dark"] .expense-detail-item {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-color);
+  color: var(--text-secondary);
+}
+
+html[data-theme="dark"] .toggle-switch-wrapper {
+  background: rgba(23, 55, 70, 0.72);
+  border-color: var(--border-color);
+}
+
+html[data-theme="dark"] .toggle-title,
+html[data-theme="dark"] .toggle-info .toggle-title {
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .toggle-desc {
+  color: var(--text-muted);
+}
+
+html[data-theme="dark"] .slider {
+  background-color: #49616D;
+}
+
+html[data-theme="dark"] .slider:before {
+  background-color: #E8F1F0;
+}
+
+/* Buttons, statuses, alerts, menus, and dialogs. */
+html[data-theme="dark"] .btn-emerald,
+html[data-theme="dark"] .dashboard-page .btn-primary,
+html[data-theme="dark"] .dashboard-page .bg-primary {
+  background: var(--button-bg) !important;
+  border-color: var(--button-bg) !important;
+  color: var(--button-text) !important;
+}
+
+html[data-theme="dark"] .btn-emerald:hover,
+html[data-theme="dark"] .dashboard-page .btn-primary:hover,
+html[data-theme="dark"] .dashboard-page .bg-primary:hover {
+  background: var(--button-hover) !important;
+  border-color: var(--button-hover) !important;
+}
+
+html[data-theme="dark"] .btn-outline,
+html[data-theme="dark"] .icon-btn {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .btn-outline:hover,
+html[data-theme="dark"] .btn-outline:focus-visible,
+html[data-theme="dark"] .icon-btn:hover,
+html[data-theme="dark"] .icon-btn:focus-visible {
+  background: rgba(101, 208, 178, 0.13);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .btn-danger,
+html[data-theme="dark"] .dashboard-page .bg-danger {
+  background: var(--danger-solid) !important;
+  border-color: var(--danger-solid) !important;
+  color: #FFF5F4 !important;
+}
+
+html[data-theme="dark"] .btn-danger:hover,
+html[data-theme="dark"] .dashboard-page .bg-danger:hover {
+  background: var(--danger-hover) !important;
+  border-color: var(--danger-hover) !important;
+}
+
+html[data-theme="dark"] .dashboard-page .bg-success,
+html[data-theme="dark"] .report-status-badge,
+html[data-theme="dark"] .goal-status-active,
+html[data-theme="dark"] .investment-count-chip,
+html[data-theme="dark"] .investment-type-chip {
+  background: var(--status-active-bg) !important;
+  color: var(--status-active-text) !important;
+}
+
+html[data-theme="dark"] .dashboard-page .bg-warning,
+html[data-theme="dark"] .goal-status-completed {
+  background: var(--status-completed-bg) !important;
+  color: var(--status-completed-text) !important;
+}
+
+html[data-theme="dark"] .dashboard-page .bg-secondary,
+html[data-theme="dark"] .report-status-muted {
+  background: rgba(169, 189, 194, 0.14) !important;
+  color: var(--text-muted) !important;
+}
+
+html[data-theme="dark"] .dashboard-page .text-primary {
+  color: var(--accent-primary) !important;
+}
+
+html[data-theme="dark"] .dashboard-page .text-success {
+  color: var(--success) !important;
+}
+
+html[data-theme="dark"] .dashboard-page .text-danger {
+  color: var(--danger) !important;
+}
+
+html[data-theme="dark"] .priority-Low,
+html[data-theme="dark"] .priority-Medium,
+html[data-theme="dark"] .priority-High,
+html[data-theme="dark"] .priority-Urgent {
+  border: 1px solid transparent;
+}
+
+html[data-theme="dark"] .priority-Low {
+  background: var(--priority-low-bg);
+  color: var(--priority-low-text);
+}
+
+html[data-theme="dark"] .priority-Medium {
+  background: var(--priority-medium-bg);
+  color: var(--priority-medium-text);
+}
+
+html[data-theme="dark"] .priority-High {
+  background: var(--priority-high-bg);
+  color: var(--priority-high-text);
+}
+
+html[data-theme="dark"] .priority-Urgent {
+  background: var(--priority-urgent-bg);
+  color: var(--priority-urgent-text);
+}
+
+html[data-theme="dark"] .flash-alert,
+html[data-theme="dark"] .report-message-error {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-color);
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .flash-success {
+  background: rgba(101, 208, 178, 0.13);
+  color: #A9E6D4;
+}
+
+html[data-theme="dark"] .flash-danger,
+html[data-theme="dark"] .report-message-error {
+  background: rgba(255, 129, 120, 0.13);
+  color: #FFB0AA;
+}
+
+html[data-theme="dark"] .flash-info {
+  background: rgba(246, 196, 83, 0.13);
+  color: #F6D98A;
+}
+
+html[data-theme="dark"] .account-menu {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-elevated);
+}
+
+html[data-theme="dark"] .account-menu a {
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .account-menu a:hover,
+html[data-theme="dark"] .account-menu a:focus-visible {
+  background: rgba(101, 208, 178, 0.13);
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .modal-content {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-strong);
+  box-shadow: var(--shadow-elevated);
+}
+
+html[data-theme="dark"] .delete-confirm-icon {
+  background: rgba(255, 129, 120, 0.15);
+  color: #FFB0AA;
+}
+
+html[data-theme="dark"] .modal-close-btn:hover {
+  background: rgba(101, 208, 178, 0.13);
+  color: var(--text-primary);
+}
+
+/* Module-specific table, card, and status corrections. */
+html[data-theme="dark"] .header-date-badge,
+html[data-theme="dark"] .card-category-badge,
+html[data-theme="dark"] .expense-panel-header,
+html[data-theme="dark"] .expense-table th,
+html[data-theme="dark"] .investment-detail-grid > div,
+html[data-theme="dark"] .expense-form-note {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-color);
+}
+
+html[data-theme="dark"] .card-category-badge,
+html[data-theme="dark"] .expense-date,
+html[data-theme="dark"] .expense-description strong,
+html[data-theme="dark"] .investment-table td,
+html[data-theme="dark"] .investment-goal-heading h3,
+html[data-theme="dark"] .goal-card-header h2,
+html[data-theme="dark"] .goal-detail-card h2 {
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .expense-table th,
+html[data-theme="dark"] .investment-table th,
+html[data-theme="dark"] .dashboard-page .transaction-table th {
+  color: var(--text-muted);
+}
+
+html[data-theme="dark"] .expense-table td,
+html[data-theme="dark"] .expense-table th,
+html[data-theme="dark"] .investment-table td,
+html[data-theme="dark"] .investment-table th {
+  border-bottom-color: var(--border-color);
+}
+
+html[data-theme="dark"] .expense-row:hover,
+html[data-theme="dark"] .investment-table tbody tr:hover {
+  background: rgba(101, 208, 178, 0.08);
+}
+
+html[data-theme="dark"] .expense-pill {
+  background: rgba(246, 196, 83, 0.15);
+  border-color: rgba(246, 196, 83, 0.25);
+  color: var(--status-completed-text);
+}
+
+html[data-theme="dark"] .expense-total-chip,
+html[data-theme="dark"] .metric-icon-box {
+  background: var(--accent-soft);
+  border-color: rgba(101, 208, 178, 0.24);
+}
+
+html[data-theme="dark"] .expense-total-chip,
+html[data-theme="dark"] .search-icon {
+  color: var(--accent-primary);
+}
+
+html[data-theme="dark"] .expense-amount,
+html[data-theme="dark"] .negative {
+  color: #FF8178;
+}
+
+html[data-theme="dark"] .report-eyebrow,
+html[data-theme="dark"] .profile-heading-eyebrow,
+html[data-theme="dark"] .report-empty-state i,
+html[data-theme="dark"] .investment-asset-icon {
+  color: var(--accent-primary);
+}
+
+html[data-theme="dark"] .goal-progress-fill,
+html[data-theme="dark"] .report-progress-fill,
+html[data-theme="dark"] .allocation-fill,
+html[data-theme="dark"] .health-progress-bar,
+html[data-theme="dark"] .dashboard-page .progress-bar:not(.bg-danger):not(.bg-warning):not(.bg-secondary) {
+  background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary)) !important;
+}
+
+html[data-theme="dark"] .expense-form-note {
+  color: var(--accent-secondary);
+}
+
+html[data-theme="dark"] .positive {
+  color: var(--success);
+}
+
+html[data-theme="dark"] .investment-goal-row,
+html[data-theme="dark"] .investment-detail-heading,
+html[data-theme="dark"] .investment-notes,
+html[data-theme="dark"] .goal-card-footer,
+html[data-theme="dark"] .report-goal-row,
+html[data-theme="dark"] .report-note,
+html[data-theme="dark"] .report-stat-list > div {
+  border-color: var(--border-color);
+}
+
+html[data-theme="dark"] .expense-detail-item strong,
+html[data-theme="dark"] .investment-notes p {
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .profile-page-header,
+html[data-theme="dark"] .profile-card {
+  background: var(--bg-surface);
+  border-color: var(--border-color);
+  box-shadow: var(--shadow-card);
+}
+
+html[data-theme="dark"] .profile-summary-card {
+  background: #143D48;
+}
+
+html[data-theme="dark"] .profile-readonly,
+html[data-theme="dark"] .preference-row,
+html[data-theme="dark"] .security-card .toggle-switch-wrapper {
+  background: var(--bg-surface-elevated);
+  border-color: var(--border-color);
+}
+
+html[data-theme="dark"] .profile-page-title,
+html[data-theme="dark"] .profile-summary-name,
+html[data-theme="dark"] .profile-card-title,
+html[data-theme="dark"] .profile-readonly {
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .profile-page-subtitle,
+html[data-theme="dark"] .profile-summary-note,
+html[data-theme="dark"] .profile-card-description,
+html[data-theme="dark"] .profile-field-label {
+  color: var(--text-muted);
+}
+
+html[data-theme="dark"] .profile-access-list a {
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .profile-access-list a:hover,
+html[data-theme="dark"] .profile-access-list a:focus-visible {
+  background: rgba(101, 208, 178, 0.1);
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .profile-nav .btn-outline {
+  color: var(--text-primary);
+}
+
+html[data-theme="dark"] .profile-heading-eyebrow,
+html[data-theme="dark"] .profile-summary-kicker,
+html[data-theme="dark"] .profile-page-title i,
+html[data-theme="dark"] .profile-card-heading-icon,
+html[data-theme="dark"] .profile-access-list a i {
+  color: var(--accent-primary);
+}
+
+html[data-theme="dark"] .profile-card-heading-icon {
+  background: var(--accent-soft);
+}
+
+html[data-theme="dark"] .form-label .required {
+  color: var(--danger);
+}
+
+/* Inline colors in existing templates keep their meaning while gaining
+   enough contrast against Dark-mode surfaces. */
+html[data-theme="dark"] .metric-value[style*="emerald-green"],
+html[data-theme="dark"] .metric-value[style*="#059669"],
+html[data-theme="dark"] .metric-icon-box[style*="emerald-green"] {
+  color: var(--accent-primary) !important;
+}
+
+html[data-theme="dark"] .metric-icon-box[style*="luxury-gold"] {
+  color: var(--accent-secondary) !important;
+}
+
+html[data-theme="dark"] .metric-icon-box[style*="#2563EB"] {
+  color: var(--chart-primary) !important;
+}
+
+html[data-theme="dark"] .metric-icon-box[style*="#B91C1C"] {
+  color: var(--danger) !important;
+}
+
+html[data-theme="dark"] .budget-card .amount-val[style*="#B91C1C"] {
+  color: var(--danger) !important;
+}
+
+html[data-theme="dark"] .budget-card .amount-val[style*="#059669"] {
+  color: var(--success) !important;
+}
+
+html[data-theme="dark"] .budget-card .card-category-badge[style*="rgba(14, 90, 78"] {
+  background: rgba(101, 208, 178, 0.14) !important;
+}
+
+/* Preserve clear keyboard focus in either the dashboard or profile pages. */
+html[data-theme="dark"] :focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
