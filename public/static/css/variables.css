@@ -1,0 +1,100 @@
+/* 
+  variables.css - Custom CSS Properties & Design Tokens 
+  Luxury FinTech Color Palette, Typography & Structural Metrics
+*/
+
+:root {
+  /* Core Color Palette */
+  --bg-cream: #F3F2EB;
+  --navy-dark: #111820;
+  --navy-light: #1A232E;
+  --emerald-green: #0E5A4E;
+  --emerald-hover: #0A433A;
+  --luxury-gold: #A8864B;
+  --gold-hover: #8F703B;
+  
+  /* Neutral Shades */
+  --white-pure: #FFFFFF;
+  --text-main: #374151;
+  --text-muted: #6B7280;
+  --border-subtle: #E7E5DD;
+  --border-focus: #0E5A4E;
+  
+  /* Glassmorphism System */
+  --card-glass-bg: rgba(255, 255, 255, 0.78);
+  --card-glass-border: rgba(231, 229, 221, 0.8);
+  --glass-blur: blur(18px);
+  --navy-glass-bg: rgba(17, 24, 32, 0.92);
+
+  /* Status Colors */
+  --status-active-bg: rgba(14, 90, 78, 0.12);
+  --status-active-text: #0E5A4E;
+  --status-completed-bg: rgba(168, 134, 75, 0.15);
+  --status-completed-text: #8F703B;
+  /* Priority Colors */
+  --priority-low-bg: #E0F2FE;
+  --priority-low-text: #0369A1;
+  --priority-medium-bg: #FEF3C7;
+  --priority-medium-text: #B45309;
+  --priority-high-bg: #FEE2E2;
+  --priority-high-text: #B91C1C;
+  --priority-urgent-bg: #7F1D1D;
+  --priority-urgent-text: #FFFFFF;
+
+  /* Typography */
+  --font-heading: 'Playfair Display', Georgia, serif;
+  --font-accent: 'Poppins', -apple-system, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* Elevation & Shadows */
+  --shadow-sm: 0 2px 8px rgba(17, 24, 32, 0.04);
+  --shadow-md: 0 10px 25px rgba(17, 24, 32, 0.06);
+  --shadow-lg: 0 20px 40px rgba(17, 24, 32, 0.10);
+  --shadow-glow: 0 0 20px rgba(14, 90, 78, 0.25);
+
+  /* Radii */
+  --radius-card: 20px;
+  --radius-button: 12px;
+  --radius-badge: 30px;
+  --radius-input: 12px;
+
+  /* Transitions */
+  --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  --transition-normal: all 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Premium auth-aligned application tokens */
+:root {
+  --bg-cream: #F6F9F9;
+  --navy-dark: #091A2B;
+  --navy-light: #102B40;
+  --emerald-green: #138A70;
+  --emerald-hover: #08715C;
+  --luxury-gold: #65D0B2;
+  --gold-hover: #55BFA0;
+
+  --white-pure: #FFFFFF;
+  --text-main: #122333;
+  --text-muted: #71808D;
+  --border-subtle: #DFE6E9;
+  --border-focus: #138A70;
+
+  --card-glass-bg: rgba(255, 255, 255, 0.84);
+  --card-glass-border: rgba(223, 230, 233, 0.86);
+  --glass-blur: blur(18px);
+  --navy-glass-bg: rgba(9, 26, 43, 0.94);
+
+  --font-heading: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-accent: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  --shadow-sm: 0 8px 20px rgba(9, 26, 43, 0.05);
+  --shadow-md: 0 18px 44px rgba(9, 26, 43, 0.08);
+  --shadow-lg: 0 30px 80px rgba(9, 26, 43, 0.13);
+  --shadow-glow: 0 0 0 4px rgba(19, 138, 112, 0.10);
+
+  --radius-card: 22px;
+  --radius-button: 10px;
+  --radius-badge: 999px;
+  --radius-input: 10px;
+}

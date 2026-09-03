@@ -1,0 +1,312 @@
+.investment-header {
+  align-items: flex-start;
+}
+
+.investment-summary-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.investment-analysis-grid {
+  display: grid;
+  gap: 1.25rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-bottom: 1.25rem;
+}
+
+.investment-analysis-card {
+  background: var(--card-glass-bg);
+  border: 1px solid var(--card-glass-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-md);
+  padding: 1.6rem;
+}
+
+.allocation-row { display: grid; gap: .45rem; grid-template-columns: 1fr auto; margin-bottom: 1rem; }
+.allocation-label { display: flex; justify-content: space-between; gap: .75rem; grid-column: 1 / -1; }
+.allocation-label span, .investment-muted { color: var(--text-muted); font-size: .84rem; }
+.allocation-track { background: rgba(19, 138, 112, .12); border-radius: 999px; height: 9px; overflow: hidden; }
+.allocation-fill { background: var(--emerald-green); border-radius: inherit; height: 100%; min-width: 2px; }
+.allocation-percentage { color: var(--text-muted); font-size: .8rem; text-align: right; }
+.performance-summary { border-bottom: 1px solid var(--border-subtle); display: flex; justify-content: space-between; padding: .9rem 0; }
+.performance-summary span { color: var(--text-muted); }
+.performance-summary strong { font-size: 1.15rem; }
+.positive { color: var(--emerald-green); }
+.negative { color: #B91C1C; }
+
+.investment-panel,
+.investment-detail-card {
+  background: var(--card-glass-bg);
+  border: 1px solid var(--card-glass-border);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-md);
+  padding: 1.6rem;
+}
+
+.investment-goals-overview {
+  margin-bottom: 1.25rem;
+}
+
+.investment-goals-list {
+  display: grid;
+  gap: 1rem;
+}
+
+.investment-goal-row {
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 1rem;
+}
+
+.investment-goal-row:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+
+.investment-goal-heading,
+.investment-goal-meta {
+  align-items: center;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+}
+
+.investment-goal-heading h3 {
+  color: var(--navy-dark);
+  font-size: 1rem;
+  margin-top: .2rem;
+}
+
+.investment-goal-category,
+.investment-goal-meta {
+  color: var(--text-muted);
+  font-size: .8rem;
+}
+
+.investment-goal-progress {
+  margin-top: .75rem;
+}
+
+.investment-goal-progress .goal-progress-meta {
+  margin-top: 0;
+}
+
+.investment-goal-meta {
+  margin-top: .45rem;
+}
+
+.investment-goals-empty {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: .5rem 0;
+}
+
+.investment-panel-header {
+  align-items: center;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.investment-panel-header h2 {
+  color: var(--navy-dark);
+  font-size: 1.35rem;
+  margin-bottom: 0.2rem;
+}
+
+.investment-panel-header p,
+.investment-detail-card span {
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.investment-count-chip,
+.investment-type-chip {
+  background: var(--status-active-bg);
+  border-radius: var(--radius-badge);
+  color: var(--status-active-text);
+  display: inline-flex;
+  font-size: 0.76rem;
+  font-weight: 600;
+  padding: 0.35rem 0.75rem;
+  white-space: nowrap;
+}
+
+.investment-table-wrap {
+  overflow-x: auto;
+}
+
+.investment-table {
+  border-collapse: collapse;
+  min-width: 850px;
+  width: 100%;
+}
+
+.investment-table th,
+.investment-table td {
+  border-bottom: 1px solid var(--border-subtle);
+  padding: 1rem 0.75rem;
+  text-align: left;
+  vertical-align: middle;
+}
+
+.investment-table th {
+  color: var(--text-muted);
+  font-family: var(--font-accent);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.investment-table td {
+  color: var(--text-main);
+  font-size: 0.88rem;
+}
+
+.investment-asset-cell,
+.investment-detail-heading,
+.investment-actions,
+.investment-detail-actions {
+  align-items: center;
+  display: flex;
+}
+
+.investment-asset-cell,
+.investment-detail-heading {
+  gap: 0.75rem;
+}
+
+.investment-asset-icon {
+  align-items: center;
+  background: rgba(19, 138, 112, 0.1);
+  border-radius: 10px;
+  color: var(--emerald-green);
+  display: inline-flex;
+  height: 36px;
+  justify-content: center;
+  width: 36px;
+}
+
+.investment-asset-icon.large {
+  border-radius: 14px;
+  font-size: 1.25rem;
+  height: 52px;
+  width: 52px;
+}
+
+.investment-actions {
+  gap: 0.35rem;
+  justify-content: flex-end;
+}
+
+.investment-delete-form {
+  margin: 0;
+}
+
+.investment-empty-state {
+  margin: 0;
+  padding: 3rem 1rem;
+}
+
+.investment-form-card {
+  max-width: 980px;
+}
+
+.investment-detail-card {
+  max-width: 900px;
+}
+
+.investment-detail-heading {
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 1.5rem;
+  padding-bottom: 1.3rem;
+}
+
+.investment-detail-heading h2 {
+  color: var(--navy-dark);
+  font-size: 1.45rem;
+  margin-bottom: 0.35rem;
+}
+
+.investment-detail-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.investment-detail-grid > div {
+  background: rgba(19, 138, 112, 0.05);
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem;
+}
+
+.investment-detail-grid strong {
+  color: var(--navy-dark);
+  font-size: 1.05rem;
+}
+
+.investment-notes {
+  border-top: 1px solid var(--border-subtle);
+  margin-top: 1.5rem;
+  padding-top: 1.25rem;
+}
+
+.investment-notes strong {
+  color: var(--navy-dark);
+}
+
+.investment-notes p {
+  color: var(--text-main);
+  margin-top: 0.35rem;
+  white-space: pre-wrap;
+}
+
+.investment-detail-actions {
+  gap: 0.7rem;
+  justify-content: flex-end;
+  margin-top: 1.6rem;
+}
+
+@media (max-width: 768px) {
+  .investment-summary-grid,
+  .investment-analysis-grid,
+  .investment-detail-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .investment-panel,
+  .investment-detail-card {
+    padding: 1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .investment-summary-grid,
+  .investment-analysis-grid,
+  .investment-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .investment-panel-header,
+  .investment-detail-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .investment-detail-actions .btn {
+    width: 100%;
+  }
+
+  .investment-goal-heading,
+  .investment-goal-meta,
+  .investment-goals-empty {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
