@@ -41,6 +41,8 @@ from db import (
     filter_budgets,
     get_budget,
     get_monthly_expense_summary,
+    get_notifications,
+    get_unread_notification_count,
     get_expense_summary,
     get_summary_stats,
     get_transactions,
@@ -55,6 +57,8 @@ from db import (
     list_preference_languages,
     list_active_user_sessions,
     login_user,
+    mark_all_notifications_read,
+    mark_notification_read,
     register_user,
     revoke_all_user_sessions,
     revoke_current_user_session,
@@ -579,6 +583,56 @@ def preferences_csrf_valid():
     expected = session.get("preferences_csrf_token")
     supplied = request.form.get("_preferences_csrf_token", "")
     return bool(expected and supplied and secrets.compare_digest(expected, supplied))
+
+
+def notifications_csrf_token():
+    token = session.get("notifications_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["notifications_csrf_token"] = token
+    return token
+
+
+def notifications_csrf_valid():
+    expected = session.get("notifications_csrf_token")
+    supplied = request.form.get("_notifications_csrf_token", "")
+    return bool(expected and supplied and secrets.compare_digest(expected, supplied))
+
+
+def notification_redirect_target():
+    target = request.form.get("next", "")
+    return target if target.startswith("/") and not target.startswith("//") else url_for("notifications")
+
+
+@app.context_processor
+def inject_notification_header_data():
+    if not session.get("uid"):
+        return {
+            "notification_preview": [],
+            "notification_unread_count": 0,
+            "notification_csrf_token": "",
+            "notification_theme_preferences": {},
+            "notification_preferences_csrf_token": "",
+        }
+    try:
+        user_id = current_user_id()
+        preferences = get_user_preferences(user_id) or PREFERENCE_DEFAULTS
+        return {
+            "notification_preview": get_notifications(user_id, "all", 5),
+            "notification_unread_count": get_unread_notification_count(user_id),
+            "notification_csrf_token": notifications_csrf_token(),
+            "notification_theme_preferences": preferences,
+            "notification_preferences_csrf_token": preferences_csrf_token(),
+        }
+    except Exception:
+        app.logger.exception("Unable to load notification header data")
+        return {
+            "notification_preview": [],
+            "notification_unread_count": 0,
+            "notification_csrf_token": "",
+            "notification_theme_preferences": {},
+            "notification_preferences_csrf_token": "",
+        }
 
 
 def security_sessions_csrf_token():
@@ -1188,6 +1242,47 @@ def dashboard():
         recent_transactions=expense_transactions[:5],
         current_username=session["username"],
     )
+
+
+@app.get("/notifications")
+def notifications():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    selected_filter = request.args.get("filter", "all").strip().lower()
+    if selected_filter not in {"all", "unread", "alert", "milestone"}:
+        selected_filter = "all"
+    return render_template(
+        "notifications/dashboard.html",
+        notifications=get_notifications(current_user_id(), selected_filter),
+        selected_filter=selected_filter,
+        notifications_csrf_token=notifications_csrf_token(),
+    )
+
+
+@app.post("/notifications/<int:notification_id>/read")
+def notification_read(notification_id):
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+    if not notifications_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return redirect(url_for("notifications")), 400
+    mark_notification_read(current_user_id(), notification_id)
+    return redirect(notification_redirect_target())
+
+
+@app.post("/notifications/read-all")
+def notifications_read_all():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+    if not notifications_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return redirect(url_for("notifications")), 400
+    mark_all_notifications_read(current_user_id())
+    return redirect(notification_redirect_target())
 
 
 @app.get("/reports")

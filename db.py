@@ -688,6 +688,90 @@ def get_monthly_expense_summary(user_id):
             ]
 
 
+def create_notification(user_id, notification_type, title, message):
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO notifications (user_id, type, title, message)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id, user_id, type, title, message, is_read, created_at
+                """,
+                (user_id, notification_type, title, message),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def get_notifications(user_id, filter_type="all", limit=None):
+    filters = {
+        "all": "",
+        "unread": "AND is_read = FALSE",
+        "alert": "AND type = 'alert'",
+        "milestone": "AND type = 'milestone'",
+    }
+    where_filter = filters.get(filter_type, "")
+    limit_clause = " LIMIT %s" if limit is not None else ""
+    params = [user_id]
+    if limit is not None:
+        params.append(limit)
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                f"""
+                SELECT id, user_id, type, title, message, is_read, created_at
+                FROM notifications
+                WHERE user_id = %s {where_filter}
+                ORDER BY created_at DESC
+                {limit_clause}
+                """,
+                tuple(params),
+            )
+            return serialize_rows(cursor.fetchall())
+
+
+def get_unread_notification_count(user_id):
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT COUNT(*) AS unread_count
+                FROM notifications
+                WHERE user_id = %s AND is_read = FALSE
+                """,
+                (user_id,),
+            )
+            row = serialize_row(cursor.fetchone())
+            return int(row.get("unread_count", 0))
+
+
+def mark_notification_read(user_id, notification_id):
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE notifications
+                SET is_read = TRUE
+                WHERE id = %s AND user_id = %s
+                """,
+                (notification_id, user_id),
+            )
+            return cursor.rowcount > 0
+
+
+def mark_all_notifications_read(user_id):
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE notifications
+                SET is_read = TRUE
+                WHERE user_id = %s AND is_read = FALSE
+                """,
+                (user_id,),
+            )
+            return cursor.rowcount
+
+
 USER_PREFERENCE_COLUMNS = (
     "user_id",
     "theme",

@@ -21,6 +21,7 @@
   <link rel="stylesheet" href="{{ url_for('static', filename='css/form.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/animations.css') }}">
   <link rel="stylesheet" href="{{ url_for('static', filename='css/responsive.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/notifications.css') }}">
   {% block page_styles %}{% endblock %}
   <link rel="stylesheet" href="{{ url_for('static', filename='css/theme.css') }}">
 </head>
@@ -42,6 +43,44 @@
       <i class="fa-solid fa-bars"></i>
     </button>
 
+    <div class="navbar-actions">
+      <form class="notification-theme-switcher" data-notification-theme-form method="post" action="{{ url_for('profile_preferences') }}">
+        <input type="hidden" name="_preferences_csrf_token" value="{{ notification_preferences_csrf_token }}">
+        <input type="hidden" name="theme" data-notification-theme-value value="{{ 'dark' if session.get('theme') == 'dark' else 'light' }}">
+        <input type="hidden" name="currency" value="{{ notification_theme_preferences.get('currency', 'USD') }}">
+        <input type="hidden" name="language" value="{{ notification_theme_preferences.get('language', 'en') }}">
+        {% for field in ['budget_overspending_alerts', 'weekly_savings_digest_enabled', 'sip_due_date_reminders_enabled', 'bill_due_date_reminders_enabled'] %}{% if notification_theme_preferences.get(field) %}<input type="hidden" name="{{ field }}" value="true">{% endif %}{% endfor %}
+        <button type="button" data-notification-theme-choice="light" class="{% if session.get('theme') != 'dark' %}active{% endif %}" aria-label="Switch to Day theme" title="Day theme"><i class="fa-solid fa-sun" aria-hidden="true"></i><span>Day</span></button>
+        <button type="button" data-notification-theme-choice="dark" class="{% if session.get('theme') == 'dark' %}active{% endif %}" aria-label="Switch to Night theme" title="Night theme"><i class="fa-solid fa-moon" aria-hidden="true"></i><span>Night</span></button>
+      </form>
+      <div class="navbar-notifications" data-notification-menu>
+        <button class="notification-trigger" type="button" data-notification-trigger aria-expanded="false" aria-haspopup="true" aria-controls="notification-menu" aria-label="Notifications">
+          <i class="fa-solid fa-bell" aria-hidden="true"></i>
+          {% if notification_unread_count %}<span class="notification-count">{{ notification_unread_count if notification_unread_count < 100 else '99+' }}</span>{% endif %}
+        </button>
+        <div id="notification-menu" class="notification-menu" data-notification-panel hidden>
+          <div class="notification-menu-header">
+            <strong>Notifications</strong>
+            <a href="{{ url_for('notifications') }}">View all</a>
+          </div>
+          <div class="notification-filters" role="tablist" aria-label="Notification categories">
+            <a href="{{ url_for('notifications', filter='all') }}">All</a>
+            <a href="{{ url_for('notifications', filter='unread') }}">Unread</a>
+            <a href="{{ url_for('notifications', filter='alert') }}">Alerts</a>
+            <a href="{{ url_for('notifications', filter='milestone') }}">Milestone</a>
+          </div>
+          <div class="notification-preview-list">
+            {% for notification in notification_preview %}
+              <form method="post" action="{{ url_for('notification_read', notification_id=notification.id) }}" class="notification-preview {% if not notification.is_read %}is-unread{% endif %}">
+                <input type="hidden" name="_notifications_csrf_token" value="{{ notification_csrf_token }}">
+                <input type="hidden" name="next" value="{{ request.full_path }}">
+                <button type="submit"><i class="fa-solid {{ 'fa-triangle-exclamation' if notification.type == 'alert' else 'fa-trophy' }}" aria-hidden="true"></i><span><strong>{{ notification.title }}</strong><small>{{ notification.message }}</small><time datetime="{{ notification.created_at.isoformat() if notification.created_at else '' }}">{{ notification.created_at.strftime('%b %d, %Y %H:%M') if notification.created_at else '' }}</time></span></button>
+              </form>
+            {% else %}<p class="notification-empty">No notifications</p>{% endfor %}
+          </div>
+        </div>
+      </div>
+
     <div class="navbar-user" data-account-menu>
       <button
         class="user-badge account-menu-trigger"
@@ -51,7 +90,7 @@
         aria-haspopup="true"
         aria-controls="account-menu"
       >
-        <div class="user-avatar">{{ session.get('username', 'A')[0]|upper }}</div>
+        <img class="user-avatar" src="{{ url_for('static', filename='images/profile-avatar.jpg') }}" alt="Profile avatar">
         <span>{{ session.get('username') }}</span>
         <i class="fa-solid fa-chevron-down account-menu-chevron" aria-hidden="true"></i>
       </button>
@@ -60,6 +99,7 @@
         <a href="{{ url_for('profile_preferences') }}"><i class="fa-solid fa-sliders"></i> Preferences</a>
         <a href="{{ url_for('profile_security') }}"><i class="fa-solid fa-shield-halved"></i> Security &amp; 2FA</a>
       </div>
+    </div>
     </div>
   </nav>
 
