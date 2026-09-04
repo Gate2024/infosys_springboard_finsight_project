@@ -160,7 +160,7 @@ def test_allocation_and_returns_use_saved_values(client, investment_repository):
 
     assert response.status_code == 200
     assert b"Portfolio Performance" in response.data
-    assert b"$+20.75" in response.data
+    assert b"+$20.75" in response.data
     assert b"+3.25%" in response.data
     assert b"ETFs" in response.data and b"Bonds" in response.data
 
@@ -182,7 +182,7 @@ def test_user_isolation_and_mutations_change_portfolio(client, investment_reposi
         data=investment_data(current_value="520"),
     )
     response = client.get("/investments")
-    assert b"$+80.75" in response.data
+    assert b"+$80.75" in response.data
 
     client.post("/investments/2/delete", data={"_investment_csrf_token": "investment-test-token"})
     response = client.get("/investments")

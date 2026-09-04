@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         titleColor: theme.tooltipText,
                         bodyColor: theme.tooltipText,
                         callbacks: {
-                            label: (context) => ` ₹${context.parsed.toLocaleString()}`,
+                            label: (context) => window.finSightFormatCurrency(context.parsed),
                         },
                     },
                 },
@@ -71,7 +71,7 @@ document.addEventListener("DOMContentLoaded", function () {
             data: {
                 labels: monthlyData.map((item) => item.month),
                 datasets: [{
-                    label: "Recorded Expenses",
+                    label: window.finSightTranslate("Recorded Expenses"),
                     data: monthlyData.map((item) => item.amount),
                     borderColor: theme.accent,
                     backgroundColor: theme.accentFill,
@@ -105,7 +105,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         grid: { display: false, color: theme.grid },
                         ticks: {
                             color: theme.axis,
-                            callback: (value) => `₹${value.toLocaleString()}`,
+                            callback: (value) => window.finSightFormatCurrency(value),
                         },
                     },
                 },

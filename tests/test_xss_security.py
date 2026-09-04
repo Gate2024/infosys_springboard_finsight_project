@@ -108,5 +108,5 @@ def test_expense_modal_keeps_existing_html_escaping():
     expenses_source = (ROOT / "static" / "js" / "expenses.js").read_text(encoding="utf-8")
 
     assert "function escapeHtml(value)" in expenses_source
-    assert "${escapeHtml(expense.description || \"Untitled expense\")}" in expenses_source
+    assert "${escapeHtml(expense.description || tr(\"Untitled expense\"))}" in expenses_source
     assert "${escapeHtml(expense.category || \"\")}" in expenses_source

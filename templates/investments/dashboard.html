@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Investments{% endblock %}
+{% block title %}{{ t("Investments") }}{% endblock %}
 
 {% block page_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/investments.css') }}">
@@ -9,10 +9,10 @@
 {% block content %}
 <header class="dashboard-header investment-header animated-fade-in">
   <div class="header-title-area">
-    <h1>Investment Portfolio</h1>
+    <h1>{{ t("Investment Portfolio") }}</h1>
     <div class="quote-banner">
       <i class="fa-solid fa-chart-line quote-icon"></i>
-      <span>Keep your holdings organized in one clear view.</span>
+      <span>{{ t("Keep your holdings organized in one clear view.") }}</span>
     </div>
   </div>
   <div class="header-action-area">
@@ -20,7 +20,7 @@
       <i class="fa-regular fa-calendar-days"></i> {{ today_date }}
     </div>
     <a href="{{ url_for('create_investment') }}" class="btn btn-emerald">
-      <i class="fa-solid fa-plus"></i> Add Investment
+      <i class="fa-solid fa-plus"></i> {{ t("Add Investment") }}
     </a>
   </div>
 </header>
@@ -28,28 +28,28 @@
 <section class="summary-grid investment-summary-grid animated-fade-in">
   <div class="metric-card">
     <div class="metric-header">
-      <span class="metric-title">Total Investments</span>
+      <span class="metric-title">{{ t("Total Investments") }}</span>
       <div class="metric-icon-box"><i class="fa-solid fa-layer-group"></i></div>
     </div>
     <div class="metric-value">{{ stats.total_investments }}</div>
   </div>
   <div class="metric-card">
     <div class="metric-header">
-      <span class="metric-title">Total Invested Value</span>
+      <span class="metric-title">{{ t("Total Invested Value") }}</span>
       <div class="metric-icon-box" style="color: var(--emerald-green);"><i class="fa-solid fa-coins"></i></div>
     </div>
-    <div class="metric-value" style="color: var(--emerald-green);">${{ "{:,.2f}".format(stats.total_invested) }}</div>
+    <div class="metric-value" style="color: var(--emerald-green);">{{ format_currency(stats.total_invested, current_currency) }}</div>
   </div>
   <div class="metric-card">
     <div class="metric-header">
-      <span class="metric-title">Current Portfolio Value</span>
+      <span class="metric-title">{{ t("Current Portfolio Value") }}</span>
       <div class="metric-icon-box" style="color: var(--luxury-gold);"><i class="fa-solid fa-vault"></i></div>
     </div>
-    <div class="metric-value">{% if stats.current_value is not none %}${{ "{:,.2f}".format(stats.current_value) }}{% else %}Unavailable{% endif %}</div>
+    <div class="metric-value">{% if stats.current_value is not none %}{{ format_currency(stats.current_value, current_currency) }}{% else %}{{ t("Unavailable") }}{% endif %}</div>
   </div>
   <div class="metric-card">
     <div class="metric-header">
-      <span class="metric-title">Overall Return</span>
+      <span class="metric-title">{{ t("Overall Return") }}</span>
       <div class="metric-icon-box" style="color: var(--emerald-green);"><i class="fa-solid fa-arrow-trend-up"></i></div>
     </div>
     <div class="metric-value" style="color: var(--emerald-green);">{% if stats.return_percentage is not none %}{{ "{:+.2f}".format(stats.return_percentage) }}%{% else %}Unavailable{% endif %}</div>
@@ -58,35 +58,35 @@
 
 <section class="investment-analysis-grid animated-fade-in">
   <div class="investment-analysis-card">
-    <div class="investment-panel-header"><div><h2>Asset Allocation</h2><p>Distribution by asset type using invested value.</p></div></div>
+    <div class="investment-panel-header"><div><h2>{{ t("Asset Allocation") }}</h2><p>{{ t("Distribution by asset type using invested value.") }}</p></div></div>
     {% if stats.allocation %}
       <div class="allocation-list">
       {% for allocation in stats.allocation %}
         <div class="allocation-row">
-          <div class="allocation-label"><strong>{{ allocation.asset_type }}</strong><span>${{ "{:,.2f}".format(allocation.value) }}</span></div>
+          <div class="allocation-label"><strong>{{ allocation.asset_type }}</strong><span>{{ format_currency(allocation.value, current_currency) }}</span></div>
           <div class="allocation-track"><div class="allocation-fill" style="width: {{ allocation.percentage }}%;"></div></div>
           <span class="allocation-percentage">{{ "{:.2f}".format(allocation.percentage) }}%</span>
         </div>
       {% endfor %}
       </div>
-    {% else %}<p class="investment-muted">Add investments to see allocation.</p>{% endif %}
+    {% else %}<p class="investment-muted">{{ t("Add investments to see allocation.") }}</p>{% endif %}
   </div>
   <div class="investment-analysis-card">
-    <div class="investment-panel-header"><div><h2>Portfolio Performance</h2><p>Based on saved purchase and current values.</p></div></div>
+    <div class="investment-panel-header"><div><h2>{{ t("Portfolio Performance") }}</h2><p>{{ t("Based on saved purchase and current values.") }}</p></div></div>
     {% if stats.valuation_complete and stats.total_investments %}
-      <div class="performance-summary"><span>Absolute Return</span><strong class="{% if stats.absolute_return >= 0 %}positive{% else %}negative{% endif %}">${{ "{:+,.2f}".format(stats.absolute_return) }}</strong></div>
-      <div class="performance-summary"><span>Return Percentage</span><strong class="{% if stats.return_percentage >= 0 %}positive{% else %}negative{% endif %}">{{ "{:+.2f}".format(stats.return_percentage) }}%</strong></div>
-    {% else %}<p class="investment-muted">Enter current values for every holding to calculate portfolio returns.</p>{% endif %}
+      <div class="performance-summary"><span>{{ t("Absolute Return") }}</span><strong class="{% if stats.absolute_return >= 0 %}positive{% else %}negative{% endif %}">{{ format_currency(stats.absolute_return, current_currency, show_sign=True) }}</strong></div>
+      <div class="performance-summary"><span>{{ t("Return Percentage") }}</span><strong class="{% if stats.return_percentage >= 0 %}positive{% else %}negative{% endif %}">{{ "{:+.2f}".format(stats.return_percentage) }}%</strong></div>
+    {% else %}<p class="investment-muted">{{ t("Enter current values for every holding to calculate portfolio returns.") }}</p>{% endif %}
   </div>
 </section>
 
 <section class="investment-panel investment-goals-overview animated-fade-in">
   <div class="investment-panel-header">
     <div>
-      <h2>Financial Goals Overview</h2>
-      <p>Track progress toward the goals connected to your financial plan.</p>
+      <h2>{{ t("Financial Goals Overview") }}</h2>
+      <p>{{ t("Track progress toward the goals connected to your financial plan.") }}</p>
     </div>
-    <a href="{{ url_for('goals') }}" class="btn btn-outline btn-sm">View All Goals <i class="fa-solid fa-arrow-right"></i></a>
+    <a href="{{ url_for('goals') }}" class="btn btn-outline btn-sm">{{ t("View All Goals") }} <i class="fa-solid fa-arrow-right"></i></a>
   </div>
 
   {% if goals %}
@@ -101,20 +101,20 @@
         <span class="goal-status goal-status-{{ goal.status|lower }}">{{ goal.status }}</span>
       </div>
       <div class="investment-goal-progress">
-        <div class="goal-progress-meta"><span>{{ "{:.2f}".format(goal.progress_percentage) }}% complete</span><strong>${{ "{:,.2f}".format(goal.current_amount) }} / ${{ "{:,.2f}".format(goal.target_amount) }}</strong></div>
+        <div class="goal-progress-meta"><span>{{ "{:.2f}".format(goal.progress_percentage) }}% {{ t("complete") }}</span><strong>{{ format_currency(goal.current_amount, current_currency) }} / {{ format_currency(goal.target_amount, current_currency) }}</strong></div>
         <div class="goal-progress-track"><div class="goal-progress-fill" style="width: {{ goal.progress_percentage }}%;"></div></div>
       </div>
       <div class="investment-goal-meta">
-        <span>Target date: {{ goal.target_date }}</span>
-        <span>Remaining: ${{ "{:,.2f}".format(goal.remaining_amount) }}</span>
+          <span>{{ t("Target date") }}: {{ goal.target_date }}</span>
+          <span>{{ t("Remaining") }}: {{ format_currency(goal.remaining_amount, current_currency) }}</span>
       </div>
     </article>
     {% endfor %}
   </div>
   {% else %}
   <div class="investment-goals-empty">
-    <p>No financial goals yet.</p>
-    <a href="{{ url_for('create_goal') }}" class="btn btn-emerald btn-sm"><i class="fa-solid fa-plus"></i> Create Goal</a>
+    <p>{{ t("No financial goals yet.") }}</p>
+    <a href="{{ url_for('create_goal') }}" class="btn btn-emerald btn-sm"><i class="fa-solid fa-plus"></i> {{ t("Create Goal") }}</a>
   </div>
   {% endif %}
 </section>
@@ -122,8 +122,8 @@
 <section class="investment-panel animated-fade-in">
   <div class="investment-panel-header">
     <div>
-      <h2>Holdings</h2>
-      <p>Only investments belonging to your account are shown.</p>
+      <h2>{{ t("Holdings") }}</h2>
+      <p>{{ t("Only investments belonging to your account are shown.") }}</p>
     </div>
     {% if investments %}<span class="investment-count-chip">{{ investments|length }} holding{{ '' if investments|length == 1 else 's' }}</span>{% endif %}
   </div>
@@ -133,14 +133,14 @@
     <table class="investment-table">
       <thead>
         <tr>
-          <th>Asset</th>
-          <th>Type</th>
-          <th>Quantity</th>
-          <th>Purchase Price</th>
-          <th>Current Value</th>
-          <th>Invested Value</th>
-          <th>Purchase Date</th>
-          <th class="investment-actions-heading">Actions</th>
+          <th>{{ t("Asset") }}</th>
+          <th>{{ t("Type") }}</th>
+          <th>{{ t("Quantity") }}</th>
+          <th>{{ t("Purchase Price") }}</th>
+          <th>{{ t("Current Value") }}</th>
+          <th>{{ t("Invested Value") }}</th>
+          <th>{{ t("Purchase Date") }}</th>
+          <th class="investment-actions-heading">{{ t("Actions") }}</th>
         </tr>
       </thead>
       <tbody>
@@ -154,21 +154,21 @@
           </td>
           <td><span class="investment-type-chip">{{ investment.asset_type }}</span></td>
           <td>{{ investment.quantity }}</td>
-          <td>${{ "{:,.2f}".format(investment.purchase_price) }}</td>
-          <td>{% if investment.current_value is not none %}${{ "{:,.2f}".format(investment.current_value) }}{% else %}Unavailable{% endif %}</td>
-          <td><strong>${{ "{:,.2f}".format(investment.invested_value) }}</strong></td>
+          <td>{{ format_currency(investment.purchase_price, current_currency) }}</td>
+              <td>{% if investment.current_value is not none %}{{ format_currency(investment.current_value, current_currency) }}{% else %}{{ t("Unavailable") }}{% endif %}</td>
+          <td><strong>{{ format_currency(investment.invested_value, current_currency) }}</strong></td>
           <td>{{ investment.purchase_date }}</td>
           <td>
             <div class="investment-actions">
-              <a class="icon-btn" href="{{ url_for('view_investment', investment_id=investment.investment_id) }}" title="View investment">
+              <a class="icon-btn" href="{{ url_for('view_investment', investment_id=investment.investment_id) }}" title="{{ t('View investment') }}">
                 <i class="fa-regular fa-eye"></i>
               </a>
-              <a class="icon-btn" href="{{ url_for('edit_investment', investment_id=investment.investment_id) }}" title="Edit investment">
+              <a class="icon-btn" href="{{ url_for('edit_investment', investment_id=investment.investment_id) }}" title="{{ t('Edit investment') }}">
                 <i class="fa-regular fa-pen-to-square"></i>
               </a>
               <form method="POST" action="{{ url_for('delete_investment', investment_id=investment.investment_id) }}" class="investment-delete-form">
                 <input type="hidden" name="_investment_csrf_token" value="{{ session.get('investment_csrf_token') }}">
-                <button class="icon-btn icon-btn-delete" type="submit" title="Delete investment">
+                <button class="icon-btn icon-btn-delete" type="submit" title="{{ t('Delete investment') }}">
                   <i class="fa-regular fa-trash-can"></i>
                 </button>
               </form>
@@ -182,10 +182,10 @@
   {% else %}
   <div class="empty-state investment-empty-state">
     <div class="empty-icon"><i class="fa-solid fa-chart-line"></i></div>
-    <h3>No investments yet</h3>
-    <p>Add your first holding to start organizing your portfolio.</p>
+    <h3>{{ t("No investments yet") }}</h3>
+    <p>{{ t("Add your first holding to start organizing your portfolio.") }}</p>
     <a href="{{ url_for('create_investment') }}" class="btn btn-emerald btn-lg">
-      <i class="fa-solid fa-plus"></i> Add Investment
+      <i class="fa-solid fa-plus"></i> {{ t("Add Investment") }}
     </a>
   </div>
   {% endif %}
@@ -196,11 +196,11 @@
     <div class="delete-confirm-icon">
       <i class="fa-solid fa-triangle-exclamation"></i>
     </div>
-    <h2 id="investmentDeleteConfirmTitle">Are you sure you want to delete this investment?</h2>
-    <p>This action cannot be undone.</p>
+    <h2 id="investmentDeleteConfirmTitle">{{ t("Are you sure you want to delete this investment?") }}</h2>
+    <p>{{ t("This action cannot be undone.") }}</p>
     <div class="delete-confirm-actions">
-      <button type="button" class="btn btn-outline" id="cancelDeleteInvestment">Cancel</button>
-      <button type="button" class="btn btn-danger" id="confirmDeleteInvestment">Delete</button>
+      <button type="button" class="btn btn-outline" id="cancelDeleteInvestment">{{ t("Cancel") }}</button>
+      <button type="button" class="btn btn-danger" id="confirmDeleteInvestment">{{ t("Delete") }}</button>
     </div>
   </div>
 </div>

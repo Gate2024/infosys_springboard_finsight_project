@@ -15,6 +15,43 @@ function showToast(message, category = "info") {
   }, 3500);
 }
 
+function finSightTranslate(value) {
+  const language = window.finSightPreferences?.language || "en";
+  return window.finSightTranslations?.[language]?.[value] || value;
+}
+
+function finSightFormatCurrency(value, showSign = false) {
+  const currency = (window.finSightPreferences?.currency || "USD").toUpperCase();
+  const symbols = { USD: "$", INR: "₹", EUR: "€", JPY: "¥", GBP: "£", CAD: "CA$", AUD: "A$", CNY: "¥" };
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "Unavailable";
+  const decimals = currency === "JPY" ? 0 : 2;
+  const symbol = symbols[currency] || "$";
+  const formatted = Math.abs(number).toLocaleString("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  });
+  if (showSign) {
+    const sign = number < 0 ? "-" : number > 0 ? "+" : "";
+    return `${sign}${symbol}${formatted}`;
+  }
+  return `${number < 0 ? "-" : ""}${symbol}${formatted}`;
+}
+
+function finSightFormatCompactCurrency(value) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return "Unavailable";
+  const currency = (window.finSightPreferences?.currency || "USD").toUpperCase();
+  const symbols = { USD: "$", INR: "₹", EUR: "€", JPY: "¥", GBP: "£", CAD: "CA$", AUD: "A$", CNY: "¥" };
+  return `${symbols[currency] || "$"}${(number / 1000).toLocaleString("en-US", {
+    maximumFractionDigits: 1,
+  })}K`;
+}
+
+window.finSightTranslate = finSightTranslate;
+window.finSightFormatCurrency = finSightFormatCurrency;
+window.finSightFormatCompactCurrency = finSightFormatCompactCurrency;
+
 document.addEventListener("DOMContentLoaded", () => {
   const sidebarToggle = document.querySelector("[data-sidebar-toggle]");
   if (sidebarToggle) {
@@ -121,7 +158,7 @@ document.addEventListener("DOMContentLoaded", () => {
       } catch (error) {
         applyTheme(previousTheme);
         syncThemeChoices();
-        showToast("Unable to save theme preference.", "danger");
+        showToast(finSightTranslate("Unable to save theme preference."), "danger");
       }
     });
   });

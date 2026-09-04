@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Preferences{% endblock %}
+{% block title %}{{ t("Preferences") }}{% endblock %}
 
 {% block page_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
@@ -10,14 +10,14 @@
 <div class="profile-page profile-preferences-page">
 <header class="profile-page-header animated-fade-in">
   <div>
-    <div class="profile-heading-eyebrow">Account settings</div>
-    <h1 class="profile-page-title"><i class="fa-solid fa-sliders"></i> Preferences</h1>
-    <p class="profile-page-subtitle">Manage the display, localization, and reminder settings for your account.</p>
+    <div class="profile-heading-eyebrow">{{ t("Account settings") }}</div>
+    <h1 class="profile-page-title"><i class="fa-solid fa-sliders"></i> {{ t("Preferences") }}</h1>
+    <p class="profile-page-subtitle">{{ t("Manage the display, localization, and reminder settings for your account.") }}</p>
   </div>
   <nav class="profile-nav" aria-label="Profile management">
-    <a href="{{ url_for('profile') }}" class="btn btn-outline"><i class="fa-solid fa-user"></i> My Profile</a>
-    <a href="{{ url_for('profile_preferences') }}" class="btn btn-emerald"><i class="fa-solid fa-sliders"></i> Preferences</a>
-    <a href="{{ url_for('profile_security') }}" class="btn btn-outline"><i class="fa-solid fa-shield-halved"></i> Security &amp; 2FA</a>
+    <a href="{{ url_for('profile') }}" class="btn btn-outline"><i class="fa-solid fa-user"></i> {{ t("My Profile") }}</a>
+    <a href="{{ url_for('profile_preferences') }}" class="btn btn-emerald"><i class="fa-solid fa-sliders"></i> {{ t("Preferences") }}</a>
+    <a href="{{ url_for('profile_security') }}" class="btn btn-outline"><i class="fa-solid fa-shield-halved"></i> {{ t("Security & 2FA") }}</a>
   </nav>
 </header>
 
@@ -28,17 +28,17 @@
     <div class="profile-card-heading">
       <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-palette"></i></span>
       <div>
-        <h2 id="preferences-title" class="profile-card-title">Display &amp; Theme Settings</h2>
-        <p class="profile-card-description">Choose how FinSight should look when you use it.</p>
+        <h2 id="preferences-title" class="profile-card-title">{{ t("Display & Theme Settings") }}</h2>
+        <p class="profile-card-description">{{ t("Choose how FinSight should look when you use it.") }}</p>
       </div>
     </div>
     <div class="preference-grid">
       <div>
-        <label for="theme" class="profile-field-label">Theme</label>
+        <label for="theme" class="profile-field-label">{{ t("Theme") }}</label>
         {% set selected_theme = 'dark' if preferences.theme == 'dark' else 'light' %}
         <select id="theme" name="theme" class="input-control" data-theme-select required>
           {% for theme in theme_options %}
-            <option value="{{ theme }}" {% if selected_theme == theme %}selected{% endif %}>{% if theme == 'dark' %}Dark{% else %}Light{% endif %}</option>
+            <option value="{{ theme }}" {% if selected_theme == theme %}selected{% endif %}>{% if theme == 'dark' %}{{ t("Dark") }}{% else %}{{ t("Light") }}{% endif %}</option>
           {% endfor %}
         </select>
       </div>
@@ -49,24 +49,24 @@
     <div class="profile-card-heading">
       <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-earth-americas"></i></span>
       <div>
-        <h2 id="localization-title" class="profile-card-title">Currency &amp; Regional Localization</h2>
-        <p class="profile-card-description">Use the regional settings that match your account.</p>
+        <h2 id="localization-title" class="profile-card-title">{{ t("Currency & Regional Localization") }}</h2>
+        <p class="profile-card-description">{{ t("Use the regional settings that match your account.") }}</p>
       </div>
     </div>
     <div class="preference-grid">
       <div>
-        <label for="currency" class="profile-field-label">Currency</label>
+        <label for="currency" class="profile-field-label">{{ t("Currency") }}</label>
         <select id="currency" name="currency" class="input-control" required>
           {% for currency in currency_options %}
-            <option value="{{ currency.code }}" {% if preferences.currency == currency.code %}selected{% endif %}>{{ currency.code }} - {{ currency.display_name }} ({{ currency.symbol }})</option>
+            <option value="{{ currency.code }}" {% if preferences.currency == currency.code %}selected{% endif %}>{{ currency.code }} - {{ t(currency.display_name) }} ({{ currency.symbol }})</option>
           {% endfor %}
         </select>
       </div>
       <div>
-        <label for="language" class="profile-field-label">Language</label>
+        <label for="language" class="profile-field-label">{{ t("Language") }}</label>
         <select id="language" name="language" class="input-control" required>
           {% for language in language_options %}
-            <option value="{{ language.code }}" {% if preferences.language == language.code %}selected{% endif %}>{{ language.display_name }}</option>
+            <option value="{{ language.code }}" {% if preferences.language == language.code %}selected{% endif %}>{{ t(language.display_name) }}</option>
           {% endfor %}
         </select>
       </div>
@@ -77,16 +77,16 @@
     <div class="profile-card-heading">
       <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-bell"></i></span>
       <div>
-        <h2 id="reminders-title" class="profile-card-title">Financial Reminders &amp; Alerts</h2>
-        <p class="profile-card-description">Choose which account notifications should be available to you.</p>
+        <h2 id="reminders-title" class="profile-card-title">{{ t("Financial Reminders & Alerts") }}</h2>
+        <p class="profile-card-description">{{ t("Choose which account notifications should be available to you.") }}</p>
       </div>
     </div>
     <div class="preference-grid">
       <div class="preference-row form-group-full">
         <div class="toggle-switch-wrapper">
           <div class="toggle-info">
-            <span class="toggle-title">Budget Overspending Alerts</span>
-            <span class="toggle-desc">Track when spending approaches your budget limit.</span>
+            <span class="toggle-title">{{ t("Budget Overspending Alerts") }}</span>
+            <span class="toggle-desc">{{ t("Track when spending approaches your budget limit.") }}</span>
           </div>
           <label class="switch" for="budget_overspending_alerts">
             <input id="budget_overspending_alerts" name="budget_overspending_alerts" type="checkbox" value="true" {% if preferences.budget_overspending_alerts %}checked{% endif %}>
@@ -97,8 +97,8 @@
       <div class="preference-row form-group-full">
         <div class="toggle-switch-wrapper">
           <div class="toggle-info">
-            <span class="toggle-title">Weekly Savings &amp; Digest Summary</span>
-            <span class="toggle-desc">Save your preference for a weekly financial summary.</span>
+            <span class="toggle-title">{{ t("Weekly Savings & Digest Summary") }}</span>
+            <span class="toggle-desc">{{ t("Save your preference for a weekly financial summary.") }}</span>
           </div>
           <label class="switch" for="weekly_savings_digest_enabled">
             <input id="weekly_savings_digest_enabled" name="weekly_savings_digest_enabled" type="checkbox" value="true" {% if preferences.weekly_savings_digest_enabled %}checked{% endif %}>
@@ -109,8 +109,8 @@
       <div class="preference-row form-group-full">
         <div class="toggle-switch-wrapper">
           <div class="toggle-info">
-            <span class="toggle-title">SIP Due Date Reminders</span>
-            <span class="toggle-desc">Save your preference for future SIP due-date reminders.</span>
+            <span class="toggle-title">{{ t("SIP Due Date Reminders") }}</span>
+            <span class="toggle-desc">{{ t("Save your preference for future SIP due-date reminders.") }}</span>
           </div>
           <label class="switch" for="sip_due_date_reminders_enabled">
             <input id="sip_due_date_reminders_enabled" name="sip_due_date_reminders_enabled" type="checkbox" value="true" {% if preferences.sip_due_date_reminders_enabled %}checked{% endif %}>
@@ -121,8 +121,8 @@
       <div class="preference-row form-group-full">
         <div class="toggle-switch-wrapper">
           <div class="toggle-info">
-            <span class="toggle-title">Bill Due Date Reminders</span>
-            <span class="toggle-desc">Save your preference for future bill due-date reminders.</span>
+            <span class="toggle-title">{{ t("Bill Due Date Reminders") }}</span>
+            <span class="toggle-desc">{{ t("Save your preference for future bill due-date reminders.") }}</span>
           </div>
           <label class="switch" for="bill_due_date_reminders_enabled">
             <input id="bill_due_date_reminders_enabled" name="bill_due_date_reminders_enabled" type="checkbox" value="true" {% if preferences.bill_due_date_reminders_enabled %}checked{% endif %}>
@@ -134,9 +134,9 @@
   </section>
 
   <div class="form-actions-bar">
-    <a href="{{ url_for('profile') }}" class="btn btn-outline"><i class="fa-solid fa-xmark"></i> Cancel</a>
+    <a href="{{ url_for('profile') }}" class="btn btn-outline"><i class="fa-solid fa-xmark"></i> {{ t("Cancel") }}</a>
     <div class="actions-right">
-      <button type="submit" class="btn btn-emerald"><i class="fa-solid fa-floppy-disk"></i> Save Preferences</button>
+      <button type="submit" class="btn btn-emerald"><i class="fa-solid fa-floppy-disk"></i> {{ t("Save Preferences") }}</button>
     </div>
   </div>
 </form>

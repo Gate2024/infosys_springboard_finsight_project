@@ -119,7 +119,7 @@ document.addEventListener("DOMContentLoaded", function () {
             data: {
                 labels: monthlyExpenses.map((item) => item.month),
                 datasets: [{
-                    label: "Expenses",
+                    label: window.finSightTranslate("Expenses"),
                     data: monthlyExpenses.map((item) => item.amount),
                     borderColor: theme.expense,
                     backgroundColor: theme.expenseFill,
@@ -142,7 +142,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         titleColor: theme.tooltipText,
                         bodyColor: theme.tooltipText,
                         callbacks: {
-                            label: (context) => `₹${context.parsed.y.toLocaleString()}`,
+                            label: (context) => window.finSightFormatCurrency(context.parsed.y),
                         },
                     },
                 },
@@ -162,7 +162,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         },
                         ticks: {
                             color: theme.axis,
-                            callback: (value) => `₹${value.toLocaleString()}`,
+                            callback: (value) => window.finSightFormatCurrency(value),
                         },
                     },
                 },
@@ -198,11 +198,11 @@ document.addEventListener("DOMContentLoaded", function () {
             type: "line",
 
             data:{
-                labels:["Jan","Feb","Mar","Apr","May","Jun"],
+                labels:["January","February","March","April","May","June"].map((month) => window.finSightTranslate(month)),
 
                 datasets:[
                 {
-                    label:"Income",
+                    label:window.finSightTranslate("Income"),
                     data:[5000,6200,7000,6800,7600,8200],
                     borderColor: theme.income,
                     backgroundColor: incomeGradient,
@@ -212,7 +212,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     pointHoverRadius:7
                 },
                 {
-                    label:"Expenses",
+                    label:window.finSightTranslate("Expenses"),
                     data:[3200,4000,4500,4200,5000,5400],
                     borderColor: theme.expense,
                     backgroundColor: expenseGradient,
@@ -265,7 +265,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         },
                         ticks:{
                             color: theme.axis,
-                            callback:(value)=>"₹"+(value/1000)+"K"
+                            callback:(value)=>window.finSightFormatCompactCurrency(value)
                         }
                     }
 
@@ -290,9 +290,9 @@ document.addEventListener("DOMContentLoaded", function () {
         const cashFlowChart = new Chart(monthlycashflow, {
             type: "bar",
             data: {
-                labels: ["Income", "Expenses", "Savings"],
+                labels: ["Income", "Expenses", "Savings"].map((label) => window.finSightTranslate(label)),
                 datasets: [{
-                    label: "July 2026",
+                    label: window.finSightTranslate("July 2026"),
                     data: [50000, 35000, 15000],
                     backgroundColor: [
                         theme.income,
@@ -318,7 +318,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     },
                     title: {
                         display: true,
-                        text: "Monthly Cash Flow - July 2026",
+                        text: `${window.finSightTranslate("Monthly Cash Flow")} - ${window.finSightTranslate("July 2026")}`,
                         font: {
                             size: 18,
                             weight: "bold"
@@ -354,7 +354,7 @@ document.addEventListener("DOMContentLoaded", function () {
                         },
                         ticks: {
                             color: theme.axis,
-                            callback: (value) => "₹" + (value / 1000) + "K"
+                            callback: (value) => window.finSightFormatCompactCurrency(value)
                         }
                     }
                 }
@@ -362,11 +362,20 @@ document.addEventListener("DOMContentLoaded", function () {
         });
 
         const monthFilter = document.getElementById("monthFilter");
+        const monthLabels = {
+            all: "All Months",
+            jan: "January",
+            feb: "February",
+            mar: "March",
+            apr: "April",
+            may: "May",
+            jun: "June",
+        };
         if (monthFilter) {
             monthFilter.addEventListener("change", () => {
                 cashFlowChart.data.datasets[0].data = [58000, 42000, 16000];
                 cashFlowChart.options.plugins.title.text =
-                    `Monthly Cash Flow - ${monthFilter.value}`;
+                    `${window.finSightTranslate("Monthly Cash Flow")} - ${window.finSightTranslate(monthLabels[monthFilter.value] || monthFilter.value)}`;
 
                 cashFlowChart.update();
             });

@@ -168,6 +168,26 @@ def test_workbook_contains_report_values_and_current_snapshots(monkeypatch):
     workbook.close()
 
 
+@pytest.mark.parametrize("currency", ["USD", "INR", "EUR", "JPY", "GBP", "CAD", "AUD", "CNY"])
+def test_excel_export_applies_selected_currency_format_without_converting_value(monkeypatch, currency):
+    monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: report_data())
+    monkeypatch.setattr(
+        application,
+        "get_user_preferences",
+        lambda _user_id: {"currency": currency, "language": "en"},
+    )
+    client = application.app.test_client()
+    set_session(client)
+
+    response = client.get("/reports/export/excel")
+    workbook = load_response_workbook(response)
+
+    assert response.status_code == 200
+    assert workbook["Summary"]["A8"].value == 600.5
+    assert workbook["Summary"]["A8"].number_format == application._excel_currency_format(currency)
+    workbook.close()
+
+
 def test_excel_export_requires_authentication():
     response = application.app.test_client().get("/reports/export/excel")
 

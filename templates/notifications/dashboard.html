@@ -1,21 +1,21 @@
 {% extends "base.html" %}
-{% block title %}Notifications{% endblock %}
+{% block title %}{{ t("Notifications") }}{% endblock %}
 {% block content %}
 <section class="notifications-page">
   <div class="notifications-page-header">
-    <div><span class="page-eyebrow">Account activity</span><h1>Notifications</h1><p>Stay up to date with alerts and milestones.</p></div>
-    {% if notifications %}<form method="post" action="{{ url_for('notifications_read_all') }}"><input type="hidden" name="_notifications_csrf_token" value="{{ notifications_csrf_token }}"><input type="hidden" name="next" value="{{ request.full_path }}"><button class="btn btn-outline" type="submit"><i class="fa-solid fa-check-double"></i> Mark all as read</button></form>{% endif %}
+    <div><span class="page-eyebrow">{{ t("Account activity") }}</span><h1>{{ t("Notifications") }}</h1><p>{{ t("Stay up to date with alerts and milestones.") }}</p></div>
+    {% if notifications %}<form method="post" action="{{ url_for('notifications_read_all') }}"><input type="hidden" name="_notifications_csrf_token" value="{{ notifications_csrf_token }}"><input type="hidden" name="next" value="{{ request.full_path }}"><button class="btn btn-outline" type="submit"><i class="fa-solid fa-check-double"></i> {{ t("Mark all as read") }}</button></form>{% endif %}
   </div>
-  <nav class="notifications-tabs" aria-label="Notification filters">
-    {% for key, label in [('all', 'All'), ('unread', 'Unread'), ('alert', 'Alerts'), ('milestone', 'Milestone')] %}<a class="{% if selected_filter == key %}active{% endif %}" href="{{ url_for('notifications', filter=key) }}">{{ label }}</a>{% endfor %}
+  <nav class="notifications-tabs" aria-label="{{ t('Notification filters') }}">
+    {% for key, label in [('all', 'All'), ('unread', 'Unread'), ('alert', 'Alerts'), ('milestone', 'Milestone')] %}<a class="{% if selected_filter == key %}active{% endif %}" href="{{ url_for('notifications', filter=key) }}">{{ t(label) }}</a>{% endfor %}
   </nav>
   <div class="notification-list">
     {% for notification in notifications %}
       <form method="post" action="{{ url_for('notification_read', notification_id=notification.id) }}" class="notification-card {% if not notification.is_read %}is-unread{% endif %}">
         <input type="hidden" name="_notifications_csrf_token" value="{{ notifications_csrf_token }}"><input type="hidden" name="next" value="{{ request.full_path }}">
-        <button type="submit" {% if notification.is_read %}class="is-read"{% endif %}><span class="notification-card-icon"><i class="fa-solid {{ 'fa-triangle-exclamation' if notification.type == 'alert' else 'fa-trophy' }}"></i></span><span class="notification-card-content"><strong>{{ notification.title }}</strong><span>{{ notification.message }}</span><time datetime="{{ notification.created_at.isoformat() if notification.created_at else '' }}">{{ notification.created_at.strftime('%b %d, %Y at %H:%M') if notification.created_at else '' }}</time></span><span class="notification-category">{{ notification.type|title }}</span></button>
+        <button type="submit" {% if notification.is_read %}class="is-read"{% endif %}><span class="notification-card-icon"><i class="fa-solid {{ 'fa-triangle-exclamation' if notification.type == 'alert' else 'fa-trophy' }}"></i></span><span class="notification-card-content"><strong>{{ notification.title }}</strong><span>{{ notification.message }}</span><time datetime="{{ notification.created_at.isoformat() if notification.created_at else '' }}">{{ notification.created_at.strftime('%b %d, %Y at %H:%M') if notification.created_at else '' }}</time></span><span class="notification-category">{% if notification.type == 'alert' %}{{ t("Alerts") }}{% elif notification.type == 'milestone' %}{{ t("Milestone") }}{% else %}{{ notification.type|title }}{% endif %}</span></button>
       </form>
-    {% else %}<div class="notification-empty-page"><i class="fa-regular fa-bell-slash"></i><h2>No notifications</h2><p>There are no notifications in this category.</p></div>{% endfor %}
+    {% else %}<div class="notification-empty-page"><i class="fa-regular fa-bell-slash"></i><h2>{{ t("No notifications") }}</h2><p>{{ t("There are no notifications in this category.") }}</p></div>{% endfor %}
   </div>
 </section>
 {% endblock %}

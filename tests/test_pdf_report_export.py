@@ -209,6 +209,27 @@ def test_pdf_export_does_not_mutate_report_data(monkeypatch):
     assert data == original
 
 
+@pytest.mark.parametrize("currency", ["INR", "EUR", "GBP"])
+def test_pdf_export_uses_registered_unicode_font_for_non_usd_currency(monkeypatch, currency):
+    monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: report_data())
+    monkeypatch.setattr(
+        application,
+        "get_user_preferences",
+        lambda _user_id: {"currency": currency, "language": "en"},
+    )
+    client = application.app.test_client()
+    set_session(client)
+
+    response = client.get("/reports/export/pdf")
+
+    assert response.status_code == 200
+    assert response.data.startswith(b"%PDF")
+    assert b"/ToUnicode" in response.data
+    assert b"/FontFile2" in response.data
+    pdf_font = application.pdfmetrics.getFont(application.PDF_FONT)
+    assert all(ord(symbol) in pdf_font.face.charToGlyph for symbol in "₹€£¥")
+
+
 def test_existing_reports_json_behavior_remains_available(monkeypatch):
     data = report_data()
     monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: deepcopy(data))

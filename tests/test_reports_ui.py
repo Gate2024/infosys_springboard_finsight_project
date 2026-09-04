@@ -77,7 +77,7 @@ def test_authenticated_reports_page_renders_real_report_data(monkeypatch):
     assert b"Food" in response.data
     assert b"2026-05" in response.data
     assert b"Emergency Fund" in response.data
-    assert "₹1,200.00".encode() in response.data
+    assert "$1,200.00".encode() in response.data
     assert b"window.reportsExpenseCategories" in response.data
     assert b"window.reportsMonthlyExpenses" in response.data
 

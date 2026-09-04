@@ -56,11 +56,12 @@ async function openExpenseModal(transactionId) {
   const modal = document.getElementById("expenseViewModal");
   const modalBody = document.getElementById("expense-modal-body");
   if (!modal || !modalBody) return;
+  const tr = window.finSightTranslate || ((value) => value);
 
   modalBody.innerHTML = `
     <div style="text-align:center; padding:2rem;">
       <i class="fa-solid fa-circle-notch fa-spin" style="font-size:2rem; color:var(--emerald-green);"></i>
-      <p style="margin-top:1rem; color:var(--text-muted);">Loading expense details...</p>
+      <p style="margin-top:1rem; color:var(--text-muted);">${tr("Loading expense details...")}</p>
     </div>
   `;
   modal.classList.add("active");
@@ -70,7 +71,7 @@ async function openExpenseModal(transactionId) {
     const data = await response.json();
 
     if (!data.success || !data.expense) {
-      modalBody.innerHTML = `<p style="color:var(--danger);">Unable to load expense details.</p>`;
+      modalBody.innerHTML = `<p style="color:var(--danger);">${tr("Unable to load expense details.")}</p>`;
       return;
     }
 
@@ -82,39 +83,39 @@ async function openExpenseModal(transactionId) {
           <i class="fa-solid fa-receipt"></i>
         </div>
         <div>
-          <h2>${escapeHtml(expense.description || "Untitled expense")}</h2>
-          <p>${escapeHtml(expense.category || "")} · Expense #${expense.id}</p>
+          <h2>${escapeHtml(expense.description || tr("Untitled expense"))}</h2>
+          <p>${escapeHtml(expense.category || "")} · ${tr("Expense")} #${expense.id}</p>
         </div>
       </div>
 
       <div class="expense-detail-grid">
         <div class="expense-detail-item">
-          <span>Amount</span>
-          <strong>$${amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+          <span>${tr("Amount")}</span>
+          <strong>${window.finSightFormatCurrency(amount)}</strong>
         </div>
         <div class="expense-detail-item">
-          <span>Date</span>
+          <span>${tr("Date")}</span>
           <strong>${escapeHtml(expense.date || "")}</strong>
         </div>
         <div class="expense-detail-item">
-          <span>Payment Mode</span>
+          <span>${tr("Payment Mode")}</span>
           <strong>${escapeHtml(expense.payment_mode || "")}</strong>
         </div>
         <div class="expense-detail-item">
-          <span>Category</span>
+          <span>${tr("Category")}</span>
           <strong>${escapeHtml(expense.category || "")}</strong>
         </div>
       </div>
 
       <div style="display:flex; justify-content:flex-end; gap:10px;">
         <a href="/expense/edit/${expense.id}" class="btn btn-emerald">
-          <i class="fa-regular fa-pen-to-square"></i> Edit Expense
+          <i class="fa-regular fa-pen-to-square"></i> ${tr("Edit Expense")}
         </a>
-        <button type="button" class="btn btn-outline" onclick="closeExpenseModal()">Close</button>
+        <button type="button" class="btn btn-outline" onclick="closeExpenseModal()">${tr("Close")}</button>
       </div>
     `;
   } catch (error) {
-    modalBody.innerHTML = `<p style="color:var(--danger);">Failed to connect to the server.</p>`;
+    modalBody.innerHTML = `<p style="color:var(--danger);">${tr("Failed to connect to the server.")}</p>`;
   }
 }
 
@@ -176,6 +177,7 @@ function initializeExpenseDeleteConfirmation() {
 function initializeExpenseFormValidation() {
   const form = document.getElementById("expenseForm");
   if (!form) return;
+  const tr = window.finSightTranslate || ((value) => value);
 
   form.addEventListener("submit", (event) => {
     const amount = parseFloat(document.getElementById("amount")?.value || 0);
@@ -185,25 +187,25 @@ function initializeExpenseFormValidation() {
     const messages = [];
 
     if (Number.isNaN(amount) || amount <= 0) {
-      messages.push("Amount must be greater than zero.");
+      messages.push(tr("Amount must be greater than zero."));
     }
 
     if (!category) {
-      messages.push("Category is required.");
+      messages.push(tr("Category is required."));
     }
 
     if (!paymentMode) {
-      messages.push("Payment mode is required.");
+      messages.push(tr("Payment mode is required."));
     }
 
     if (!date) {
-      messages.push("Date is required.");
+      messages.push(tr("Date is required."));
     } else {
       const selectedDate = new Date(`${date}T00:00:00`);
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       if (selectedDate > today) {
-        messages.push("Date cannot be in the future.");
+        messages.push(tr("Date cannot be in the future."));
       }
     }
 

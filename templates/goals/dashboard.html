@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Financial Goals{% endblock %}
+{% block title %}{{ t("Financial Goals") }}{% endblock %}
 
 {% block page_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/goals.css') }}">
@@ -9,11 +9,11 @@
 {% block content %}
 <header class="dashboard-header goals-header animated-fade-in">
   <div class="header-title-area">
-    <h1>Financial Goals</h1>
-    <div class="quote-banner"><i class="fa-solid fa-bullseye quote-icon"></i><span>Turn meaningful plans into measurable progress.</span></div>
+    <h1>{{ t("Financial Goals") }}</h1>
+    <div class="quote-banner"><i class="fa-solid fa-bullseye quote-icon"></i><span>{{ t("Turn meaningful plans into measurable progress.") }}</span></div>
   </div>
   <div class="header-action-area">
-    <a href="{{ url_for('create_goal') }}" class="btn btn-emerald"><i class="fa-solid fa-plus"></i> Add Goal</a>
+    <a href="{{ url_for('create_goal') }}" class="btn btn-emerald"><i class="fa-solid fa-plus"></i> {{ t("Add Goal") }}</a>
   </div>
 </header>
 
@@ -22,19 +22,19 @@
   <article class="goal-card">
     <div class="goal-card-header">
       <div><span class="goal-category">{{ goal.goal_category }}</span><h2>{{ goal.goal_name }}</h2></div>
-      <span class="goal-status goal-status-{{ goal.status|lower }}">{{ goal.status }}</span>
+      <span class="goal-status goal-status-{{ goal.status|lower }}">{{ t(goal.status) }}</span>
     </div>
-    <div class="goal-progress-meta"><span>Progress</span><strong>{{ "{:.2f}".format(goal.progress_percentage) }}%</strong></div>
+    <div class="goal-progress-meta"><span>{{ t("Progress") }}</span><strong>{{ "{:.2f}".format(goal.progress_percentage) }}%</strong></div>
     <div class="goal-progress-track"><div class="goal-progress-fill" style="width: {{ goal.progress_percentage }}%;"></div></div>
     <div class="goal-amounts">
-      <div><span>Current</span><strong>${{ "{:,.2f}".format(goal.current_amount) }}</strong></div>
-      <div><span>Target</span><strong>${{ "{:,.2f}".format(goal.target_amount) }}</strong></div>
-      <div><span>Remaining</span><strong>${{ "{:,.2f}".format(goal.remaining_amount) }}</strong></div>
+      <div><span>{{ t("Current") }}</span><strong>{{ format_currency(goal.current_amount, current_currency) }}</strong></div>
+      <div><span>{{ t("Target") }}</span><strong>{{ format_currency(goal.target_amount, current_currency) }}</strong></div>
+      <div><span>{{ t("Remaining") }}</span><strong>{{ format_currency(goal.remaining_amount, current_currency) }}</strong></div>
     </div>
-    <div class="goal-card-footer"><span>Target date: {{ goal.target_date }}</span><a href="{{ url_for('view_goal', goal_id=goal.goal_id) }}" class="btn btn-outline btn-sm">View details</a></div>
+    <div class="goal-card-footer"><span>{{ t("Target date") }}: {{ goal.target_date }}</span><a href="{{ url_for('view_goal', goal_id=goal.goal_id) }}" class="btn btn-outline btn-sm">{{ t("View details") }}</a></div>
   </article>
   {% else %}
-  <div class="empty-state goals-empty-state"><div class="empty-icon"><i class="fa-solid fa-bullseye"></i></div><h3>No financial goals yet</h3><p>Create a goal to begin tracking your progress.</p><a href="{{ url_for('create_goal') }}" class="btn btn-emerald btn-lg"><i class="fa-solid fa-plus"></i> Add Goal</a></div>
+  <div class="empty-state goals-empty-state"><div class="empty-icon"><i class="fa-solid fa-bullseye"></i></div><h3>{{ t("No financial goals yet") }}</h3><p>{{ t("Create a goal to begin tracking your progress.") }}</p><a href="{{ url_for('create_goal') }}" class="btn btn-emerald btn-lg"><i class="fa-solid fa-plus"></i> {{ t("Add Goal") }}</a></div>
   {% endfor %}
 </section>
 {% endblock %}

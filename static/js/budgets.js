@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     form.addEventListener('submit', (e) => {
       let isValid = true;
       let errorMessages = [];
+      const tr = window.finSightTranslate || ((value) => value);
 
       const nameVal = document.getElementById('budget_name')?.value.trim();
       const catVal = document.getElementById('category')?.value;
@@ -22,30 +23,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!nameVal) {
         isValid = false;
-        errorMessages.push("Budget Name is required.");
+        errorMessages.push(tr("Budget Name is required."));
       }
 
       if (!catVal) {
         isValid = false;
-        errorMessages.push("Category selection is required.");
+        errorMessages.push(tr("Category selection is required."));
       }
 
       if (isNaN(amtVal) || amtVal < 0) {
         isValid = false;
-        errorMessages.push("Allocated Budget Amount must be 0 or greater.");
+        errorMessages.push(tr("Allocated Budget Amount must be 0 or greater."));
       }
 
       if (isNaN(spentVal) || spentVal < 0) {
         isValid = false;
-        errorMessages.push("Initial Spent Amount cannot be negative.");
+        errorMessages.push(tr("Initial Spent Amount cannot be negative."));
       }
 
       if (!startDate || !endDate) {
         isValid = false;
-        errorMessages.push("Both Start Date and End Date are required.");
+        errorMessages.push(tr("Both Start Date and End Date are required."));
       } else if (startDate > endDate) {
         isValid = false;
-        errorMessages.push("Start Date cannot be later than End Date.");
+        errorMessages.push(tr("Start Date cannot be later than End Date."));
       }
 
       if (!isValid) {

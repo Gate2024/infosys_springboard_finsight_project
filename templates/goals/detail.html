@@ -5,12 +5,12 @@
 {% block page_styles %}<link rel="stylesheet" href="{{ url_for('static', filename='css/goals.css') }}">{% endblock %}
 
 {% block content %}
-<div class="form-header-bar animated-fade-in"><div><h1 class="form-header-title"><i class="fa-solid fa-bullseye" style="color: var(--emerald-green);"></i> Goal Details</h1><p class="form-header-subtitle">Review the progress of this financial goal.</p></div><a href="{{ url_for('goals') }}" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> Back to Goals</a></div>
+<div class="form-header-bar animated-fade-in"><div><h1 class="form-header-title"><i class="fa-solid fa-bullseye" style="color: var(--emerald-green);"></i> {{ t("Goal Details") }}</h1><p class="form-header-subtitle">{{ t("Review the progress of this financial goal.") }}</p></div><a href="{{ url_for('goals') }}" class="btn btn-outline"><i class="fa-solid fa-arrow-left"></i> {{ t("Back to Goals") }}</a></div>
 <section class="goal-detail-card animated-fade-in">
-  <div class="goal-card-header"><div><span class="goal-category">{{ goal.goal_category }}</span><h2>{{ goal.goal_name }}</h2></div><span class="goal-status goal-status-{{ goal.status|lower }}">{{ goal.status }}</span></div>
-  <div class="goal-detail-progress"><div class="goal-progress-meta"><span>{{ "{:.2f}".format(goal.progress_percentage) }}% complete</span><strong>${{ "{:,.2f}".format(goal.remaining_amount) }} remaining</strong></div><div class="goal-progress-track"><div class="goal-progress-fill" style="width: {{ goal.progress_percentage }}%;"></div></div></div>
-  <div class="goal-amounts goal-detail-amounts"><div><span>Current Amount</span><strong>${{ "{:,.2f}".format(goal.current_amount) }}</strong></div><div><span>Target Amount</span><strong>${{ "{:,.2f}".format(goal.target_amount) }}</strong></div><div><span>Target Date</span><strong>{{ goal.target_date }}</strong></div></div>
-  <div class="goal-detail-actions"><a href="{{ url_for('edit_goal', goal_id=goal.goal_id) }}" class="btn btn-emerald"><i class="fa-regular fa-pen-to-square"></i> Edit Goal</a><form method="POST" action="{{ url_for('delete_goal', goal_id=goal.goal_id) }}" class="goal-delete-form"><input type="hidden" name="_goal_csrf_token" value="{{ session.get('goal_csrf_token') }}"><button type="submit" class="btn btn-danger"><i class="fa-regular fa-trash-can"></i> Delete Goal</button></form></div>
+  <div class="goal-card-header"><div><span class="goal-category">{{ goal.goal_category }}</span><h2>{{ goal.goal_name }}</h2></div><span class="goal-status goal-status-{{ goal.status|lower }}">{{ t(goal.status) }}</span></div>
+  <div class="goal-detail-progress"><div class="goal-progress-meta"><span>{{ "{:.2f}".format(goal.progress_percentage) }}% {{ t("complete") }}</span><strong>{{ format_currency(goal.remaining_amount, current_currency) }} {{ t("remaining") }}</strong></div><div class="goal-progress-track"><div class="goal-progress-fill" style="width: {{ goal.progress_percentage }}%;"></div></div></div>
+  <div class="goal-amounts goal-detail-amounts"><div><span>{{ t("Current Amount") }}</span><strong>{{ format_currency(goal.current_amount, current_currency) }}</strong></div><div><span>{{ t("Target Amount") }}</span><strong>{{ format_currency(goal.target_amount, current_currency) }}</strong></div><div><span>{{ t("Target Date") }}</span><strong>{{ goal.target_date }}</strong></div></div>
+  <div class="goal-detail-actions"><a href="{{ url_for('edit_goal', goal_id=goal.goal_id) }}" class="btn btn-emerald"><i class="fa-regular fa-pen-to-square"></i> {{ t("Edit Goal") }}</a><form method="POST" action="{{ url_for('delete_goal', goal_id=goal.goal_id) }}" class="goal-delete-form"><input type="hidden" name="_goal_csrf_token" value="{{ session.get('goal_csrf_token') }}"><button type="submit" class="btn btn-danger"><i class="fa-regular fa-trash-can"></i> {{ t("Delete Goal") }}</button></form></div>
 </section>
 
 <div id="goalDeleteConfirmModal" class="modal-overlay" aria-hidden="true">
@@ -18,11 +18,11 @@
     <div class="delete-confirm-icon">
       <i class="fa-solid fa-triangle-exclamation"></i>
     </div>
-    <h2 id="goalDeleteConfirmTitle">Are you sure you want to delete this goal?</h2>
-    <p>This action cannot be undone.</p>
+    <h2 id="goalDeleteConfirmTitle">{{ t("Are you sure you want to delete this goal?") }}</h2>
+    <p>{{ t("This action cannot be undone.") }}</p>
     <div class="delete-confirm-actions">
-      <button type="button" class="btn btn-outline" id="cancelDeleteGoal">Cancel</button>
-      <button type="button" class="btn btn-danger" id="confirmDeleteGoal">Delete</button>
+      <button type="button" class="btn btn-outline" id="cancelDeleteGoal">{{ t("Cancel") }}</button>
+      <button type="button" class="btn btn-danger" id="confirmDeleteGoal">{{ t("Delete") }}</button>
     </div>
   </div>
 </div>

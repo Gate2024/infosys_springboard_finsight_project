@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{% if is_edit %}Edit Budget{% else %}Create New Budget{% endif %}{% endblock %}
+{% block title %}{% if is_edit %}{{ t("Edit Budget") }}{% else %}{{ t("Create New Budget") }}{% endif %}{% endblock %}
 
 {% block content %}
 
@@ -8,15 +8,15 @@
   <div>
     <h1 class="form-header-title">
       {% if is_edit %}
-        <i class="fa-solid fa-pen-to-square" style="color: var(--luxury-gold);"></i> Edit Budget
+        <i class="fa-solid fa-pen-to-square" style="color: var(--luxury-gold);"></i> {{ t("Edit Budget") }}
       {% else %}
-        <i class="fa-solid fa-plus-circle" style="color: var(--emerald-green);"></i> Create New Budget
+        <i class="fa-solid fa-plus-circle" style="color: var(--emerald-green);"></i> {{ t("Create New Budget") }}
       {% endif %}
     </h1>
-    <p class="form-header-subtitle">Enter budget parameters and targets for tracking.</p>
+    <p class="form-header-subtitle">{{ t("Enter budget parameters and targets for tracking.") }}</p>
   </div>
   <a href="{{ url_for('budgets') }}" class="btn btn-outline">
-    <i class="fa-solid fa-arrow-left"></i> Back to Dashboard
+    <i class="fa-solid fa-arrow-left"></i> {{ t("Back to Dashboard") }}
   </a>
 </div>
 
@@ -32,13 +32,13 @@
       
       <!-- Budget Name -->
       <div class="form-group-full">
-        <label for="budget_name" class="form-label">Budget Name <span class="required">*</span></label>
+        <label for="budget_name" class="form-label">{{ t("Budget Name") }} <span class="required">*</span></label>
         <input 
           type="text" 
           id="budget_name" 
           name="budget_name" 
           class="input-control" 
-          placeholder="e.g. Monthly Grocery & Food Budget" 
+          placeholder="{{ t('e.g. Monthly Grocery & Food Budget') }}"
           value="{{ budget.budget_name or '' }}" 
           required
         >
@@ -46,35 +46,35 @@
 
       <!-- Category Dropdown -->
       <div>
-        <label for="category" class="form-label">Category <span class="required">*</span></label>
+        <label for="category" class="form-label">{{ t("Category") }} <span class="required">*</span></label>
         <select id="category" name="category" class="input-control" required>
-          <option value="" disabled {% if not budget.category %}selected{% endif %}>Select Category</option>
-          <option value="Housing & Rent" {% if budget.category == 'Housing & Rent' %}selected{% endif %}>Housing & Rent</option>
-          <option value="Food & Dining" {% if budget.category == 'Food & Dining' %}selected{% endif %}>Food & Dining</option>
-          <option value="Transportation" {% if budget.category == 'Transportation' %}selected{% endif %}>Transportation</option>
-          <option value="Entertainment" {% if budget.category == 'Entertainment' %}selected{% endif %}>Entertainment</option>
-          <option value="Investment & Savings" {% if budget.category == 'Investment & Savings' %}selected{% endif %}>Investment & Savings</option>
-          <option value="Utilities" {% if budget.category == 'Utilities' %}selected{% endif %}>Utilities</option>
-          <option value="Healthcare" {% if budget.category == 'Healthcare' %}selected{% endif %}>Healthcare</option>
-          <option value="Personal Care" {% if budget.category == 'Personal Care' %}selected{% endif %}>Personal Care</option>
-          <option value="Other" {% if budget.category == 'Other' %}selected{% endif %}>Other</option>
+          <option value="" disabled {% if not budget.category %}selected{% endif %}>{{ t("Select Category") }}</option>
+          <option value="Housing & Rent" {% if budget.category == 'Housing & Rent' %}selected{% endif %}>{{ t("Housing & Rent") }}</option>
+          <option value="Food & Dining" {% if budget.category == 'Food & Dining' %}selected{% endif %}>{{ t("Food & Dining") }}</option>
+          <option value="Transportation" {% if budget.category == 'Transportation' %}selected{% endif %}>{{ t("Transportation") }}</option>
+          <option value="Entertainment" {% if budget.category == 'Entertainment' %}selected{% endif %}>{{ t("Entertainment") }}</option>
+          <option value="Investment & Savings" {% if budget.category == 'Investment & Savings' %}selected{% endif %}>{{ t("Investment & Savings") }}</option>
+          <option value="Utilities" {% if budget.category == 'Utilities' %}selected{% endif %}>{{ t("Utilities") }}</option>
+          <option value="Healthcare" {% if budget.category == 'Healthcare' %}selected{% endif %}>{{ t("Healthcare") }}</option>
+          <option value="Personal Care" {% if budget.category == 'Personal Care' %}selected{% endif %}>{{ t("Personal Care") }}</option>
+          <option value="Other" {% if budget.category == 'Other' %}selected{% endif %}>{{ t("Other") }}</option>
         </select>
       </div>
 
       <!-- Status Selector -->
       <div>
-        <label for="status" class="form-label">Status</label>
+        <label for="status" class="form-label">{{ t("Status") }}</label>
         <select id="status" name="status" class="input-control">
-          <option value="Active" {% if budget.status == 'Active' or not budget.status %}selected{% endif %}>Active</option>
-          <option value="Completed" {% if budget.status == 'Completed' %}selected{% endif %}>Completed</option>
+          <option value="Active" {% if budget.status == 'Active' or not budget.status %}selected{% endif %}>{{ t("Active") }}</option>
+          <option value="Completed" {% if budget.status == 'Completed' %}selected{% endif %}>{{ t("Completed") }}</option>
         </select>
       </div>
 
       <!-- Allocated Budget Amount -->
       <div>
-        <label for="budget_amount" class="form-label">Budget Amount ($) <span class="required">*</span></label>
+        <label for="budget_amount" class="form-label">{{ t("Budget Amount") }} ({{ current_currency_symbol }}) <span class="required">*</span></label>
         <div class="input-group">
-          <span class="input-group-addon">$</span>
+          <span class="input-group-addon">{{ current_currency_symbol }}</span>
           <input 
             type="number" 
             step="0.01" 
@@ -91,9 +91,9 @@
 
       <!-- Spent Amount -->
       <div>
-        <label for="spent_amount" class="form-label">Spent Amount ($)</label>
+        <label for="spent_amount" class="form-label">{{ t("Spent Amount") }} ({{ current_currency_symbol }})</label>
         <div class="input-group">
-          <span class="input-group-addon">$</span>
+          <span class="input-group-addon">{{ current_currency_symbol }}</span>
           <input 
             type="number" 
             step="0.01" 
@@ -109,7 +109,7 @@
 
       <!-- Start Date -->
       <div>
-        <label for="start_date" class="form-label">Start Date <span class="required">*</span></label>
+        <label for="start_date" class="form-label">{{ t("Start Date") }} <span class="required">*</span></label>
         <input 
           type="date" 
           id="start_date" 
@@ -122,7 +122,7 @@
 
       <!-- End Date -->
       <div>
-        <label for="end_date" class="form-label">End Date <span class="required">*</span></label>
+        <label for="end_date" class="form-label">{{ t("End Date") }} <span class="required">*</span></label>
         <input 
           type="date" 
           id="end_date" 
@@ -135,36 +135,36 @@
 
       <!-- Priority Selector Chips -->
       <div class="form-group-full">
-        <label class="form-label">Priority Level</label>
+        <label class="form-label">{{ t("Priority Level") }}</label>
         <div class="priority-chips">
           {% set cur_p = budget.priority or 'Medium' %}
           <div class="priority-chip-option">
             <input type="radio" id="p_low" name="priority" value="Low" {% if cur_p == 'Low' %}checked{% endif %}>
-            <label for="p_low" class="chip-label"><i class="fa-solid fa-arrow-down me-1"></i> Low</label>
+            <label for="p_low" class="chip-label"><i class="fa-solid fa-arrow-down me-1"></i> {{ t("Low") }}</label>
           </div>
           <div class="priority-chip-option">
             <input type="radio" id="p_med" name="priority" value="Medium" {% if cur_p == 'Medium' %}checked{% endif %}>
-            <label for="p_med" class="chip-label"><i class="fa-solid fa-minus me-1"></i> Medium</label>
+            <label for="p_med" class="chip-label"><i class="fa-solid fa-minus me-1"></i> {{ t("Medium") }}</label>
           </div>
           <div class="priority-chip-option">
             <input type="radio" id="p_high" name="priority" value="High" {% if cur_p == 'High' %}checked{% endif %}>
-            <label for="p_high" class="chip-label"><i class="fa-solid fa-arrow-up me-1"></i> High</label>
+            <label for="p_high" class="chip-label"><i class="fa-solid fa-arrow-up me-1"></i> {{ t("High") }}</label>
           </div>
           <div class="priority-chip-option">
             <input type="radio" id="p_urg" name="priority" value="Urgent" {% if cur_p == 'Urgent' %}checked{% endif %}>
-            <label for="p_urg" class="chip-label"><i class="fa-solid fa-fire me-1"></i> Urgent</label>
+            <label for="p_urg" class="chip-label"><i class="fa-solid fa-fire me-1"></i> {{ t("Urgent") }}</label>
           </div>
         </div>
       </div>
 
       <!-- Description / Notes -->
       <div class="form-group-full">
-        <label for="description" class="form-label">Description / Notes</label>
+        <label for="description" class="form-label">{{ t("Description / Notes") }}</label>
         <textarea 
           id="description" 
           name="description" 
           class="input-control" 
-          placeholder="Brief description or purpose for this budget..."
+          placeholder="{{ t('Brief description or purpose for this budget...') }}"
         >{{ budget.description or '' }}</textarea>
       </div>
 
@@ -173,15 +173,15 @@
     <!-- Form Action Buttons -->
     <div class="form-actions-bar">
       <a href="{{ url_for('budgets') }}" class="btn btn-outline">
-        <i class="fa-solid fa-xmark"></i> Cancel
+        <i class="fa-solid fa-xmark"></i> {{ t("Cancel") }}
       </a>
 
       <div class="actions-right">
         <button type="reset" class="btn btn-outline">
-          <i class="fa-solid fa-rotate-left"></i> Reset
+          <i class="fa-solid fa-rotate-left"></i> {{ t("Reset") }}
         </button>
         <button type="submit" class="btn btn-emerald">
-          <i class="fa-solid fa-floppy-disk"></i> {% if is_edit %}Update Budget{% else %}Save Budget{% endif %}
+          <i class="fa-solid fa-floppy-disk"></i> {% if is_edit %}{{ t("Update Budget") }}{% else %}{{ t("Save Budget") }}{% endif %}
         </button>
       </div>
     </div>

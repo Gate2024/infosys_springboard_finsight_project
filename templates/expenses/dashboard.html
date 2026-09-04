@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Expense Tracker{% endblock %}
+{% block title %}{{ t("Expense Tracker") }}{% endblock %}
 
 {% block page_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/expenses.css') }}">
@@ -10,10 +10,10 @@
 
 <header class="dashboard-header expense-hero animated-fade-in">
   <div class="header-title-area">
-    <h1>Expense Tracker</h1>
+    <h1>{{ t("Expense Tracker") }}</h1>
     <div class="quote-banner">
       <i class="fa-solid fa-receipt quote-icon"></i>
-      <span>Track every spend with clarity, context, and control.</span>
+      <span>{{ t("Track every spend with clarity, context, and control.") }}</span>
     </div>
   </div>
 
@@ -22,10 +22,10 @@
       <i class="fa-regular fa-calendar-days"></i> {{ today_date }}
     </div>
     <a href="{{ url_for('export_expenses') }}" class="btn btn-outline">
-      <i class="fa-solid fa-file-csv"></i> Export CSV
+      <i class="fa-solid fa-file-csv"></i> {{ t("Export CSV") }}
     </a>
     <a href="{{ url_for('create_expense') }}" class="btn btn-emerald">
-      <i class="fa-solid fa-plus"></i> Add Expense
+      <i class="fa-solid fa-plus"></i> {{ t("Add Expense") }}
     </a>
   </div>
 </header>
@@ -33,27 +33,27 @@
 <section class="summary-grid expense-summary-grid animated-fade-in">
   <div class="metric-card expense-metric">
     <div class="metric-header">
-      <span class="metric-title">Total Spent</span>
+        <span class="metric-title">{{ t("Total Spent") }}</span>
       <div class="metric-icon-box">
         <i class="fa-solid fa-wallet"></i>
       </div>
     </div>
-    <div class="metric-value">${{ "{:,.2f}".format(stats.total_spent) }}</div>
+    <div class="metric-value">{{ format_currency(stats.total_spent, current_currency) }}</div>
   </div>
 
   <div class="metric-card expense-metric">
     <div class="metric-header">
-      <span class="metric-title">This Month</span>
+        <span class="metric-title">{{ t("This Month") }}</span>
       <div class="metric-icon-box" style="color: var(--emerald-green);">
         <i class="fa-solid fa-calendar-check"></i>
       </div>
     </div>
-    <div class="metric-value" style="color: var(--emerald-green);">${{ "{:,.2f}".format(stats.month_spent) }}</div>
+    <div class="metric-value" style="color: var(--emerald-green);">{{ format_currency(stats.month_spent, current_currency) }}</div>
   </div>
 
   <div class="metric-card expense-metric">
     <div class="metric-header">
-      <span class="metric-title">Transactions</span>
+        <span class="metric-title">{{ t("Transactions") }}</span>
       <div class="metric-icon-box" style="color: var(--luxury-gold);">
         <i class="fa-solid fa-list-check"></i>
       </div>
@@ -63,17 +63,17 @@
 
   <div class="metric-card expense-metric">
     <div class="metric-header">
-      <span class="metric-title">Average</span>
+        <span class="metric-title">{{ t("Average") }}</span>
       <div class="metric-icon-box" style="color: #2563EB;">
         <i class="fa-solid fa-chart-line"></i>
       </div>
     </div>
-    <div class="metric-value">${{ "{:,.2f}".format(stats.average_expense) }}</div>
+    <div class="metric-value">{{ format_currency(stats.average_expense, current_currency) }}</div>
   </div>
 
   <div class="metric-card expense-metric">
     <div class="metric-header">
-      <span class="metric-title">Top Category</span>
+        <span class="metric-title">{{ t("Top Category") }}</span>
       <div class="metric-icon-box" style="color: #B91C1C;">
         <i class="fa-solid fa-layer-group"></i>
       </div>
@@ -89,31 +89,31 @@
       type="text"
       id="expense-search-input"
       class="search-input"
-      placeholder="Search by description, category, or payment mode..."
+      placeholder="{{ t('Search by description, category, or payment mode...') }}"
       value="{{ search_query }}"
     >
   </div>
 
   <div class="filter-group">
     <select id="expense-filter-category" class="filter-select">
-      <option value="All" {% if category_filter == 'All' %}selected{% endif %}>All Categories</option>
+      <option value="All" {% if category_filter == 'All' %}selected{% endif %}>{{ t("All Categories") }}</option>
       {% for category in categories %}
         <option value="{{ category }}" {% if category_filter == category %}selected{% endif %}>{{ category }}</option>
       {% endfor %}
     </select>
 
     <select id="expense-filter-payment" class="filter-select">
-      <option value="All" {% if payment_filter == 'All' %}selected{% endif %}>All Payment Modes</option>
+      <option value="All" {% if payment_filter == 'All' %}selected{% endif %}>{{ t("All Payment Modes") }}</option>
       {% for payment_mode in payment_modes %}
         <option value="{{ payment_mode }}" {% if payment_filter == payment_mode %}selected{% endif %}>{{ payment_mode }}</option>
       {% endfor %}
     </select>
 
     <select id="expense-filter-sort" class="filter-select">
-      <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Sort by Newest</option>
-      <option value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>Sort by Oldest</option>
-      <option value="amount_desc" {% if sort_by == 'amount_desc' %}selected{% endif %}>Amount: High to Low</option>
-      <option value="amount_asc" {% if sort_by == 'amount_asc' %}selected{% endif %}>Amount: Low to High</option>
+      <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>{{ t("Sort by Newest") }}</option>
+      <option value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>{{ t("Sort by Oldest") }}</option>
+      <option value="amount_desc" {% if sort_by == 'amount_desc' %}selected{% endif %}>{{ t("Amount: High to Low") }}</option>
+      <option value="amount_asc" {% if sort_by == 'amount_asc' %}selected{% endif %}>{{ t("Amount: Low to High") }}</option>
     </select>
   </div>
 </section>
@@ -121,12 +121,12 @@
 <section class="expense-panel animated-fade-in">
   <div class="expense-panel-header">
     <div>
-      <h2>Recent Expenses</h2>
-      <p>{{ stats.month_expenses }} recorded this month</p>
+      <h2>{{ t("Recent Expenses") }}</h2>
+      <p>{{ stats.month_expenses }} {{ t("recorded this month") }}</p>
     </div>
     <span class="expense-total-chip">
       <i class="fa-solid fa-arrow-trend-down"></i>
-      Largest: ${{ "{:,.2f}".format(stats.largest_expense) }}
+      {{ t("Largest") }}: {{ format_currency(stats.largest_expense, current_currency) }}
     </span>
   </div>
 
@@ -135,12 +135,12 @@
       <table class="expense-table">
         <thead>
           <tr>
-            <th>Date</th>
-            <th>Description</th>
-            <th>Category</th>
-            <th>Payment Mode</th>
-            <th class="amount-col">Amount</th>
-            <th class="actions-col">Actions</th>
+            <th>{{ t("Date") }}</th>
+            <th>{{ t("Description") }}</th>
+            <th>{{ t("Category") }}</th>
+            <th>{{ t("Payment Mode") }}</th>
+            <th class="amount-col">{{ t("Amount") }}</th>
+            <th class="actions-col">{{ t("Actions") }}</th>
           </tr>
         </thead>
         <tbody>
@@ -161,8 +161,8 @@
               </td>
               <td>
                 <div class="expense-description">
-                  <strong>{{ expense.description or "Untitled expense" }}</strong>
-                  <span>Expense #{{ expense.id }}</span>
+                  <strong>{{ expense.description or t("Untitled expense") }}</strong>
+                  <span>{{ t("Expense") }} #{{ expense.id }}</span>
                 </div>
               </td>
               <td>
@@ -178,14 +178,14 @@
                 </span>
               </td>
               <td class="amount-col">
-                <span class="expense-amount">${{ "{:,.2f}".format(expense.amount) }}</span>
+                <span class="expense-amount">{{ format_currency(expense.amount, current_currency) }}</span>
               </td>
               <td class="actions-col">
                 <div class="action-btn-group">
-                  <button class="icon-btn" title="View Expense" onclick="openExpenseModal({{ expense.id }})">
+                  <button class="icon-btn" title="{{ t('View Expense') }}" onclick="openExpenseModal({{ expense.id }})">
                     <i class="fa-regular fa-eye"></i>
                   </button>
-                  <a href="{{ url_for('edit_expense', transaction_id=expense.id) }}" class="icon-btn" title="Edit Expense">
+                  <a href="{{ url_for('edit_expense', transaction_id=expense.id) }}" class="icon-btn" title="{{ t('Edit Expense') }}">
                     <i class="fa-regular fa-pen-to-square"></i>
                   </a>
                   <form
@@ -195,7 +195,7 @@
                     data-expense-name="{{ expense.description or expense.category }}"
                   >
                     <input type="hidden" name="_expense_csrf_token" value="{{ expense_csrf_token }}">
-                    <button type="submit" class="icon-btn icon-btn-delete" title="Delete Expense">
+                    <button type="submit" class="icon-btn icon-btn-delete" title="{{ t('Delete Expense') }}">
                       <i class="fa-regular fa-trash-can"></i>
                     </button>
                   </form>
@@ -211,10 +211,10 @@
       <div class="empty-icon">
         <i class="fa-solid fa-receipt"></i>
       </div>
-      <h3>No Expenses Recorded Yet</h3>
-      <p>Add your first expense to start building a clear spending history.</p>
+        <h3>{{ t("No Expenses Recorded Yet") }}</h3>
+        <p>{{ t("Add your first expense to start building a clear spending history.") }}</p>
       <a href="{{ url_for('create_expense') }}" class="btn btn-emerald btn-lg">
-        <i class="fa-solid fa-plus"></i> Add First Expense
+        <i class="fa-solid fa-plus"></i> {{ t("Add First Expense") }}
       </a>
     </div>
   {% endif %}
@@ -234,11 +234,11 @@
     <div class="delete-confirm-icon">
       <i class="fa-solid fa-triangle-exclamation"></i>
     </div>
-    <h2 id="expenseDeleteConfirmTitle">Delete this expense?</h2>
-    <p>This action cannot be undone.</p>
+    <h2 id="expenseDeleteConfirmTitle">{{ t("Delete this expense?") }}</h2>
+    <p>{{ t("This action cannot be undone.") }}</p>
     <div class="delete-confirm-actions">
-      <button type="button" class="btn btn-outline" id="cancelDeleteExpense">Cancel</button>
-      <button type="button" class="btn btn-danger" id="confirmDeleteExpense">Delete</button>
+      <button type="button" class="btn btn-outline" id="cancelDeleteExpense">{{ t("Cancel") }}</button>
+      <button type="button" class="btn btn-danger" id="confirmDeleteExpense">{{ t("Delete") }}</button>
     </div>
   </div>
 </div>

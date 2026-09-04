@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Dashboard{% endblock %}
+{% block title %}{{ t("Dashboard") }}{% endblock %}
 
 {% block page_styles %}
 <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
@@ -18,9 +18,9 @@
         <i class="bi bi-wallet2"></i>
       </div>
       <div class="card-info">
-        <h4>Total Balance</h4>
+        <h4>{{ t("Total Balance") }}</h4>
         <h2>1,25,000</h2>
-        <small>Available Balance</small>
+        <small>{{ t("Available Balance") }}</small>
       </div>
     </div>
 
@@ -29,9 +29,9 @@
         <i class="bi bi-arrow-down-circle"></i>
       </div>
       <div class="card-info">
-        <h4>Total Income</h4>
+        <h4>{{ t("Total Income") }}</h4>
         <h2>85,000</h2>
-        <small>This Month</small>
+        <small>{{ t("This Month") }}</small>
       </div>
     </div>
 
@@ -40,9 +40,9 @@
         <i class="bi bi-arrow-up-circle"></i>
       </div>
       <div class="card-info">
-        <h4>Total Expenses</h4>
-        <h2>₹{{ "{:,.2f}".format(dashboard_month_spent) }}</h2>
-        <small>This Month</small>
+        <h4>{{ t("Total Expenses") }}</h4>
+        <h2>{{ format_currency(dashboard_month_spent, current_currency) }}</h2>
+        <small>{{ t("This Month") }}</small>
       </div>
     </div>
 
@@ -51,9 +51,9 @@
         <i class="bi bi-piggy-bank"></i>
       </div>
       <div class="card-info">
-        <h4>Total Savings</h4>
+        <h4>{{ t("Total Savings") }}</h4>
         <h2>42,350</h2>
-        <small>Current Savings</small>
+        <small>{{ t("Current Savings") }}</small>
       </div>
     </div>
 
@@ -62,9 +62,9 @@
         <i class="bi bi-cash-stack"></i>
       </div>
       <div class="card-info">
-        <h4>Budget Left</h4>
-        <h2>₹{{ "{:,.2f}".format(dashboard_budget_left) }}</h2>
-        <small>Remaining Budget</small>
+        <h4>{{ t("Budget Left") }}</h4>
+        <h2>{{ format_currency(dashboard_budget_left, current_currency) }}</h2>
+        <small>{{ t("Remaining Budget") }}</small>
       </div>
     </div>
   </div>
@@ -74,10 +74,10 @@
     <div class="financial-health-card">
       <div class="financial-health-header">
         <div>
-          <span class="financial-health-label">Financial Wellness</span>
-          <h3>Financial Health Score</h3>
+          <span class="financial-health-label">{{ t("Financial Wellness") }}</span>
+          <h3>{{ t("Financial Health Score") }}</h3>
           <p>
-            Your overall financial wellness based on available financial data.
+            {{ t("Your overall financial wellness based on available financial data.") }}
           </p>
         </div>
 
@@ -96,12 +96,11 @@
       {% if financial_health.available %}
       <div class="financial-health-summary">
         <span class="financial-health-grade">
-          {{ financial_health.grade }}
+          {{ t(financial_health.grade) }}
         </span>
 
         <span class="financial-health-coverage">
-          Based on {{ financial_health.coverage|round|int }}% of available
-          financial areas
+          {{ t("Based on") }} {{ financial_health.coverage|round|int }}% {{ t("of available financial areas") }}
         </span>
       </div>
 
@@ -109,13 +108,13 @@
 
         <div class="health-component">
           <div class="health-component-header">
-            <span>Budget Management</span>
+            <span>{{ t("Budget Management") }}</span>
             {% if financial_health.components.budget.available %}
             <strong>
               {{ financial_health.components.budget.score|round|int }}/35
             </strong>
             {% else %}
-            <strong>Unavailable</strong>
+            <strong>{{ t("Unavailable") }}</strong>
             {% endif %}
           </div>
 
@@ -128,19 +127,19 @@
           {% endif %}
 
           <small>
-            {{ financial_health.components.budget.message }}
+            {{ t(financial_health.components.budget.message) }}
           </small>
         </div>
 
         <div class="health-component">
           <div class="health-component-header">
-            <span>Spending Discipline</span>
+            <span>{{ t("Spending Discipline") }}</span>
             {% if financial_health.components.spending.available %}
             <strong>
               {{ financial_health.components.spending.score|round|int }}/20
             </strong>
             {% else %}
-            <strong>Unavailable</strong>
+            <strong>{{ t("Unavailable") }}</strong>
             {% endif %}
           </div>
 
@@ -153,19 +152,19 @@
           {% endif %}
 
           <small>
-            {{ financial_health.components.spending.message }}
+            {{ t(financial_health.components.spending.message) }}
           </small>
         </div>
 
         <div class="health-component">
           <div class="health-component-header">
-            <span>Goal Progress</span>
+            <span>{{ t("Goal Progress") }}</span>
             {% if financial_health.components.goals.available %}
             <strong>
               {{ financial_health.components.goals.score|round|int }}/25
             </strong>
             {% else %}
-            <strong>Unavailable</strong>
+            <strong>{{ t("Unavailable") }}</strong>
             {% endif %}
           </div>
 
@@ -178,19 +177,19 @@
           {% endif %}
 
           <small>
-            {{ financial_health.components.goals.message }}
+            {{ t(financial_health.components.goals.message) }}
           </small>
         </div>
 
         <div class="health-component">
           <div class="health-component-header">
-            <span>Investment Performance</span>
+            <span>{{ t("Investment Performance") }}</span>
             {% if financial_health.components.investments.available %}
             <strong>
               {{ financial_health.components.investments.score|round|int }}/20
             </strong>
             {% else %}
-            <strong>Unavailable</strong>
+            <strong>{{ t("Unavailable") }}</strong>
             {% endif %}
           </div>
 
@@ -203,7 +202,7 @@
           {% endif %}
 
           <small>
-            {{ financial_health.components.investments.message }}
+            {{ t(financial_health.components.investments.message) }}
           </small>
         </div>
 
@@ -212,9 +211,9 @@
       <div class="financial-health-empty">
         <i class="bi bi-info-circle"></i>
         <div>
-          <strong>Insufficient Data</strong>
+            <strong>{{ t("Insufficient Data") }}</strong>
           <p>
-            Add more financial data to generate your Financial Health Score.
+            {{ t("Add more financial data to generate your Financial Health Score.") }}
           </p>
         </div>
       </div>
@@ -229,7 +228,7 @@
         <div class="col-12 col-md-12 col-lg-6">
           <div class="chart-card">
             <span>
-              <h3>Expense Breakdown</h3>
+              <h3>{{ t("Expense Breakdown") }}</h3>
             </span>
             <div class="d-flex flex-row dashboard-chart-split">
               <div class="dashboard-chart-area">
@@ -244,10 +243,10 @@
                     {{ item.category }}
                   </span>
                   <span class="percentage">{{ "{:.2f}".format(item.percentage) }}%</span>
-                  <span class="amount">₹{{ "{:,.2f}".format(item.amount) }}</span>
+                  <span class="amount">{{ format_currency(item.amount, current_currency) }}</span>
                 </div>
                 {% else %}
-                <div class="expense-row">No expense data available.</div>
+                <div class="expense-row">{{ t("No expense data available.") }}</div>
                 {% endfor %}
               </div>
             </div>
@@ -256,7 +255,7 @@
 
         <div class="col-12 col-md-12 col-lg-6">
           <div class="chart-card">
-            <h3>Income vs Expenses</h3>
+            <h3>{{ t("Income vs Expenses") }}</h3>
             <canvas id="incomeExpenseChart"></canvas>
           </div>
         </div>
@@ -266,18 +265,18 @@
       <div class="row dashboard-analytics-row">
         <div class="col-12 col-md-6 col-lg-4">
           <div class="chart-card">
-            <h3>Monthly Cash Flow</h3>
-            <p>Track Income, Expenses & Savings</p>
+            <h3>{{ t("Monthly Cash Flow") }}</h3>
+            <p>{{ t("Track Income, Expenses & Savings") }}</p>
             <div class="cashflow-header">
               <div class="cashflow-filters m-3">
                 <select class="form-select" id="monthFilter">
-                  <option value="all">All Months</option>
-                  <option value="jan">January</option>
-                  <option value="feb">February</option>
-                  <option value="mar">March</option>
-                  <option value="apr">April</option>
-                  <option value="may">May</option>
-                  <option value="jun">June</option>
+                  <option value="all">{{ t("All Months") }}</option>
+                  <option value="jan">{{ t("January") }}</option>
+                  <option value="feb">{{ t("February") }}</option>
+                  <option value="mar">{{ t("March") }}</option>
+                  <option value="apr">{{ t("April") }}</option>
+                  <option value="may">{{ t("May") }}</option>
+                  <option value="jun">{{ t("June") }}</option>
                 </select>
 
                 <select class="form-select" id="yearFilter">
@@ -296,14 +295,14 @@
 
         <div class="col-12 col-md-6 col-lg-4">
           <div class="chart-card">
-            <h3>Spending Pattern</h3>
-            <p>Monthly expense trend</p>
+            <h3>{{ t("Spending Pattern") }}</h3>
+            <p>{{ t("Monthly expense trend") }}</p>
             {% if monthly_expenses %}
             <div class="chart-container">
               <canvas id="monthlySpendingChart"></canvas>
             </div>
             {% else %}
-            <div class="chart-container chart-empty">No monthly spending data available.</div>
+            <div class="chart-container chart-empty">{{ t("No monthly spending data available.") }}</div>
             {% endif %}
           </div>
         </div>
@@ -311,7 +310,7 @@
         <div class="col-12 col-md-6 col-lg-4">
           <div class="chart-card budget-progress-card">
             <span>
-              <h3>Budget Progress</h3>
+              <h3>{{ t("Budget Progress") }}</h3>
             </span>
 
             {% for budget in budget_progress %}
@@ -321,14 +320,14 @@
                   <i class="bi bi-wallet2 category-icon"></i>
                   {{ budget.budget_name }}
                 </span>
-                <span>₹{{ "{:,.2f}".format(budget.spent_amount) }} / ₹{{ "{:,.2f}".format(budget.budget_amount) }}</span>
+                <span>{{ format_currency(budget.spent_amount, current_currency) }} / {{ format_currency(budget.budget_amount, current_currency) }}</span>
               </div>
               <div class="progress">
                 <div class="progress-bar bg-primary" style="width:{{ budget.percentage }}%"></div>
               </div>
             </div>
             {% else %}
-            <div class="budget-item">No budget data available.</div>
+            <div class="budget-item">{{ t("No budget data available.") }}</div>
             {% endfor %}
           </div>
         </div>
@@ -339,10 +338,10 @@
         <div class="col-12">
           <div class="chart-card budget-analysis-card">
             <div class="d-flex align-items-center justify-content-between mb-3">
-              <h3 class="mb-0">Budget vs Spending</h3>
+              <h3 class="mb-0">{{ t("Budget vs Spending") }}</h3>
               {% if budget_spending_summary.status != "Unavailable" %}
               <span class="badge {% if budget_spending_summary.status == 'Over Budget' %}bg-danger{% elif budget_spending_summary.status == 'Approaching Limit' %}bg-warning{% else %}bg-success{% endif %}">
-                {{ budget_spending_summary.status }}
+                {{ t(budget_spending_summary.status) }}
               </span>
               {% endif %}
             </div>
@@ -350,23 +349,23 @@
             {% if budget_spending_analysis %}
             <div class="budget-analysis-summary">
               <div>
-                <span>Total Budget</span>
-                <strong>₹{{ "{:,.2f}".format(budget_spending_summary.total_budget) }}</strong>
+                <span>{{ t("Total Budget") }}</span>
+                  <strong>{{ format_currency(budget_spending_summary.total_budget, current_currency) }}</strong>
               </div>
               <div>
-                <span>Total Spent</span>
-                <strong>₹{{ "{:,.2f}".format(budget_spending_summary.total_spent) }}</strong>
+                <span>{{ t("Total Spent") }}</span>
+                  <strong>{{ format_currency(budget_spending_summary.total_spent, current_currency) }}</strong>
               </div>
               <div>
-                <span>Total Remaining</span>
-                <strong>₹{{ "{:,.2f}".format(budget_spending_summary.total_remaining) }}</strong>
+                <span>{{ t("Total Remaining") }}</span>
+                  <strong>{{ format_currency(budget_spending_summary.total_remaining, current_currency) }}</strong>
               </div>
               <div>
-                <span>Overall Utilization</span>
+                <span>{{ t("Overall Utilization") }}</span>
                 <strong>
                   {% if budget_spending_summary.utilization_percentage is not none %}
                   {{ "{:.1f}".format(budget_spending_summary.utilization_percentage) }}%
-                  {% else %}Unavailable{% endif %}
+                  {% else %}{{ t("Unavailable") }}{% endif %}
                 </strong>
               </div>
             </div>
@@ -380,15 +379,15 @@
                     <small>{{ budget.category }}</small>
                   </div>
                   <span class="badge {% if budget.status == 'Over Budget' %}bg-danger{% elif budget.status == 'Approaching Limit' %}bg-warning{% elif budget.status == 'Healthy' %}bg-success{% else %}bg-secondary{% endif %}">
-                    {{ budget.status }}
+                    {{ t(budget.status) }}
                   </span>
                 </div>
                 <div class="budget-analysis-values">
-                  <span>Spent ₹{{ "{:,.2f}".format(budget.spent_amount) }} / ₹{{ "{:,.2f}".format(budget.budget_amount) }}</span>
+                  <span>{{ t("Spent") }} {{ format_currency(budget.spent_amount, current_currency) }} / {{ format_currency(budget.budget_amount, current_currency) }}</span>
                   <span>
                     {% if budget.utilization_percentage is not none %}
-                    {{ "{:.1f}".format(budget.utilization_percentage) }}% used
-                    {% else %}Utilization unavailable{% endif %}
+                    {{ "{:.1f}".format(budget.utilization_percentage) }}% {{ t("used") }}
+                    {% else %}{{ t("Utilization unavailable") }}{% endif %}
                   </span>
                 </div>
                 <div class="progress">
@@ -396,13 +395,13 @@
                     style="width: {{ budget.progress_percentage }}%"></div>
                 </div>
                 <div class="budget-analysis-remaining">
-                  Remaining ₹{{ "{:,.2f}".format(budget.remaining_amount) }}
+                  {{ t("Remaining") }} {{ format_currency(budget.remaining_amount, current_currency) }}
                 </div>
               </div>
               {% endfor %}
             </div>
             {% else %}
-            <div class="budget-analysis-empty">No budgets available yet.</div>
+            <div class="budget-analysis-empty">{{ t("No budgets available yet.") }}</div>
             {% endif %}
           </div>
         </div>
@@ -415,10 +414,10 @@
             <div class="d-flex align-items-center justify-content-between mb-3">
               <h3 class="mb-0">
                 <i class="bi bi-stars text-primary"></i>
-                Spending Recommendations
+                {{ t("Spending Recommendations") }}
               </h3>
 
-              <span class="badge bg-primary">Rule-based</span>
+              <span class="badge bg-primary">{{ t("Rule-based") }}</span>
             </div>
 
             {% if spending_recommendations %}
@@ -428,8 +427,8 @@
                   <i class="{{ recommendation.icon }}"></i>
                 </div>
                 <div class="insight-content">
-                  <h6>{{ recommendation.title }}</h6>
-                  <p>{{ recommendation.message }}</p>
+                  <h6>{{ t(recommendation.title_key or recommendation.title) }}</h6>
+                  <p>{{ t(recommendation.message_key or recommendation.message)|replace('{budget_name}', recommendation.message_value or '')|replace('{category}', recommendation.message_value or '') }}</p>
                 </div>
               </div>
               {% endfor %}
@@ -439,7 +438,7 @@
                   <i class="bi bi-check-circle-fill"></i>
                 </div>
                 <div class="insight-content">
-                  <p class="mb-0">No new spending recommendations based on your current data.</p>
+                  <p class="mb-0">{{ t("No new spending recommendations based on your current data.") }}</p>
                 </div>
               </div>
             {% endif %}
@@ -452,19 +451,19 @@
         <div class="col-12">
           <div class="chart-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
-              <h3 class="mb-0">Recent Transactions</h3>
-              <button class="btn btn-sm btn-primary">View All</button>
+              <h3 class="mb-0">{{ t("Recent Transactions") }}</h3>
+              <button class="btn btn-sm btn-primary">{{ t("View All") }}</button>
             </div>
 
             <div class="table-responsive">
               <table class="table align-middle transaction-table">
                 <thead>
                   <tr>
-                    <th>Category</th>
-                    <th>Description</th>
-                    <th>Date</th>
-                    <th>Type</th>
-                    <th>Amount</th>
+                    <th>{{ t("Category") }}</th>
+                    <th>{{ t("Description") }}</th>
+                    <th>{{ t("Date") }}</th>
+                    <th>{{ t("Type") }}</th>
+                    <th>{{ t("Amount") }}</th>
                   </tr>
                 </thead>
 
@@ -479,13 +478,13 @@
                         {{ transaction.category }}
                       </div>
                     </td>
-                    <td>{{ transaction.description or "No description" }}</td>
+                    <td>{{ transaction.description or t("No description") }}</td>
                     <td>{{ transaction.date }}</td>
-                    <td><span class="badge bg-danger">{{ transaction.type }}</span></td>
-                    <td class="text-danger fw-bold">-₹{{ "{:,.2f}".format(transaction.amount) }}</td>
+                    <td><span class="badge bg-danger">{{ t(transaction.type) }}</span></td>
+                    <td class="text-danger fw-bold">-{{ format_currency(transaction.amount, current_currency) }}</td>
                   </tr>
                   {% else %}
-                  <tr><td colspan="5">No expense transactions available.</td></tr>
+                  <tr><td colspan="5">{{ t("No expense transactions available.") }}</td></tr>
                   {% endfor %}
                 </tbody>
               </table>

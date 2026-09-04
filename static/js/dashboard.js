@@ -108,11 +108,18 @@ async function openViewModal(budgetId) {
   const modal = document.getElementById('viewModal');
   const modalBody = document.getElementById('modal-body-content');
   if (!modal || !modalBody) return;
+  const finSightWindow = typeof window !== 'undefined' ? window : {};
+  const tr = finSightWindow.finSightTranslate || ((value) => value);
+  const formatAmount = finSightWindow.finSightFormatCurrency || ((value) => {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return 'Unavailable';
+    return `$${number.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  });
 
   modalBody.innerHTML = `
     <div style="text-align: center; padding: 2rem;">
       <i class="fa-solid fa-circle-notch fa-spin" style="font-size: 2rem; color: var(--emerald-green);"></i>
-      <p style="margin-top: 1rem; color: var(--text-muted);">Fetching luxury budget details...</p>
+      <p style="margin-top: 1rem; color: var(--text-muted);">${tr('Fetching luxury budget details...')}</p>
     </div>
   `;
   modal.classList.add('active');
@@ -135,10 +142,10 @@ async function openViewModal(budgetId) {
       const safeBudgetIcon = allowedBudgetValue(b.budget_icon, ALLOWED_BUDGET_ICONS, 'fa-wallet');
       const safePriority = allowedBudgetValue(b.priority, ALLOWED_BUDGET_PRIORITIES, 'Medium');
       const safeStatus = allowedBudgetValue(b.status, ALLOWED_BUDGET_STATUSES, 'Active');
-      const safeBudgetName = escapeBudgetHtml(b.budget_name || 'Budget');
-      const safeCategory = escapeBudgetHtml(b.category || '');
-      const safeCurrency = escapeBudgetHtml(b.currency || '');
-      const safeDescription = escapeBudgetHtml(b.description || 'No detailed description provided.');
+      const safeBudgetName = escapeBudgetHtml(b.budget_name || tr('Budget'));
+      const safeCategory = escapeBudgetHtml(b.category || tr('Uncategorized'));
+      const safeCurrency = escapeBudgetHtml(finSightWindow.finSightPreferences?.currency || b.currency || '');
+      const safeDescription = escapeBudgetHtml(b.description || tr('No detailed description provided.'));
       const safeStartDate = escapeBudgetHtml(b.start_date || '');
       const safeEndDate = escapeBudgetHtml(b.end_date || '');
       const safeNotes = escapeBudgetHtml(b.notes || '');
@@ -158,56 +165,56 @@ async function openViewModal(budgetId) {
 
         <div class="amounts-row" style="margin-bottom: 1.5rem;">
           <div class="amount-box">
-            <span class="amount-label">Allocated</span>
-            <span class="amount-val">$${total.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+            <span class="amount-label">${tr('Allocated')}</span>
+            <span class="amount-val">${formatAmount(total)}</span>
           </div>
           <div class="amount-box">
-            <span class="amount-label">Spent</span>
-            <span class="amount-val" style="color: var(--danger);">$${spent.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+            <span class="amount-label">${tr('Spent')}</span>
+            <span class="amount-val" style="color: var(--danger);">${formatAmount(spent)}</span>
           </div>
           <div class="amount-box">
-            <span class="amount-label">Remaining</span>
-            <span class="amount-val" style="color: var(--success);">$${rem.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
+            <span class="amount-label">${tr('Remaining')}</span>
+            <span class="amount-val" style="color: var(--success);">${formatAmount(rem)}</span>
           </div>
         </div>
 
         <div style="background: var(--bg-surface-muted); border-radius: 14px; padding: 1.2rem; margin-bottom: 1.5rem;">
           <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
-            <strong>Duration Window</strong>
+            <strong>${tr('Duration Window')}</strong>
             <span>${safeStartDate} to ${safeEndDate}</span>
           </div>
           <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
-            <strong>Priority Level</strong>
-            <span class="card-priority-badge priority-${safePriority}">${safePriority}</span>
+            <strong>${tr('Priority Level')}</strong>
+            <span class="card-priority-badge priority-${safePriority}">${tr(safePriority)}</span>
           </div>
           <div style="display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 8px;">
-            <strong>Status</strong>
-            <span>${safeStatus}</span>
+            <strong>${tr('Status')}</strong>
+            <span>${tr(safeStatus)}</span>
           </div>
           <div style="display: flex; justify-content: space-between; font-size: 0.85rem;">
-            <strong>Recurring Monthly</strong>
-            <span>${b.is_recurring ? 'Yes' : 'No'}</span>
+            <strong>${tr('Recurring Monthly')}</strong>
+            <span>${tr(b.is_recurring ? 'Yes' : 'No')}</span>
           </div>
         </div>
 
         ${b.notes ? `
           <div style="font-size: 0.88rem; color: var(--text-muted); background: var(--bg-surface-elevated); border: 1px solid var(--border-color); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem;">
-            <strong>Notes:</strong> ${safeNotes}
+            <strong>${tr('Notes:')}</strong> ${safeNotes}
           </div>
         ` : ''}
 
         <div style="display: flex; justify-content: flex-end; gap: 10px;">
           <a href="${safeEditHref}" class="btn btn-emerald">
-            <i class="fa-regular fa-pen-to-square"></i> Edit Budget
+            <i class="fa-regular fa-pen-to-square"></i> ${tr('Edit Budget')}
           </a>
-          <button type="button" class="btn btn-outline" onclick="closeViewModal()">Close</button>
+          <button type="button" class="btn btn-outline" onclick="closeViewModal()">${tr('Close')}</button>
         </div>
       `;
     } else {
-      modalBody.innerHTML = `<p style="color: var(--danger);">Error loading budget details.</p>`;
+      modalBody.innerHTML = `<p style="color: var(--danger);">${tr('Error loading budget details.')}</p>`;
     }
   } catch (err) {
-    modalBody.innerHTML = `<p style="color: var(--danger);">Failed to connect to server.</p>`;
+    modalBody.innerHTML = `<p style="color: var(--danger);">${tr('Failed to connect to server.')}</p>`;
   }
 }
 

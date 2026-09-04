@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{% if is_edit %}Edit Expense{% else %}Add Expense{% endif %}{% endblock %}
+{% block title %}{% if is_edit %}{{ t("Edit Expense") }}{% else %}{{ t("Add Expense") }}{% endif %}{% endblock %}
 
 {% block page_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/expenses.css') }}">
@@ -12,15 +12,15 @@
   <div>
     <h1 class="form-header-title">
       {% if is_edit %}
-        <i class="fa-solid fa-pen-to-square" style="color: var(--luxury-gold);"></i> Edit Expense
+        <i class="fa-solid fa-pen-to-square" style="color: var(--luxury-gold);"></i> {{ t("Edit Expense") }}
       {% else %}
-        <i class="fa-solid fa-circle-plus" style="color: var(--emerald-green);"></i> Add Expense
+        <i class="fa-solid fa-circle-plus" style="color: var(--emerald-green);"></i> {{ t("Add Expense") }}
       {% endif %}
     </h1>
-    <p class="form-header-subtitle">Record expense details with category, payment mode, and date.</p>
+    <p class="form-header-subtitle">{{ t("Record expense details with category, payment mode, and date.") }}</p>
   </div>
   <a href="{{ url_for('expenses') }}" class="btn btn-outline">
-    <i class="fa-solid fa-arrow-left"></i> Back to Expenses
+    <i class="fa-solid fa-arrow-left"></i> {{ t("Back to Expenses") }}
   </a>
 </div>
 
@@ -33,21 +33,21 @@
     <input type="hidden" name="_expense_csrf_token" value="{{ expense_csrf_token }}">
     <div class="form-grid">
       <div class="form-group-full">
-        <label for="description" class="form-label">Description</label>
+        <label for="description" class="form-label">{{ t("Description") }}</label>
         <input
           type="text"
           id="description"
           name="description"
           class="input-control"
-          placeholder="e.g. Team lunch, rent payment, flight booking"
+          placeholder="{{ t('e.g. Team lunch, rent payment, flight booking') }}"
           value="{{ expense.description or '' }}"
         >
       </div>
 
       <div>
-        <label for="amount" class="form-label">Amount ($) <span class="required">*</span></label>
+        <label for="amount" class="form-label">{{ t("Amount") }} ({{ current_currency_symbol }}) <span class="required">*</span></label>
         <div class="input-group">
-          <span class="input-group-addon">$</span>
+          <span class="input-group-addon">{{ current_currency_symbol }}</span>
           <input
             type="number"
             step="0.01"
@@ -63,7 +63,7 @@
       </div>
 
       <div>
-        <label for="date" class="form-label">Date <span class="required">*</span></label>
+        <label for="date" class="form-label">{{ t("Date") }} <span class="required">*</span></label>
         <input
           type="date"
           id="date"
@@ -75,9 +75,9 @@
       </div>
 
       <div>
-        <label for="category" class="form-label">Category <span class="required">*</span></label>
+        <label for="category" class="form-label">{{ t("Category") }} <span class="required">*</span></label>
         <select id="category" name="category" class="input-control" required>
-          <option value="" disabled {% if not expense.category %}selected{% endif %}>Select Category</option>
+          <option value="" disabled {% if not expense.category %}selected{% endif %}>{{ t("Select Category") }}</option>
           {% for category in categories %}
             <option value="{{ category }}" {% if expense.category == category %}selected{% endif %}>{{ category }}</option>
           {% endfor %}
@@ -85,9 +85,9 @@
       </div>
 
       <div>
-        <label for="payment_mode" class="form-label">Payment Mode <span class="required">*</span></label>
+        <label for="payment_mode" class="form-label">{{ t("Payment Mode") }} <span class="required">*</span></label>
         <select id="payment_mode" name="payment_mode" class="input-control" required>
-          <option value="" disabled {% if not expense.payment_mode %}selected{% endif %}>Select Payment Mode</option>
+          <option value="" disabled {% if not expense.payment_mode %}selected{% endif %}>{{ t("Select Payment Mode") }}</option>
           {% for payment_mode in payment_modes %}
             <option value="{{ payment_mode }}" {% if expense.payment_mode == payment_mode %}selected{% endif %}>{{ payment_mode }}</option>
           {% endfor %}
@@ -97,20 +97,20 @@
 
     <div class="expense-form-note">
       <i class="fa-solid fa-shield-halved"></i>
-      <span>Expenses are stored against your signed-in account only.</span>
+      <span>{{ t("Expenses are stored against your signed-in account only.") }}</span>
     </div>
 
     <div class="form-actions-bar">
       <a href="{{ url_for('expenses') }}" class="btn btn-outline">
-        <i class="fa-solid fa-xmark"></i> Cancel
+        <i class="fa-solid fa-xmark"></i> {{ t("Cancel") }}
       </a>
 
       <div class="actions-right">
         <button type="reset" class="btn btn-outline">
-          <i class="fa-solid fa-rotate-left"></i> Reset
+          <i class="fa-solid fa-rotate-left"></i> {{ t("Reset") }}
         </button>
         <button type="submit" class="btn btn-emerald">
-          <i class="fa-solid fa-floppy-disk"></i> {% if is_edit %}Update Expense{% else %}Save Expense{% endif %}
+          <i class="fa-solid fa-floppy-disk"></i> {% if is_edit %}{{ t("Update Expense") }}{% else %}{{ t("Save Expense") }}{% endif %}
         </button>
       </div>
     </div>

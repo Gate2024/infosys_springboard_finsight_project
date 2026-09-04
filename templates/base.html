@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="{{ 'dark' if session.get('theme') == 'dark' else 'light' }}">
+<html lang="{{ current_language }}" data-language="{{ current_language }}" data-theme="{{ 'dark' if session.get('theme') == 'dark' else 'light' }}">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>{% block title %}Budget Management Module{% endblock %} - FinSight Luxury</title>
+  <title>{% block title %}{{ t("Budget Management Module") }}{% endblock %} - FinSight Luxury</title>
 
   <!-- Google Fonts: Playfair Display, Poppins & Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -39,7 +39,7 @@
       </div>
     </a>
 
-    <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="Toggle sidebar">
+    <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="{{ t('Toggle sidebar') }}">
       <i class="fa-solid fa-bars"></i>
     </button>
 
@@ -50,24 +50,24 @@
         <input type="hidden" name="currency" value="{{ notification_theme_preferences.get('currency', 'USD') }}">
         <input type="hidden" name="language" value="{{ notification_theme_preferences.get('language', 'en') }}">
         {% for field in ['budget_overspending_alerts', 'weekly_savings_digest_enabled', 'sip_due_date_reminders_enabled', 'bill_due_date_reminders_enabled'] %}{% if notification_theme_preferences.get(field) %}<input type="hidden" name="{{ field }}" value="true">{% endif %}{% endfor %}
-        <button type="button" data-notification-theme-choice="light" class="{% if session.get('theme') != 'dark' %}active{% endif %}" aria-label="Switch to Day theme" title="Day theme"><i class="fa-solid fa-sun" aria-hidden="true"></i><span>Day</span></button>
-        <button type="button" data-notification-theme-choice="dark" class="{% if session.get('theme') == 'dark' %}active{% endif %}" aria-label="Switch to Night theme" title="Night theme"><i class="fa-solid fa-moon" aria-hidden="true"></i><span>Night</span></button>
+        <button type="button" data-notification-theme-choice="light" class="{% if session.get('theme') != 'dark' %}active{% endif %}" aria-label="{{ t('Switch to Day theme') }}" title="{{ t('Day theme') }}"><i class="fa-solid fa-sun" aria-hidden="true"></i><span>{{ t("Day") }}</span></button>
+        <button type="button" data-notification-theme-choice="dark" class="{% if session.get('theme') == 'dark' %}active{% endif %}" aria-label="{{ t('Switch to Night theme') }}" title="{{ t('Night theme') }}"><i class="fa-solid fa-moon" aria-hidden="true"></i><span>{{ t("Night") }}</span></button>
       </form>
       <div class="navbar-notifications" data-notification-menu>
-        <button class="notification-trigger" type="button" data-notification-trigger aria-expanded="false" aria-haspopup="true" aria-controls="notification-menu" aria-label="Notifications">
+        <button class="notification-trigger" type="button" data-notification-trigger aria-expanded="false" aria-haspopup="true" aria-controls="notification-menu" aria-label="{{ t('Notifications') }}">
           <i class="fa-solid fa-bell" aria-hidden="true"></i>
           {% if notification_unread_count %}<span class="notification-count">{{ notification_unread_count if notification_unread_count < 100 else '99+' }}</span>{% endif %}
         </button>
         <div id="notification-menu" class="notification-menu" data-notification-panel hidden>
           <div class="notification-menu-header">
-            <strong>Notifications</strong>
-            <a href="{{ url_for('notifications') }}">View all</a>
+            <strong>{{ translate("Notifications", current_language) }}</strong>
+            <a href="{{ url_for('notifications') }}">{{ translate("View all", current_language) }}</a>
           </div>
-          <div class="notification-filters" role="tablist" aria-label="Notification categories">
-            <a href="{{ url_for('notifications', filter='all') }}">All</a>
-            <a href="{{ url_for('notifications', filter='unread') }}">Unread</a>
-            <a href="{{ url_for('notifications', filter='alert') }}">Alerts</a>
-            <a href="{{ url_for('notifications', filter='milestone') }}">Milestone</a>
+          <div class="notification-filters" role="tablist" aria-label="{{ t('Notification categories') }}">
+            <a href="{{ url_for('notifications', filter='all') }}">{{ t("All") }}</a>
+            <a href="{{ url_for('notifications', filter='unread') }}">{{ translate("Unread", current_language) }}</a>
+            <a href="{{ url_for('notifications', filter='alert') }}">{{ translate("Alerts", current_language) }}</a>
+            <a href="{{ url_for('notifications', filter='milestone') }}">{{ translate("Milestone", current_language) }}</a>
           </div>
           <div class="notification-preview-list">
             {% for notification in notification_preview %}
@@ -76,7 +76,7 @@
                 <input type="hidden" name="next" value="{{ request.full_path }}">
                 <button type="submit"><i class="fa-solid {{ 'fa-triangle-exclamation' if notification.type == 'alert' else 'fa-trophy' }}" aria-hidden="true"></i><span><strong>{{ notification.title }}</strong><small>{{ notification.message }}</small><time datetime="{{ notification.created_at.isoformat() if notification.created_at else '' }}">{{ notification.created_at.strftime('%b %d, %Y %H:%M') if notification.created_at else '' }}</time></span></button>
               </form>
-            {% else %}<p class="notification-empty">No notifications</p>{% endfor %}
+            {% else %}<p class="notification-empty">{{ t("No notifications") }}</p>{% endfor %}
           </div>
         </div>
       </div>
@@ -95,9 +95,9 @@
         <i class="fa-solid fa-chevron-down account-menu-chevron" aria-hidden="true"></i>
       </button>
       <div id="account-menu" class="account-menu" data-account-menu-panel hidden>
-        <a href="{{ url_for('profile') }}"><i class="fa-solid fa-user"></i> My Profile</a>
-        <a href="{{ url_for('profile_preferences') }}"><i class="fa-solid fa-sliders"></i> Preferences</a>
-        <a href="{{ url_for('profile_security') }}"><i class="fa-solid fa-shield-halved"></i> Security &amp; 2FA</a>
+        <a href="{{ url_for('profile') }}"><i class="fa-solid fa-user"></i> {{ translate("My Profile", current_language) }}</a>
+        <a href="{{ url_for('profile_preferences') }}"><i class="fa-solid fa-sliders"></i> {{ translate("Preferences", current_language) }}</a>
+        <a href="{{ url_for('profile_security') }}"><i class="fa-solid fa-shield-halved"></i> {{ translate("Security & 2FA", current_language) }}</a>
       </div>
     </div>
     </div>
@@ -106,54 +106,54 @@
   <!-- Application Main Shell -->
   <div class="app-shell">
     <aside class="sidebar" id="sidebar">
-      <nav aria-label="Primary navigation">
+      <nav aria-label="{{ t('Primary navigation') }}">
         <ul class="nav-links">
           <li class="{% if request.endpoint == 'dashboard' %}active{% endif %}">
             <a href="{{ url_for('dashboard') }}">
               <i class="fa-solid fa-grip"></i>
-              <span>Dashboard</span>
+              <span>{{ translate("Dashboard", current_language) }}</span>
             </a>
           </li>
 
           <li class="{% if request.endpoint in ['expenses', 'create_expense', 'edit_expense'] %}active{% endif %}">
             <a href="{{ url_for('expenses') }}">
               <i class="fa-solid fa-circle-arrow-up"></i>
-              <span>Expenses</span>
+              <span>{{ translate("Expenses", current_language) }}</span>
             </a>
           </li>
 
           <li class="{% if request.endpoint == 'budgets' %}active{% endif %}">
             <a href="{{ url_for('budgets') }}">
               <i class="fa-solid fa-wallet"></i>
-              <span>Budget</span>
+              <span>{{ translate("Budget", current_language) }}</span>
             </a>
           </li>
 
           <li class="{% if request.endpoint in ['investments', 'create_investment', 'view_investment', 'edit_investment'] %}active{% endif %}">
             <a href="{{ url_for('investments') }}">
               <i class="fa-solid fa-chart-line"></i>
-              <span>Investments</span>
+              <span>{{ translate("Investments", current_language) }}</span>
             </a>
           </li>
 
           <li class="{% if request.endpoint in ['goals', 'create_goal', 'view_goal', 'edit_goal'] %}active{% endif %}">
             <a href="{{ url_for('goals') }}">
               <i class="fa-solid fa-bullseye"></i>
-              <span>Goals</span>
+              <span>{{ translate("Goals", current_language) }}</span>
             </a>
           </li>
 
           <li class="{% if request.endpoint == 'reports_data' %}active{% endif %}">
             <a href="{{ url_for('reports_data') }}">
               <i class="fa-solid fa-file-lines"></i>
-              <span>Reports</span>
+              <span>{{ translate("Reports", current_language) }}</span>
             </a>
           </li>
 
           <li class="logout">
             <a href="{{ url_for('logout') }}">
               <i class="fa-solid fa-right-from-bracket"></i>
-              <span>Logout</span>
+              <span>{{ translate("Logout", current_language) }}</span>
             </a>
           </li>
         </ul>
@@ -167,7 +167,7 @@
         <div class="flash-messages">
           {% for category, message in messages %}
             <div class="flash-alert flash-{{ category }}">
-              <span><i class="fa-solid {% if category == 'success' %}fa-circle-check{% elif category == 'danger' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %} me-2"></i> {{ message }}</span>
+              <span><i class="fa-solid {% if category == 'success' %}fa-circle-check{% elif category == 'danger' %}fa-circle-exclamation{% else %}fa-circle-info{% endif %} me-2"></i> {{ translate(message, current_language) }}</span>
               <button type="button" class="flash-close" onclick="this.parentElement.remove();">&times;</button>
             </div>
           {% endfor %}
@@ -182,6 +182,11 @@
 
   <!-- Toast Notification System Anchor -->
   <div id="toast-container"></div>
+
+  <script>
+    window.finSightPreferences = {{ {"currency": current_currency, "language": current_language, "currencySymbol": current_currency_symbol}|tojson }};
+    window.finSightTranslations = {{ translation_catalog|tojson }};
+  </script>
 
   <!-- Global JavaScript Core Script -->
   <script src="{{ url_for('static', filename='js/main.js') }}"></script>
