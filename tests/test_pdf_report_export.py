@@ -8,6 +8,7 @@ import app as application
 def set_session(client, user_id=7):
     with client.session_transaction() as session:
         session["uid"] = user_id
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "PDF Tester"
 
 
@@ -97,7 +98,8 @@ def report_data():
     }
 
 
-def test_authenticated_user_can_download_pdf_with_report_sections(monkeypatch):
+def test_authenticated_user_can_download_pdf_with_report_sections(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = report_data()
     monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: deepcopy(data))
     client = application.app.test_client()
@@ -132,7 +134,8 @@ def test_pdf_export_requires_authentication():
     assert response.headers["Location"].endswith("/login")
 
 
-def test_pdf_export_uses_session_user_and_preserves_date_range(monkeypatch):
+def test_pdf_export_uses_session_user_and_preserves_date_range(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     calls = []
 
     def fake_build(user_id, start_date, end_date, *, investment_service, goal_service):
@@ -159,7 +162,8 @@ def test_pdf_export_uses_session_user_and_preserves_date_range(monkeypatch):
         {"start_date": "2026-04-01", "end_date": "2026-03-31"},
     ],
 )
-def test_pdf_export_rejects_invalid_date_ranges(query_string):
+def test_pdf_export_rejects_invalid_date_ranges(query_string, tracked_session_store):
+    tracked_session_store(7)
     client = application.app.test_client()
     set_session(client)
 
@@ -170,7 +174,8 @@ def test_pdf_export_rejects_invalid_date_ranges(query_string):
     assert response.get_json()["error"]
 
 
-def test_empty_expense_data_still_produces_a_valid_pdf(monkeypatch):
+def test_empty_expense_data_still_produces_a_valid_pdf(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = report_data()
     data["date_range"] = {"start_date": None, "end_date": None}
     data["expenses"]["expense_summary"] = {
@@ -196,7 +201,8 @@ def test_empty_expense_data_still_produces_a_valid_pdf(monkeypatch):
     assert b"No monthly expense data available." in response.data
 
 
-def test_pdf_export_does_not_mutate_report_data(monkeypatch):
+def test_pdf_export_does_not_mutate_report_data(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = report_data()
     original = deepcopy(data)
     monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: data)
@@ -210,7 +216,8 @@ def test_pdf_export_does_not_mutate_report_data(monkeypatch):
 
 
 @pytest.mark.parametrize("currency", ["INR", "EUR", "GBP"])
-def test_pdf_export_uses_registered_unicode_font_for_non_usd_currency(monkeypatch, currency):
+def test_pdf_export_uses_registered_unicode_font_for_non_usd_currency(monkeypatch, currency, tracked_session_store):
+    tracked_session_store(7)
     monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: report_data())
     monkeypatch.setattr(
         application,
@@ -230,7 +237,8 @@ def test_pdf_export_uses_registered_unicode_font_for_non_usd_currency(monkeypatc
     assert all(ord(symbol) in pdf_font.face.charToGlyph for symbol in "₹€£¥")
 
 
-def test_existing_reports_json_behavior_remains_available(monkeypatch):
+def test_existing_reports_json_behavior_remains_available(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = report_data()
     monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: deepcopy(data))
     client = application.app.test_client()

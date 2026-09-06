@@ -4,6 +4,7 @@ import app as application
 def set_session(client, user_id=7):
     with client.session_transaction() as session:
         session["uid"] = user_id
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "Notification Owner"
         session["email"] = f"user{user_id}@example.com"
 
@@ -68,7 +69,8 @@ def test_notifications_require_authentication():
     assert response.headers["Location"].endswith("/login")
 
 
-def test_notification_filters_are_server_side_and_user_scoped(monkeypatch):
+def test_notification_filters_are_server_side_and_user_scoped(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     _, calls = install_notification_store(monkeypatch)
     client = application.app.test_client()
     set_session(client)
@@ -87,7 +89,8 @@ def test_notification_filters_are_server_side_and_user_scoped(monkeypatch):
     assert all(call[1] == 7 for call in calls)
 
 
-def test_notification_read_requires_csrf_and_preserves_ownership(monkeypatch):
+def test_notification_read_requires_csrf_and_preserves_ownership(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     _, calls = install_notification_store(monkeypatch)
     client = application.app.test_client()
     set_session(client)
@@ -101,7 +104,8 @@ def test_notification_read_requires_csrf_and_preserves_ownership(monkeypatch):
     assert ("read", 7, 999) not in calls
 
 
-def test_notification_read_cannot_target_another_users_record(monkeypatch):
+def test_notification_read_cannot_target_another_users_record(monkeypatch, tracked_session_store):
+    tracked_session_store(8)
     _, calls = install_notification_store(monkeypatch)
     client = application.app.test_client()
     set_session(client, user_id=8)
@@ -117,7 +121,8 @@ def test_notification_read_cannot_target_another_users_record(monkeypatch):
     assert ("read", 8, 1) in calls
 
 
-def test_mark_all_read_is_csrf_protected_and_user_scoped(monkeypatch):
+def test_mark_all_read_is_csrf_protected_and_user_scoped(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     calls = []
     monkeypatch.setattr(application, "get_notifications", lambda *_args, **_kwargs: [])
     monkeypatch.setattr(application, "get_unread_notification_count", lambda _user_id: 0)
@@ -136,7 +141,8 @@ def test_mark_all_read_is_csrf_protected_and_user_scoped(monkeypatch):
     assert calls == [7]
 
 
-def test_notification_popup_uses_real_count_and_categories(monkeypatch):
+def test_notification_popup_uses_real_count_and_categories(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     install_notification_store(monkeypatch)
     client = application.app.test_client()
     set_session(client)

@@ -9,6 +9,7 @@ from i18n import TRANSLATIONS, format_currency, translate
 def set_session(client, user_id=7):
     with client.session_transaction() as session:
         session["uid"] = user_id
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "Preference Owner"
         session["email"] = f"user{user_id}@example.com"
 
@@ -95,7 +96,8 @@ def test_pdf_uses_registered_unicode_font_for_display_currency():
     assert application.PDF_FONT != "Helvetica"
 
 
-def test_authenticated_header_uses_user_language_and_currency(monkeypatch):
+def test_authenticated_header_uses_user_language_and_currency(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     preferences = {
         "currency": "INR",
         "language": "hi",
@@ -119,7 +121,9 @@ def test_authenticated_header_uses_user_language_and_currency(monkeypatch):
     assert b'"language": "hi"' in response.data
 
 
-def test_user_preferences_are_scoped_to_the_authenticated_session(monkeypatch):
+def test_user_preferences_are_scoped_to_the_authenticated_session(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
+    tracked_session_store(8)
     preferences = {
         7: {"currency": "EUR", "language": "de"},
         8: {"currency": "JPY", "language": "ja"},
@@ -146,7 +150,8 @@ def test_user_preferences_are_scoped_to_the_authenticated_session(monkeypatch):
     assert b'"currency": "EUR"' not in second.data
 
 
-def test_marathi_is_available_in_preferences_and_persists(monkeypatch):
+def test_marathi_is_available_in_preferences_and_persists(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     state = {
         "currency": "USD",
         "language": "en",
@@ -193,7 +198,8 @@ def test_marathi_is_available_in_preferences_and_persists(monkeypatch):
     assert state["language"] == "mr"
 
 
-def test_marathi_renders_application_ui_without_translating_user_content(monkeypatch):
+def test_marathi_renders_application_ui_without_translating_user_content(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     preferences = {
         "currency": "INR",
         "language": "mr",

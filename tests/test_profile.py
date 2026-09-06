@@ -4,6 +4,7 @@ import app as application
 def set_session(client, user_id=7, username="Profile Owner"):
     with client.session_transaction() as session:
         session["uid"] = user_id
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = username
         session["email"] = f"user{user_id}@example.com"
 
@@ -17,7 +18,8 @@ def profile_user(user_id=7, username="Profile Owner", email="owner@example.com")
     }
 
 
-def test_authenticated_user_can_access_profile(monkeypatch):
+def test_authenticated_user_can_access_profile(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     monkeypatch.setattr(application, "get_user_by_id", lambda user_id: profile_user(user_id))
     client = application.app.test_client()
     set_session(client)
@@ -35,7 +37,8 @@ def test_profile_requires_authentication():
     assert response.headers["Location"].endswith("/login")
 
 
-def test_profile_displays_logged_in_username_and_email(monkeypatch):
+def test_profile_displays_logged_in_username_and_email(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     monkeypatch.setattr(
         application,
         "get_user_by_id",
@@ -61,7 +64,8 @@ def test_profile_never_displays_password_hash(monkeypatch):
     assert b"password_hash" not in response.data
 
 
-def test_profile_uses_authenticated_session_user_id(monkeypatch):
+def test_profile_uses_authenticated_session_user_id(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     calls = []
 
     def fake_get_user(user_id):
@@ -78,7 +82,8 @@ def test_profile_uses_authenticated_session_user_id(monkeypatch):
     assert calls == [7]
 
 
-def test_client_user_id_cannot_access_another_profile(monkeypatch):
+def test_client_user_id_cannot_access_another_profile(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     calls = []
 
     def fake_get_user(user_id):
@@ -111,7 +116,8 @@ def test_other_users_profile_data_is_not_rendered(monkeypatch):
     assert b"other@example.com" not in response.data
 
 
-def test_viewing_profile_is_read_only(monkeypatch):
+def test_viewing_profile_is_read_only(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     calls = []
 
     def fake_get_user(user_id):

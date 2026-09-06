@@ -9,6 +9,7 @@ CSRF_TOKEN = "csrf-test-token"
 def set_session(client, user_id=7):
     with client.session_transaction() as session:
         session["uid"] = user_id
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "CSRF Tester"
         session["budget_csrf_token"] = CSRF_TOKEN
         session["expense_csrf_token"] = CSRF_TOKEN
@@ -43,7 +44,8 @@ def expense_data(**overrides):
 
 
 @pytest.fixture
-def client():
+def client(tracked_session_store):
+    tracked_session_store(7)
     client = application.app.test_client()
     set_session(client)
     return client

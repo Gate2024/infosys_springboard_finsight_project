@@ -7,6 +7,7 @@ import app as application
 def set_session(client, user_id=7):
     with client.session_transaction() as session:
         session["uid"] = user_id
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "Reports Tester"
 
 
@@ -64,7 +65,8 @@ def report_data():
     }
 
 
-def test_authenticated_reports_page_renders_real_report_data(monkeypatch):
+def test_authenticated_reports_page_renders_real_report_data(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = report_data()
     monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: deepcopy(data))
     client = application.app.test_client()
@@ -91,7 +93,8 @@ def test_reports_page_requires_authentication():
     assert response.headers["Location"].endswith("/login")
 
 
-def test_reports_page_uses_session_user_not_client_user_id(monkeypatch):
+def test_reports_page_uses_session_user_not_client_user_id(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     calls = []
 
     def fake_build(user_id, start_date, end_date, *, investment_service, goal_service):
@@ -110,7 +113,8 @@ def test_reports_page_uses_session_user_not_client_user_id(monkeypatch):
     assert calls == [7]
 
 
-def test_unavailable_report_metrics_are_displayed_without_fake_values(monkeypatch):
+def test_unavailable_report_metrics_are_displayed_without_fake_values(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = report_data()
     data["expenses"]["category_totals"] = []
     data["expenses"]["monthly_totals"] = []
@@ -137,7 +141,8 @@ def test_unavailable_report_metrics_are_displayed_without_fake_values(monkeypatc
     assert b"Historical portfolio performance is not available." in response.data
 
 
-def test_existing_reports_json_behavior_remains_available(monkeypatch):
+def test_existing_reports_json_behavior_remains_available(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = report_data()
     monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: deepcopy(data))
     client = application.app.test_client()

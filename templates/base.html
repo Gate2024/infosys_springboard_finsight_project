@@ -151,10 +151,13 @@
           </li>
 
           <li class="logout">
-            <a href="{{ url_for('logout') }}">
-              <i class="fa-solid fa-right-from-bracket"></i>
-              <span>{{ translate("Logout", current_language) }}</span>
-            </a>
+            <form action="{{ url_for('logout') }}" method="post">
+              <input type="hidden" name="_auth_csrf_token" value="{{ auth_csrf_token() }}">
+              <button type="submit" class="sidebar-logout">
+                <i class="fa-solid fa-right-from-bracket"></i>
+                <span>{{ translate("Logout", current_language) }}</span>
+              </button>
+            </form>
           </li>
         </ul>
       </nav>

@@ -293,7 +293,8 @@ def test_reports_route_requires_authentication():
     assert response.headers["Location"].endswith("/login")
 
 
-def test_reports_route_uses_session_user_not_client_user_id(monkeypatch):
+def test_reports_route_uses_session_user_not_client_user_id(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     calls = []
 
     def fake_build(user_id, start_date, end_date, *, investment_service, goal_service):
@@ -304,6 +305,7 @@ def test_reports_route_uses_session_user_not_client_user_id(monkeypatch):
     client = application.app.test_client()
     with client.session_transaction() as session:
         session["uid"] = 7
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "Report Tester"
 
     response = client.get(
@@ -314,10 +316,12 @@ def test_reports_route_uses_session_user_not_client_user_id(monkeypatch):
     assert calls == [(7, "2026-05-01", "2026-05-31")]
 
 
-def test_reports_route_rejects_invalid_dates(monkeypatch):
+def test_reports_route_rejects_invalid_dates(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     client = application.app.test_client()
     with client.session_transaction() as session:
         session["uid"] = 7
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "Report Tester"
 
     response = client.get("/reports?start_date=invalid&end_date=2026-05-31")
@@ -342,7 +346,8 @@ def test_reporting_queries_do_not_mutate_database(monkeypatch):
     )
 
 
-def test_existing_expense_csv_export_still_works(monkeypatch):
+def test_existing_expense_csv_export_still_works(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     monkeypatch.setattr(
         application,
         "get_transactions",
@@ -360,6 +365,7 @@ def test_existing_expense_csv_export_still_works(monkeypatch):
     client = application.app.test_client()
     with client.session_transaction() as session:
         session["uid"] = 7
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "Report Tester"
 
     response = client.get("/expenses/export")

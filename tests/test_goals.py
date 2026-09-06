@@ -52,10 +52,12 @@ def goal_repository():
 
 
 @pytest.fixture
-def client(goal_repository):
+def client(goal_repository, tracked_session_store):
+    tracked_session_store(7)
     client = application.app.test_client()
     with client.session_transaction() as session:
         session["uid"] = 7
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "Goal Tester"
         session["goal_csrf_token"] = "goal-test-token"
     return client

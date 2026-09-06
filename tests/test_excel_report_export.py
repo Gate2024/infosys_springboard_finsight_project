@@ -10,6 +10,7 @@ import app as application
 def set_session(client, user_id=7):
     with client.session_transaction() as session:
         session["uid"] = user_id
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "Excel Tester"
 
 
@@ -116,7 +117,8 @@ def load_response_workbook(response):
     return openpyxl.load_workbook(BytesIO(response.data), read_only=True, data_only=False)
 
 
-def test_authenticated_user_can_export_valid_excel_workbook(monkeypatch):
+def test_authenticated_user_can_export_valid_excel_workbook(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = report_data()
     monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: deepcopy(data))
     client = application.app.test_client()
@@ -141,7 +143,8 @@ def test_authenticated_user_can_export_valid_excel_workbook(monkeypatch):
     workbook.close()
 
 
-def test_workbook_contains_report_values_and_current_snapshots(monkeypatch):
+def test_workbook_contains_report_values_and_current_snapshots(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = report_data()
     monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: deepcopy(data))
     client = application.app.test_client()
@@ -169,7 +172,8 @@ def test_workbook_contains_report_values_and_current_snapshots(monkeypatch):
 
 
 @pytest.mark.parametrize("currency", ["USD", "INR", "EUR", "JPY", "GBP", "CAD", "AUD", "CNY"])
-def test_excel_export_applies_selected_currency_format_without_converting_value(monkeypatch, currency):
+def test_excel_export_applies_selected_currency_format_without_converting_value(monkeypatch, currency, tracked_session_store):
+    tracked_session_store(7)
     monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: report_data())
     monkeypatch.setattr(
         application,
@@ -195,7 +199,8 @@ def test_excel_export_requires_authentication():
     assert response.headers["Location"].endswith("/login")
 
 
-def test_excel_export_uses_session_user_and_preserves_date_range(monkeypatch):
+def test_excel_export_uses_session_user_and_preserves_date_range(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     calls = []
 
     def fake_build(user_id, start_date, end_date, *, investment_service, goal_service):
@@ -222,7 +227,8 @@ def test_excel_export_uses_session_user_and_preserves_date_range(monkeypatch):
         {"start_date": "2026-04-01", "end_date": "2026-03-31"},
     ],
 )
-def test_excel_export_rejects_invalid_date_ranges(query_string):
+def test_excel_export_rejects_invalid_date_ranges(query_string, tracked_session_store):
+    tracked_session_store(7)
     client = application.app.test_client()
     set_session(client)
 
@@ -233,7 +239,8 @@ def test_excel_export_rejects_invalid_date_ranges(query_string):
     assert response.get_json()["error"]
 
 
-def test_empty_expenses_still_generate_valid_workbook(monkeypatch):
+def test_empty_expenses_still_generate_valid_workbook(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = report_data()
     data["date_range"] = {"start_date": None, "end_date": None}
     data["expenses"]["expense_summary"] = {
@@ -262,7 +269,8 @@ def test_empty_expenses_still_generate_valid_workbook(monkeypatch):
     workbook.close()
 
 
-def test_excel_export_does_not_mutate_report_data(monkeypatch):
+def test_excel_export_does_not_mutate_report_data(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = report_data()
     original = deepcopy(data)
     monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: data)
@@ -275,7 +283,8 @@ def test_excel_export_does_not_mutate_report_data(monkeypatch):
     assert data == original
 
 
-def test_reports_page_enables_excel_link_with_selected_dates(monkeypatch):
+def test_reports_page_enables_excel_link_with_selected_dates(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: report_data())
     client = application.app.test_client()
     set_session(client)

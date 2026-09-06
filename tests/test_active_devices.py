@@ -1,6 +1,7 @@
 import hashlib
 
 import app as application
+from tests.auth_helpers import post_login
 
 
 def token_hash(token):
@@ -49,7 +50,7 @@ def install_session_store(monkeypatch, rows=None):
         state["rows"].append(record)
         return {key: value for key, value in record.items() if key != "session_token_hash"}
 
-    def is_active(user_id, session_token_hash):
+    def is_active(user_id, session_token_hash, *_timeouts):
         calls["active"].append((user_id, session_token_hash))
         return any(
             row["user_id"] == user_id
@@ -114,6 +115,7 @@ def install_session_store(monkeypatch, rows=None):
     monkeypatch.setattr(application, "revoke_user_session", revoke)
     monkeypatch.setattr(application, "revoke_current_user_session", revoke_current)
     monkeypatch.setattr(application, "revoke_all_user_sessions", revoke_all)
+    monkeypatch.setattr(application, "revoke_all_remember_me_tokens", lambda *args: 0)
     return state, calls
 
 
@@ -161,7 +163,7 @@ def test_successful_login_creates_only_a_hashed_session_record(monkeypatch):
     )
     client = application.app.test_client()
 
-    response = client.post("/login", data={"email": "owner@example.com", "password": "password"})
+    response = post_login(client, "/login", data={"email": "owner@example.com", "password": "password"})
 
     assert response.status_code == 302
     with client.session_transaction() as session:
@@ -176,7 +178,7 @@ def test_failed_login_does_not_create_an_active_session(monkeypatch):
     _, calls = install_session_store(monkeypatch)
     monkeypatch.setattr(application, "login_user", lambda email, password: (False, None))
 
-    response = application.app.test_client().post(
+    response = post_login(application.app.test_client(),
         "/login", data={"email": "owner@example.com", "password": "wrong"}
     )
 
@@ -348,7 +350,10 @@ def test_normal_logout_revokes_current_tracked_session(monkeypatch):
     client = application.app.test_client()
     set_authenticated_session(client, token=current_token)
 
-    response = client.get("/logout")
+    client.get("/profile/security")
+    with client.session_transaction() as session:
+        csrf_token = session["auth_csrf_token"]
+    response = client.post("/logout", data={"_auth_csrf_token": csrf_token})
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/login")

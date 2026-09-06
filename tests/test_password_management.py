@@ -6,6 +6,7 @@ import pytest
 from werkzeug.security import check_password_hash, generate_password_hash
 
 import app as application
+from tests.auth_helpers import post_login
 import db as database
 
 
@@ -73,7 +74,7 @@ def install_password_store(monkeypatch, two_factor_enabled=False):
     }
     calls = {"change": [], "create_session": []}
 
-    def is_active(user_id, session_token_hash):
+    def is_active(user_id, session_token_hash, *_timeouts):
         return any(
             row["user_id"] == user_id
             and row["session_token_hash"] == session_token_hash
@@ -218,8 +219,8 @@ def test_old_password_fails_and_new_password_authenticates(monkeypatch):
     with client.session_transaction() as session:
         session.clear()
 
-    old_password = client.post("/login", data={"email": "owner@example.com", "password": "current-password"})
-    new_password = client.post("/login", data={"email": "owner@example.com", "password": "new-password"})
+    old_password = post_login(client, "/login", data={"email": "owner@example.com", "password": "current-password"})
+    new_password = post_login(client, "/login", data={"email": "owner@example.com", "password": "new-password"})
 
     assert old_password.status_code == 200
     assert b"Invalid email or password." in old_password.data
@@ -236,7 +237,7 @@ def test_old_password_fails_and_new_password_authenticates(monkeypatch):
         ({"current_password": "wrong-password"}, b"Current password is incorrect."),
         ({"confirm_password": "different-password"}, b"New password and confirmation do not match."),
         ({"new_password": "current-password", "confirm_password": "current-password"}, b"New password must be different from the current password."),
-        ({"new_password": "short", "confirm_password": "short"}, b"Password must contain at least 6 characters."),
+        ({"new_password": "short", "confirm_password": "short"}, b"Password must contain at least 8 characters."),
     ],
 )
 def test_invalid_password_changes_do_not_update_or_revoke_sessions(monkeypatch, overrides, message):
@@ -303,7 +304,7 @@ def test_password_change_preserves_two_factor_state_and_login_requirement(monkey
     with client.session_transaction() as session:
         session.clear()
 
-    password_login = client.post("/login", data={"email": "owner@example.com", "password": "new-password"})
+    password_login = post_login(client, "/login", data={"email": "owner@example.com", "password": "new-password"})
 
     assert password_login.status_code == 302
     assert password_login.headers["Location"].endswith("/login/2fa")
@@ -351,10 +352,12 @@ def test_database_password_update_helper_hashes_password_and_scopes_session_revo
 
     assert database.update_user_password_and_revoke_other_sessions(7, "new-password", "current-hash")
 
-    password_update, session_update = executions
+    password_update, session_update, remember_me_update = executions
     assert password_update[1][1] == 7
     assert password_update[1][0] != "new-password"
     assert check_password_hash(password_update[1][0], "new-password")
     assert "WHERE id = %s" in password_update[0]
     assert session_update[1] == (7, "current-hash")
     assert "session_token_hash <> %s" in session_update[0]
+    assert remember_me_update[1] == (7,)
+    assert "UPDATE remember_me_tokens" in remember_me_update[0]

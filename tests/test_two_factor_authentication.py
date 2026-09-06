@@ -3,6 +3,7 @@ import pytest
 from time import time
 
 import app as application
+from tests.auth_helpers import post_login
 
 
 @pytest.fixture(autouse=True)
@@ -94,6 +95,7 @@ def install_two_factor_store(monkeypatch, credentials=None):
     monkeypatch.setattr(application, "list_active_user_sessions", list_sessions)
     monkeypatch.setattr(application, "revoke_current_user_session", lambda *args: True)
     monkeypatch.setattr(application, "revoke_all_user_sessions", lambda *args: 1)
+    monkeypatch.setattr(application, "revoke_all_remember_me_tokens", lambda *args: 0)
     monkeypatch.setattr(application, "revoke_user_session", lambda *args: True)
     monkeypatch.setattr(application, "verify_user_password", lambda user_id, password: calls["verify_password"].append((user_id, password)) or password == "correct-password")
     monkeypatch.setattr(application, "get_user_by_id", lambda user_id: users().get(user_id))
@@ -320,7 +322,7 @@ def test_user_without_two_factor_logs_in_and_creates_tracked_session(monkeypatch
     )
     client = application.app.test_client()
 
-    response = client.post("/login", data={"email": "owner@example.com", "password": "password"})
+    response = post_login(client, "/login", data={"email": "owner@example.com", "password": "password"})
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/dashboard")
@@ -340,7 +342,7 @@ def test_two_factor_login_requires_code_before_creating_device_session(monkeypat
     )
     client = application.app.test_client()
 
-    response = client.post("/login", data={"email": "owner@example.com", "password": "password"})
+    response = post_login(client, "/login", data={"email": "owner@example.com", "password": "password"})
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/login/2fa")

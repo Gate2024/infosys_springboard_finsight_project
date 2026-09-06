@@ -1,6 +1,8 @@
 import os
+import hashlib
+import hmac
 from contextlib import contextmanager
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
 
 import psycopg2
@@ -139,26 +141,50 @@ def serialize_rows(rows):
     return [serialize_row(row) for row in rows]
 
 
+def registration_otp_digest(otp):
+    pepper = Config.SECRET_KEY
+    if not isinstance(pepper, str) or not pepper:
+        raise RuntimeError("Registration OTP pepper is not configured.")
+    return hmac.new(
+        pepper.encode("utf-8"),
+        str(otp).encode("utf-8"),
+        hashlib.sha256,
+    ).hexdigest()
+
+
+def _registration_username(full_name, email):
+    """Return a stable, non-display username that remains unique per email."""
+    digest = hashlib.sha256(
+        f"{full_name}\x00{email}".encode("utf-8")
+    ).hexdigest()[:32]
+    return f"fs_{digest}"
+
+
 def register_user(username, email, password):
+    """Create a legacy registration while enforcing uniqueness by email only."""
+    email = str(email or "").strip().lower()
     with get_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
-                "SELECT username, email FROM users WHERE email = %s OR username = %s",
-                (email, username),
+                "SELECT email FROM users WHERE lower(email) = lower(%s)",
+                (email,),
             )
             existing_user = cursor.fetchone()
             if existing_user:
-                if existing_user["email"] == email:
-                    return False, "Email already exists."
-                return False, "Username already exists."
+                return False, "Email already exists."
 
             cursor.execute(
                 """
-                INSERT INTO users (username, email, password_hash)
-                VALUES (%s, %s, %s)
-                RETURNING id, username, email
+                INSERT INTO users (username, email, password_hash, display_name)
+                VALUES (%s, %s, %s, %s)
+                RETURNING id, display_name AS username, email
                 """,
-                (username, email, generate_password_hash(password)),
+                (
+                    _registration_username(username, email),
+                    email,
+                    generate_password_hash(password),
+                    username,
+                ),
             )
             return True, serialize_row(cursor.fetchone())
 
@@ -166,13 +192,470 @@ def register_user(username, email, password):
 def login_user(email, password):
     with get_connection() as conn:
         with conn.cursor() as cursor:
-            cursor.execute("SELECT * FROM users WHERE email = %s", (email,))
+            cursor.execute(
+                """
+                SELECT id,
+                       COALESCE(NULLIF(to_jsonb(users)->>'display_name', ''), username)
+                           AS username,
+                       email, password_hash
+                FROM users
+                WHERE email = %s
+                """,
+                (email,),
+            )
             user = cursor.fetchone()
 
     if not user or not check_password_hash(user["password_hash"], password):
         return False, None
 
-    return True, serialize_row(user)
+    return True, serialize_row({key: user[key] for key in ("id", "username", "email")})
+
+
+def create_pending_registration(full_name, email, mobile_number, password_hash, otp_hash, expires_at):
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT 1
+                FROM users
+                WHERE lower(email) = lower(%s)
+                LIMIT 1
+                """,
+                (email,),
+            )
+            if cursor.fetchone():
+                return None
+            cursor.execute(
+                """
+                UPDATE pending_registrations
+                SET consumed_at = CURRENT_TIMESTAMP
+                WHERE lower(email) = lower(%s) AND consumed_at IS NULL
+                """,
+                (email,),
+            )
+            cursor.execute(
+                """
+                INSERT INTO pending_registrations (
+                    full_name, email, mobile_number, password_hash,
+                    otp_hash, otp_expires_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s)
+                ON CONFLICT DO NOTHING
+                RETURNING id
+                """,
+                (full_name, email, mobile_number, password_hash, otp_hash, expires_at),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def get_pending_registration(pending_id):
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, full_name, email, mobile_number, password_hash,
+                       otp_hash, otp_expires_at, otp_attempts, last_sent_at,
+                       resend_count,
+                       created_at, verified_at, consumed_at
+                FROM pending_registrations
+                WHERE id = %s AND consumed_at IS NULL
+                """,
+                (pending_id,),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def get_registration_resend_status(pending_id):
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT resend_count,
+                       last_sent_at,
+                       GREATEST(
+                           0,
+                           CEIL(EXTRACT(EPOCH FROM (
+                               last_sent_at + INTERVAL '60 seconds'
+                               - CURRENT_TIMESTAMP
+                           )))
+                       )::INTEGER AS remaining_seconds,
+                       resend_count < 5
+                       AND last_sent_at <= CURRENT_TIMESTAMP - INTERVAL '60 seconds'
+                       AS can_resend
+                FROM pending_registrations
+                WHERE id = %s AND consumed_at IS NULL
+                """,
+                (pending_id,),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def replace_pending_registration_otp(pending_id, otp_hash, expires_at):
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE pending_registrations
+                SET otp_hash = %s,
+                    otp_expires_at = %s,
+                    otp_attempts = 0,
+                    last_sent_at = CURRENT_TIMESTAMP,
+                    resend_count = resend_count + 1
+                WHERE id = %s AND consumed_at IS NULL
+                  AND resend_count < 5
+                  AND last_sent_at <= CURRENT_TIMESTAMP - INTERVAL '60 seconds'
+                RETURNING id, email
+                """,
+                (otp_hash, expires_at, pending_id),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def complete_pending_registration(pending_id, otp_hash, now=None):
+    now = now or datetime.now(timezone.utc)
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, full_name, email, mobile_number, password_hash, otp_hash,
+                       otp_expires_at, otp_attempts
+                FROM pending_registrations
+                WHERE id = %s AND consumed_at IS NULL
+                FOR UPDATE
+                """,
+                (pending_id,),
+            )
+            pending = cursor.fetchone()
+            if not pending:
+                return False, "invalid"
+            if pending["otp_attempts"] >= 5:
+                return False, "attempts"
+            if pending["otp_expires_at"] <= now:
+                return False, "expired"
+
+            cursor.execute(
+                """
+                UPDATE pending_registrations
+                SET otp_attempts = otp_attempts + 1
+                WHERE id = %s
+                """,
+                (pending_id,),
+            )
+            if not hmac.compare_digest(pending["otp_hash"], otp_hash):
+                return False, "invalid"
+
+            cursor.execute(
+                """
+                INSERT INTO users (
+                    username, email, mobile_number, password_hash, display_name
+                )
+                VALUES (%s, %s, %s, %s, %s)
+                ON CONFLICT DO NOTHING
+                RETURNING id, display_name AS username, email
+                """,
+                (
+                    _registration_username(pending["full_name"], pending["email"]),
+                    pending["email"],
+                    pending["mobile_number"],
+                    pending["password_hash"],
+                    pending["full_name"],
+                ),
+            )
+            user = serialize_row(cursor.fetchone())
+            if not user:
+                return False, "already_registered"
+            cursor.execute(
+                """
+                UPDATE pending_registrations
+                SET verified_at = CURRENT_TIMESTAMP, consumed_at = CURRENT_TIMESTAMP
+                WHERE id = %s
+                """,
+                (pending_id,),
+            )
+            return True, user
+
+
+def get_user_for_password_reset(email):
+    """Return only the account identity needed to issue a reset challenge."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, email
+                FROM users
+                WHERE lower(email) = lower(%s)
+                LIMIT 1
+                """,
+                (email,),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def get_password_reset_challenge(user_id):
+    """Return the latest unconsumed reset challenge for one user."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, user_id, email, otp_expires_at, otp_attempts,
+                       last_sent_at, resend_count, created_at, verified_at,
+                       reset_token_expires_at, consumed_at
+                FROM password_reset_challenges
+                WHERE user_id = %s AND consumed_at IS NULL
+                ORDER BY id DESC
+                LIMIT 1
+                """,
+                (user_id,),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def get_password_reset_challenge_by_id(challenge_id):
+    """Return an unconsumed reset challenge by id."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, user_id, email, otp_expires_at, otp_attempts,
+                       last_sent_at, resend_count, created_at, verified_at,
+                       reset_token_expires_at, consumed_at
+                FROM password_reset_challenges
+                WHERE id = %s AND consumed_at IS NULL
+                """,
+                (challenge_id,),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def create_password_reset_challenge(user_id, email, otp_hash, expires_at):
+    """Create one reset challenge after an OTP has been delivered."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                WITH expired AS (
+                    UPDATE password_reset_challenges
+                    SET consumed_at = CURRENT_TIMESTAMP
+                    WHERE user_id = %s
+                      AND consumed_at IS NULL
+                      AND (
+                          otp_expires_at <= CURRENT_TIMESTAMP
+                          OR (
+                              reset_token_expires_at IS NOT NULL
+                              AND reset_token_expires_at <= CURRENT_TIMESTAMP
+                          )
+                      )
+                    RETURNING id
+                )
+                INSERT INTO password_reset_challenges (
+                    user_id, email, otp_hash, otp_expires_at,
+                    last_sent_at, resend_count
+                )
+                SELECT %s, %s, %s, %s, CURRENT_TIMESTAMP, 0
+                WHERE NOT EXISTS (
+                    SELECT 1
+                    FROM password_reset_challenges
+                    WHERE user_id = %s AND consumed_at IS NULL
+                )
+                ON CONFLICT DO NOTHING
+                RETURNING id, user_id, email, otp_expires_at, otp_attempts,
+                          last_sent_at, resend_count, created_at,
+                          verified_at, reset_token_expires_at, consumed_at
+                """,
+                (user_id, user_id, email, otp_hash, expires_at, user_id),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def get_password_reset_resend_status(challenge_id):
+    """Return persisted resend state without exposing challenge secrets."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT resend_count, last_sent_at,
+                       GREATEST(
+                           0,
+                           CEIL(EXTRACT(EPOCH FROM (
+                               last_sent_at + INTERVAL '60 seconds'
+                               - CURRENT_TIMESTAMP
+                           )))
+                       )::INTEGER AS remaining_seconds,
+                       otp_expires_at <= CURRENT_TIMESTAMP AS otp_expired,
+                       verified_at IS NULL
+                       AND consumed_at IS NULL
+                       AND resend_count < 5
+                       AND last_sent_at <= CURRENT_TIMESTAMP - INTERVAL '60 seconds'
+                       AS can_resend
+                FROM password_reset_challenges
+                WHERE id = %s AND consumed_at IS NULL
+                """,
+                (challenge_id,),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def replace_password_reset_otp(challenge_id, otp_hash, expires_at):
+    """Atomically replace an OTP after cooldown and resend-limit checks."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE password_reset_challenges
+                SET otp_hash = %s,
+                    otp_expires_at = %s,
+                    otp_attempts = 0,
+                    last_sent_at = CURRENT_TIMESTAMP,
+                    resend_count = resend_count + 1
+                WHERE id = %s
+                  AND consumed_at IS NULL
+                  AND verified_at IS NULL
+                  AND resend_count < 5
+                  AND last_sent_at <= CURRENT_TIMESTAMP - INTERVAL '60 seconds'
+                RETURNING id, user_id, email, otp_expires_at, otp_attempts,
+                          last_sent_at, resend_count, created_at,
+                          verified_at, reset_token_expires_at, consumed_at
+                """,
+                (otp_hash, expires_at, challenge_id),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def verify_password_reset_otp(
+    challenge_id, otp_hash, reset_token_hash, reset_token_expires_at, now=None
+):
+    """Verify an OTP under lock and create one short-lived reset authorization."""
+    now = now or datetime.now(timezone.utc)
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, otp_hash, otp_expires_at, otp_attempts,
+                       verified_at, consumed_at
+                FROM password_reset_challenges
+                WHERE id = %s
+                FOR UPDATE
+                """,
+                (challenge_id,),
+            )
+            challenge = cursor.fetchone()
+            if not challenge or challenge["consumed_at"] is not None:
+                return False, "consumed"
+            if challenge["verified_at"] is not None:
+                return False, "consumed"
+            if challenge["otp_attempts"] >= 5:
+                return False, "attempts"
+            if challenge["otp_expires_at"] <= now:
+                return False, "expired"
+
+            cursor.execute(
+                """
+                UPDATE password_reset_challenges
+                SET otp_attempts = otp_attempts + 1
+                WHERE id = %s
+                """,
+                (challenge_id,),
+            )
+            if not hmac.compare_digest(challenge["otp_hash"], otp_hash):
+                return False, "invalid"
+
+            cursor.execute(
+                """
+                UPDATE password_reset_challenges
+                SET verified_at = CURRENT_TIMESTAMP,
+                    reset_token_hash = %s,
+                    reset_token_expires_at = %s
+                WHERE id = %s
+                  AND verified_at IS NULL
+                  AND consumed_at IS NULL
+                RETURNING id
+                """,
+                (reset_token_hash, reset_token_expires_at, challenge_id),
+            )
+            return (cursor.fetchone() is not None), "verified"
+
+
+def get_password_reset_authorization(challenge_id):
+    """Check whether one challenge still has a live reset authorization."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, user_id
+                FROM password_reset_challenges
+                WHERE id = %s
+                  AND verified_at IS NOT NULL
+                  AND reset_token_hash IS NOT NULL
+                  AND reset_token_expires_at > CURRENT_TIMESTAMP
+                  AND consumed_at IS NULL
+                """,
+                (challenge_id,),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def reset_password_with_authorization(challenge_id, password_hash):
+    """Reset a password and revoke all sessions and persistent credentials atomically."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT user_id
+                FROM password_reset_challenges
+                WHERE id = %s
+                  AND verified_at IS NOT NULL
+                  AND reset_token_hash IS NOT NULL
+                  AND reset_token_expires_at > CURRENT_TIMESTAMP
+                  AND consumed_at IS NULL
+                FOR UPDATE
+                """,
+                (challenge_id,),
+            )
+            authorization = cursor.fetchone()
+            if not authorization:
+                return False
+
+            user_id = authorization["user_id"]
+            cursor.execute(
+                """
+                UPDATE users
+                SET password_hash = %s
+                WHERE id = %s
+                RETURNING id
+                """,
+                (password_hash, user_id),
+            )
+            if cursor.fetchone() is None:
+                return False
+
+            cursor.execute(
+                """
+                UPDATE user_sessions
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s AND revoked_at IS NULL
+                """,
+                (user_id,),
+            )
+            cursor.execute(
+                """
+                UPDATE remember_me_tokens
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s AND revoked_at IS NULL
+                """,
+                (user_id,),
+            )
+            cursor.execute(
+                """
+                UPDATE password_reset_challenges
+                SET consumed_at = CURRENT_TIMESTAMP,
+                    reset_token_hash = NULL,
+                    reset_token_expires_at = NULL
+                WHERE id = %s AND consumed_at IS NULL
+                RETURNING id
+                """,
+                (challenge_id,),
+            )
+            return cursor.fetchone() is not None
 
 
 def get_user_by_id(user_id):
@@ -181,7 +664,10 @@ def get_user_by_id(user_id):
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                SELECT id, username, email
+                SELECT id,
+                       COALESCE(NULLIF(to_jsonb(users)->>'display_name', ''), username)
+                           AS username,
+                       email
                 FROM users
                 WHERE id = %s
                 """,
@@ -941,22 +1427,151 @@ def create_user_session(user_id, session_token_hash, device_info, ip_address):
             return serialize_row(cursor.fetchone())
 
 
-def is_user_session_active(user_id, session_token_hash):
-    """Verify an active session and record its latest protected activity."""
+def is_user_session_active(
+    user_id,
+    session_token_hash,
+    inactivity_timeout_seconds,
+    absolute_timeout_seconds,
+):
+    """Validate, expire, and record activity for one tracked session."""
     with get_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
                 """
-                UPDATE user_sessions
+                WITH session_row AS (
+                    SELECT id,
+                           last_active_at <= CURRENT_TIMESTAMP
+                               - (%s * INTERVAL '1 second') AS inactivity_expired,
+                           created_at <= CURRENT_TIMESTAMP
+                               - (%s * INTERVAL '1 second') AS absolute_expired
+                    FROM user_sessions
+                    WHERE user_id = %s
+                      AND session_token_hash = %s
+                      AND revoked_at IS NULL
+                    FOR UPDATE
+                ), expired AS (
+                    UPDATE user_sessions AS sessions
+                    SET revoked_at = CURRENT_TIMESTAMP
+                    FROM session_row
+                    WHERE sessions.id = session_row.id
+                      AND (session_row.inactivity_expired OR session_row.absolute_expired)
+                    RETURNING sessions.id
+                )
+                UPDATE user_sessions AS sessions
                 SET last_active_at = CURRENT_TIMESTAMP
+                FROM session_row
+                WHERE sessions.id = session_row.id
+                  AND NOT session_row.inactivity_expired
+                  AND NOT session_row.absolute_expired
+                RETURNING sessions.id
+                """,
+                (
+                    inactivity_timeout_seconds,
+                    absolute_timeout_seconds,
+                    user_id,
+                    session_token_hash,
+                ),
+            )
+            return cursor.fetchone() is not None
+
+
+def create_remember_me_token(
+    user_id, token_hash, lifetime_seconds, device_info, ip_address
+):
+    """Store only a hashed, finite-lived persistent-login credential."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                INSERT INTO remember_me_tokens (
+                    user_id, token_hash, expires_at, device_info, ip_address
+                )
+                VALUES (
+                    %s,
+                    %s,
+                    CURRENT_TIMESTAMP + (%s * INTERVAL '1 second'),
+                    %s,
+                    %s
+                )
+                RETURNING id, user_id, created_at, expires_at
+                """,
+                (user_id, token_hash, lifetime_seconds, device_info, ip_address),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def rotate_remember_me_token(
+    token_hash, new_token_hash, lifetime_seconds, device_info, ip_address
+):
+    """Atomically consume one persistent credential and issue its replacement."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                WITH existing AS (
+                    SELECT id, user_id
+                    FROM remember_me_tokens
+                    WHERE token_hash = %s
+                      AND revoked_at IS NULL
+                      AND expires_at > CURRENT_TIMESTAMP
+                    FOR UPDATE
+                ), revoked AS (
+                    UPDATE remember_me_tokens AS tokens
+                    SET revoked_at = CURRENT_TIMESTAMP,
+                        last_used_at = CURRENT_TIMESTAMP
+                    FROM existing
+                    WHERE tokens.id = existing.id
+                    RETURNING tokens.user_id
+                )
+                INSERT INTO remember_me_tokens (
+                    user_id, token_hash, expires_at, device_info, ip_address
+                )
+                SELECT user_id,
+                       %s,
+                       CURRENT_TIMESTAMP + (%s * INTERVAL '1 second'),
+                       %s,
+                       %s
+                FROM revoked
+                RETURNING user_id
+                """,
+                (token_hash, new_token_hash, lifetime_seconds, device_info, ip_address),
+            )
+            row = cursor.fetchone()
+            return row["user_id"] if row else None
+
+
+def revoke_remember_me_token(user_id, token_hash):
+    """Revoke one persistent credential for its owning user."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE remember_me_tokens
+                SET revoked_at = CURRENT_TIMESTAMP
                 WHERE user_id = %s
-                  AND session_token_hash = %s
+                  AND token_hash = %s
                   AND revoked_at IS NULL
                 RETURNING id
                 """,
-                (user_id, session_token_hash),
+                (user_id, token_hash),
             )
             return cursor.fetchone() is not None
+
+
+def revoke_all_remember_me_tokens(user_id):
+    """Revoke every active persistent credential for one user."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE remember_me_tokens
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s
+                  AND revoked_at IS NULL
+                """,
+                (user_id,),
+            )
+            return cursor.rowcount
 
 
 def list_active_user_sessions(user_id, current_session_token_hash):
@@ -1058,6 +1673,15 @@ def update_user_password_and_revoke_other_sessions(
                   AND revoked_at IS NULL
                 """,
                 (user_id, current_session_token_hash),
+            )
+            cursor.execute(
+                """
+                UPDATE remember_me_tokens
+                SET revoked_at = CURRENT_TIMESTAMP
+                WHERE user_id = %s
+                  AND revoked_at IS NULL
+                """,
+                (user_id,),
             )
     return True
 

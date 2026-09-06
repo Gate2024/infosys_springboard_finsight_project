@@ -1,0 +1,24 @@
+{% set footer_year = current_year|default(today_date.split()[-1]) %}
+<footer class="landing-footer public-footer">
+  <div class="landing-container landing-footer-grid">
+    <div class="landing-footer-brand">
+      <a class="landing-brand" href="{{ url_for('home') }}">
+        <span class="landing-brand-mark"><i class="fa-solid fa-chart-pie" aria-hidden="true"></i></span>
+        <span><strong>FinSight</strong><small>Budget &amp; Wealth</small></span>
+      </a>
+      <p>{{ t("Your Personal Finance Companion") }}.</p>
+    </div>
+    <div class="landing-footer-links">
+      <a href="{{ url_for('home') }}#features">{{ t("Features") }}</a>
+      <a href="{{ url_for('home') }}#how-it-works">{{ t("How It Works") }}</a>
+      <a href="{{ url_for('home') }}#security">{{ t("Security") }}</a>
+      <a href="{{ url_for('home') }}#about">{{ t("About") }}</a>
+      <a href="{{ url_for('login') }}">{{ t("Sign In") }}</a>
+      <a href="{{ url_for('login') }}#signup">{{ t("Get Started") }}</a>
+    </div>
+  </div>
+  <div class="landing-container landing-footer-bottom">
+    <span>&copy; {{ footer_year }} FinSight. {{ t("All rights reserved.") }}</span>
+    <span>{{ t("Secure | Simple | Smarter") }}</span>
+  </div>
+</footer>

@@ -9,10 +9,12 @@ import db
 def set_session(client, user_id=7):
     with client.session_transaction() as session:
         session["uid"] = user_id
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "Expense Tester"
 
 
-def test_authenticated_user_can_export_expenses(monkeypatch):
+def test_authenticated_user_can_export_expenses(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     rows = [
         {
             "date": "2026-08-01",
@@ -70,7 +72,8 @@ def test_authenticated_user_can_export_expenses(monkeypatch):
     ]
 
 
-def test_export_is_empty_but_valid_for_user_with_no_expenses(monkeypatch):
+def test_export_is_empty_but_valid_for_user_with_no_expenses(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     monkeypatch.setattr(application, "get_transactions", lambda user_id: [])
     client = application.app.test_client()
     set_session(client)
@@ -83,7 +86,8 @@ def test_export_is_empty_but_valid_for_user_with_no_expenses(monkeypatch):
     ]
 
 
-def test_export_scope_uses_session_user_not_query_parameter(monkeypatch):
+def test_export_scope_uses_session_user_not_query_parameter(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     rows_by_user = {
         7: [
             {
@@ -125,7 +129,8 @@ def test_export_scope_uses_session_user_not_query_parameter(monkeypatch):
     assert "Other user's expense" not in response.get_data(as_text=True)
 
 
-def test_export_does_not_modify_source_rows(monkeypatch):
+def test_export_does_not_modify_source_rows(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     rows = [
         {
             "date": "2026-08-04",
@@ -163,7 +168,8 @@ def test_export_requires_authentication(monkeypatch):
     assert calls == []
 
 
-def test_expenses_page_includes_export_action(monkeypatch):
+def test_expenses_page_includes_export_action(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     monkeypatch.setattr(db, "get_transactions", lambda *args, **kwargs: [])
     monkeypatch.setattr(
         db,

@@ -7,6 +7,7 @@ import app as application
 def set_session(client, user_id=7):
     with client.session_transaction() as session:
         session["uid"] = user_id
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = f"User {user_id}"
 
 
@@ -126,7 +127,8 @@ def test_unauthenticated_dashboard_redirects_to_login():
     assert response.headers["Location"].endswith("/login")
 
 
-def test_authenticated_dashboard_renders_dynamic_sections(monkeypatch):
+def test_authenticated_dashboard_renders_dynamic_sections(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = dashboard_data(7)
     patch_dashboard_data(monkeypatch, data)
     monkeypatch.setattr(
@@ -156,7 +158,8 @@ def test_authenticated_dashboard_renders_dynamic_sections(monkeypatch):
     assert b"2026-08" in response.data
 
 
-def test_dashboard_uses_authenticated_user_and_ignores_client_user_id(monkeypatch):
+def test_dashboard_uses_authenticated_user_and_ignores_client_user_id(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     calls = patch_dashboard_data(monkeypatch, dashboard_data(7))
     client = application.app.test_client()
     set_session(client, 7)
@@ -169,7 +172,8 @@ def test_dashboard_uses_authenticated_user_and_ignores_client_user_id(monkeypatc
     assert b"Owned expense" in response.data
 
 
-def test_dashboard_does_not_render_another_users_expenses(monkeypatch):
+def test_dashboard_does_not_render_another_users_expenses(monkeypatch, tracked_session_store):
+    tracked_session_store(2)
     data = dashboard_data(2)
     patch_dashboard_data(monkeypatch, data)
 
@@ -196,7 +200,8 @@ def test_dashboard_does_not_render_another_users_expenses(monkeypatch):
     assert b"User 1 expense" not in response.data
 
 
-def test_empty_budget_data_renders_safely(monkeypatch):
+def test_empty_budget_data_renders_safely(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = dashboard_data(7)
     data["stats"] = {
         "total_allocated": 0,
@@ -215,7 +220,8 @@ def test_empty_budget_data_renders_safely(monkeypatch):
     assert b"No budgets available yet" in response.data
 
 
-def test_budget_progress_and_budget_spending_data_remain_correct(monkeypatch):
+def test_budget_progress_and_budget_spending_data_remain_correct(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     patch_dashboard_data(monkeypatch, dashboard_data(7))
     client = application.app.test_client()
     set_session(client, 7)
@@ -228,7 +234,8 @@ def test_budget_progress_and_budget_spending_data_remain_correct(monkeypatch):
     assert b"width:25.0%" in response.data
 
 
-def test_spending_recommendations_remain_correct(monkeypatch):
+def test_spending_recommendations_remain_correct(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = dashboard_data(7)
     data["stats"] = {
         "total_allocated": 100,
@@ -253,7 +260,8 @@ def test_spending_recommendations_remain_correct(monkeypatch):
     assert b"Your Owned Budget budget is over its stored limit" in response.data
 
 
-def test_financial_health_score_remains_available(monkeypatch):
+def test_financial_health_score_remains_available(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     health = {
         "available": True,
         "score": 88,
@@ -286,7 +294,8 @@ def test_financial_health_score_remains_available(monkeypatch):
     assert b"Based on 75%" in response.data
 
 
-def test_dashboard_does_not_mutate_financial_records(monkeypatch):
+def test_dashboard_does_not_mutate_financial_records(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = dashboard_data(7)
     original = deepcopy(data)
     patch_dashboard_data(monkeypatch, data)
@@ -299,7 +308,8 @@ def test_dashboard_does_not_mutate_financial_records(monkeypatch):
     assert data == original
 
 
-def test_dashboard_does_not_derive_unsupported_metrics(monkeypatch):
+def test_dashboard_does_not_derive_unsupported_metrics(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = dashboard_data(7)
     data["stats"].update(
         {
@@ -322,7 +332,8 @@ def test_dashboard_does_not_derive_unsupported_metrics(monkeypatch):
     assert b"654321098" not in response.data
 
 
-def test_empty_expense_data_does_not_break_dashboard(monkeypatch):
+def test_empty_expense_data_does_not_break_dashboard(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     data = dashboard_data(7)
     data["expense_stats"] = {
         "total_spent": 0,

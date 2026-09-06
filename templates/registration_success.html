@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>FinSight - Account Created</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/all.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/variables.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+  <script src="{{ url_for('static', filename='js/script.js') }}" defer></script>
+</head>
+<body class="auth-page">
+  {% include 'public_navbar.html' %}
+  <main class="auth-shell">
+    <header class="auth-header auth-card-status">
+      <span class="secure-chip"><i></i> Secure by design</span>
+    </header>
+
+    <section class="auth-content">
+      <div class="auth-panel">
+        <span class="eyebrow">{{ t("Account Created Successfully") }}</span>
+        <h1 class="panel-title">{{ t("Account Created Successfully") }}</h1>
+        <div class="form-success auth-alert" role="status">
+          <span>
+            {{ t("Your account has been successfully created.") }}<br>
+            {{ t("You can now sign in to FinSight.") }}
+          </span>
+          <button type="button" class="auth-alert-close" data-dismiss-auth-alert aria-label="{{ t('Dismiss') }}">&times;</button>
+        </div>
+        <a class="submit-btn auth-cta" href="{{ url_for('login') }}">
+          <span>{{ t("Go to Login") }}</span>
+          <span class="button-arrow" aria-hidden="true">&rarr;</span>
+        </a>
+      </div>
+    </section>
+  </main>
+  {% include 'public_footer.html' %}
+</body>
+</html>

@@ -92,7 +92,7 @@ def test_budget_analysis_does_not_modify_stored_budget_data():
     assert stored_budget == original_budget
 
 
-def test_dashboard_queries_budgets_for_authenticated_user(monkeypatch):
+def test_dashboard_queries_budgets_for_authenticated_user(monkeypatch, tracked_session_store):
     budget_calls = []
 
     monkeypatch.setattr(
@@ -142,9 +142,11 @@ def test_dashboard_queries_budgets_for_authenticated_user(monkeypatch):
         },
     )
 
+    tracked_session_store(7)
     client = application.app.test_client()
     with client.session_transaction() as session:
         session["uid"] = 7
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "Budget Tester"
 
     response = client.get("/dashboard")

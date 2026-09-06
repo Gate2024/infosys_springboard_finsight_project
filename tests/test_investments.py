@@ -58,10 +58,12 @@ def investment_repository(monkeypatch):
 
 
 @pytest.fixture
-def client(investment_repository):
+def client(investment_repository, tracked_session_store):
+    tracked_session_store(7)
     client = application.app.test_client()
     with client.session_transaction() as session:
         session["uid"] = 7
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "Investment Tester"
         session["investment_csrf_token"] = "investment-test-token"
     return client

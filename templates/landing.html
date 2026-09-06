@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="{{ current_language|default('en') }}">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="FinSight brings expenses, budgets, investments and goals into one clear financial workspace.">
+  <title>FinSight | {{ t("Your Personal Finance Companion") }}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Playfair+Display:wght@600;700&family=Poppins:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/all.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/variables.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/landing.css') }}">
+</head>
+<body class="landing-page">
+  {% include 'public_navbar.html' %}
+
+  <main>
+    <section class="landing-hero" aria-labelledby="hero-title">
+      <div class="landing-container landing-hero-grid">
+        <div class="landing-hero-copy">
+          <p class="landing-eyebrow">{{ t("SMART FINANCE. BRIGHTER TOMORROW.") }}</p>
+          <h1 id="hero-title">{{ t("Take Control of Your Finances") }} <span>{{ t("with FinSight") }}</span></h1>
+          <p class="landing-hero-text">{{ t("Track expenses, manage budgets, monitor investments, set financial goals, and understand your financial health - all in one place.") }}</p>
+          <div class="landing-hero-actions">
+            <a class="landing-button" href="{{ url_for('login') }}#signup">{{ t("Get Started") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+            <a class="landing-text-link" href="{{ url_for('login') }}">{{ t("Sign In") }} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+          </div>
+          <div class="landing-hero-note">
+            <span class="landing-note-icon"><i class="fa-solid fa-shield-halved" aria-hidden="true"></i></span>
+            <span>{{ t("A calmer, clearer way to build financial confidence.") }}</span>
+          </div>
+        </div>
+
+        <div class="landing-hero-visual" aria-label="FinSight dashboard preview">
+          <div class="landing-dashboard-mockup">
+            <div class="mockup-topbar">
+              <div class="mockup-dots"><span></span><span></span><span></span></div>
+              <span class="mockup-topbar-label">{{ t("Financial Overview") }}</span>
+              <i class="fa-solid fa-ellipsis" aria-hidden="true"></i>
+            </div>
+            <div class="mockup-body">
+              <div class="mockup-welcome">
+                <div>
+                  <span>{{ t("Good morning") }}</span>
+                  <strong>{{ t("Your money, in focus.") }}</strong>
+                </div>
+                <span class="mockup-date">{{ t("This month") }}</span>
+              </div>
+              <div class="mockup-metrics">
+                <div class="mockup-metric mockup-metric-primary">
+                  <span>{{ t("Total Balance") }}</span>
+                  <strong>₹1,25,000</strong>
+                  <small><i class="fa-solid fa-arrow-trend-up" aria-hidden="true"></i> 8.4% {{ t("this month") }}</small>
+                </div>
+                <div class="mockup-metric">
+                  <span>{{ t("Budget Progress") }}</span>
+                  <strong>72%</strong>
+                  <div class="mockup-progress"><i></i></div>
+                </div>
+              </div>
+              <div class="mockup-panel-head">
+                <strong>{{ t("Spending trend") }}</strong>
+                <span>{{ t("Last 6 months") }}</span>
+              </div>
+              <div class="mockup-chart" aria-hidden="true">
+                <span class="mockup-grid-line line-one"></span>
+                <span class="mockup-grid-line line-two"></span>
+                <div class="mockup-bars"><i style="height:42%"></i><i style="height:58%"></i><i style="height:48%"></i><i style="height:70%"></i><i style="height:62%"></i><i style="height:84%"></i></div>
+                <div class="mockup-chart-line"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+              </div>
+              <div class="mockup-bottom-row">
+                <div><span class="mockup-status-dot"></span><span>{{ t("Financial Health") }}</span><strong>Good</strong></div>
+                <div><i class="fa-solid fa-bullseye" aria-hidden="true"></i><span>{{ t("Goal progress") }}</span><strong>64%</strong></div>
+              </div>
+            </div>
+          </div>
+          <div class="mockup-float-card mockup-float-health"><i class="fa-solid fa-heart-pulse" aria-hidden="true"></i><span>{{ t("Financial Health") }}<strong>Good</strong></span></div>
+          <div class="mockup-float-card mockup-float-savings"><i class="fa-solid fa-piggy-bank" aria-hidden="true"></i><span>{{ t("Monthly Savings") }}<strong>+12.8%</strong></span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-trust" aria-label="FinSight benefits">
+      <div class="landing-container landing-trust-grid">
+        <div class="trust-item"><span><i class="fa-solid fa-lock" aria-hidden="true"></i></span><div><strong>{{ t("Secure & Private") }}</strong><p>{{ t("Your financial data stays protected.") }}</p></div></div>
+        <div class="trust-item"><span><i class="fa-solid fa-chart-simple" aria-hidden="true"></i></span><div><strong>{{ t("Smart Insights") }}</strong><p>{{ t("Understand where your money goes.") }}</p></div></div>
+        <div class="trust-item"><span><i class="fa-solid fa-wallet" aria-hidden="true"></i></span><div><strong>{{ t("Budget Control") }}</strong><p>{{ t("Plan spending with confidence.") }}</p></div></div>
+        <div class="trust-item"><span><i class="fa-solid fa-bullseye" aria-hidden="true"></i></span><div><strong>{{ t("Financial Goals") }}</strong><p>{{ t("Turn goals into actionable plans.") }}</p></div></div>
+      </div>
+    </section>
+
+    <section class="landing-section" id="features" aria-labelledby="features-title">
+      <div class="landing-container">
+        <div class="landing-section-heading"><p class="landing-eyebrow">{{ t("Everything in one view") }}</p><h2 id="features-title">{{ t("A clearer picture of your financial life.") }}</h2><p>{{ t("FinSight brings the tools you already need into one focused workspace.") }}</p></div>
+        <div class="feature-grid">
+          <article class="feature-card"><span class="feature-icon feature-icon-green"><i class="fa-solid fa-receipt" aria-hidden="true"></i></span><h3>{{ t("Expense Tracking") }}</h3><p>{{ t("Capture spending with context and see the categories shaping your month.") }}</p><a href="{{ url_for('login') }}">{{ t("Explore tracking") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></article>
+          <article class="feature-card"><span class="feature-icon feature-icon-blue"><i class="fa-solid fa-wallet" aria-hidden="true"></i></span><h3>{{ t("Budget Management") }}</h3><p>{{ t("Set practical limits, follow progress, and spot what needs attention early.") }}</p><a href="{{ url_for('login') }}">{{ t("Build a budget") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></article>
+          <article class="feature-card"><span class="feature-icon feature-icon-gold"><i class="fa-solid fa-chart-line" aria-hidden="true"></i></span><h3>{{ t("Investments") }}</h3><p>{{ t("Keep your portfolio, allocation and returns visible alongside daily decisions.") }}</p><a href="{{ url_for('login') }}">{{ t("View investments") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></article>
+          <article class="feature-card"><span class="feature-icon feature-icon-violet"><i class="fa-solid fa-bullseye" aria-hidden="true"></i></span><h3>{{ t("Financial Goals") }}</h3><p>{{ t("Turn meaningful targets into measurable progress you can revisit anytime.") }}</p><a href="{{ url_for('login') }}">{{ t("Plan a goal") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></article>
+          <article class="feature-card"><span class="feature-icon feature-icon-cyan"><i class="fa-solid fa-heart-pulse" aria-hidden="true"></i></span><h3>{{ t("Financial Health Score") }}</h3><p>{{ t("See a focused score built from the financial data already in your account.") }}</p><a href="{{ url_for('login') }}">{{ t("Check your score") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></article>
+          <article class="feature-card"><span class="feature-icon feature-icon-red"><i class="fa-solid fa-file-lines" aria-hidden="true"></i></span><h3>{{ t("Reports & Export") }}</h3><p>{{ t("Review your financial story with clear reports and practical data exports.") }}</p><a href="{{ url_for('login') }}">{{ t("See reports") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></article>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-section landing-how" id="how-it-works" aria-labelledby="how-title">
+      <div class="landing-container">
+        <div class="landing-section-heading landing-section-heading-tight"><p class="landing-eyebrow">{{ t("A simple rhythm") }}</p><h2 id="how-title">{{ t("From scattered numbers to clear next steps.") }}</h2></div>
+        <div class="steps-grid">
+          <div class="step-item"><span class="step-number">01</span><div><h3>{{ t("Track") }}</h3><p>{{ t("Add expenses, budgets, investments and goals as they happen.") }}</p></div></div>
+          <div class="step-item"><span class="step-number">02</span><div><h3>{{ t("Understand") }}</h3><p>{{ t("Analyze spending, budget progress and financial health in context.") }}</p></div></div>
+          <div class="step-item"><span class="step-number">03</span><div><h3>{{ t("Improve") }}</h3><p>{{ t("Use grounded insights to make your next financial decision with confidence.") }}</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-security" id="security" aria-labelledby="security-title">
+      <div class="landing-container landing-security-grid">
+        <div><p class="landing-eyebrow">{{ t("Built for trust") }}</p><h2 id="security-title">{{ t("Security is built into every step.") }}</h2><p>{{ t("FinSight protects the moments that matter, from account creation to everyday financial planning.") }}</p><a class="landing-text-link landing-text-link-light" href="{{ url_for('login') }}#signup">{{ t("Start securely") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></div>
+        <div class="security-list">
+          <div><i class="fa-solid fa-check" aria-hidden="true"></i><span>{{ t("Secure authentication and password hashing") }}</span></div>
+          <div><i class="fa-solid fa-check" aria-hidden="true"></i><span>{{ t("Email verification and protected password reset") }}</span></div>
+          <div><i class="fa-solid fa-check" aria-hidden="true"></i><span>{{ t("Session security, CSRF protection and Remember Me controls") }}</span></div>
+          <div><i class="fa-solid fa-check" aria-hidden="true"></i><span>{{ t("Optional authenticator-based two-factor authentication") }}</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="landing-cta" id="about" aria-labelledby="cta-title">
+      <div class="landing-container landing-cta-inner"><p class="landing-eyebrow">{{ t("A better relationship with your money") }}</p><h2 id="cta-title">{{ t("Your finances deserve clarity.") }}</h2><p>{{ t("Start building a clearer picture of your financial future with FinSight.") }}</p><div class="landing-hero-actions"><a class="landing-button" href="{{ url_for('login') }}#signup">{{ t("Get Started") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a><a class="landing-text-link" href="{{ url_for('login') }}">{{ t("Sign In") }}</a></div></div>
+    </section>
+  </main>
+
+  {% include 'public_footer.html' %}
+
+  <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

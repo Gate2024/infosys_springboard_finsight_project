@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 import app as application
+from tests.auth_helpers import post_login
 import db
 
 
@@ -22,6 +23,7 @@ ENVIRONMENT_VARIABLES = (
 def set_session(client, user_id=7):
     with client.session_transaction() as session:
         session["uid"] = user_id
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "Security Tester"
 
 
@@ -87,7 +89,8 @@ def clear_login_failures():
     application._login_failures.clear()
 
 
-def test_csv_formula_leading_text_is_neutralized_without_touching_amounts(monkeypatch):
+def test_csv_formula_leading_text_is_neutralized_without_touching_amounts(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     rows = [
         {
             "date": "2026-08-01",
@@ -115,7 +118,8 @@ def test_csv_formula_leading_text_is_neutralized_without_touching_amounts(monkey
     ]
 
 
-def test_csv_normal_and_empty_fields_remain_parseable(monkeypatch):
+def test_csv_normal_and_empty_fields_remain_parseable(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     rows = [
         {
             "date": "2026-08-02",
@@ -152,7 +156,8 @@ def test_csv_normal_and_empty_fields_remain_parseable(monkeypatch):
     assert parsed_rows[2] == ["", "", "", "", "", "0"]
 
 
-def test_security_headers_apply_to_html_and_download_responses(monkeypatch):
+def test_security_headers_apply_to_html_and_download_responses(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     client = application.app.test_client()
     assert_security_headers(client.get("/login"))
 
@@ -183,7 +188,7 @@ def test_session_cookie_flags_are_hardened_for_local_authenticated_sessions(monk
         lambda email, password: (True, {"id": 7, "username": "Tester", "email": email}),
     )
     monkeypatch.setattr(application, "create_user_session", lambda *args: {"id": 1})
-    response = application.app.test_client().post(
+    response = post_login(application.app.test_client(),
         "/login",
         data={"email": "tester@example.com", "password": "password"},
     )
@@ -216,13 +221,13 @@ def test_login_limits_repeated_failed_attempts_without_waiting(monkeypatch):
     client = application.app.test_client()
 
     responses = [
-        client.post(
+        post_login(client,
             "/login",
             data={"email": "attacker@example.com", "password": "wrong"},
         )
         for _ in range(application.LOGIN_MAX_FAILURES)
     ]
-    blocked_response = client.post(
+    blocked_response = post_login(client,
         "/login",
         data={"email": "attacker@example.com", "password": "wrong"},
     )
@@ -243,11 +248,11 @@ def test_successful_login_still_works_and_clears_failures(monkeypatch):
     monkeypatch.setattr(application, "create_user_session", lambda *args: {"id": 1})
     client = application.app.test_client()
 
-    assert client.post(
+    assert post_login(client,
         "/login",
         data={"email": "tester@example.com", "password": "wrong"},
     ).status_code == 200
-    response = client.post(
+    response = post_login(client,
         "/login",
         data={"email": "tester@example.com", "password": "correct"},
     )
@@ -263,7 +268,7 @@ def test_login_rate_limit_does_not_affect_unrelated_routes(monkeypatch):
     monkeypatch.setattr(application, "login_user", lambda email, password: (False, None))
     client = application.app.test_client()
     for _ in range(application.LOGIN_MAX_FAILURES):
-        client.post("/login", data={"email": "attacker@example.com", "password": "wrong"})
+        post_login(client, "/login", data={"email": "attacker@example.com", "password": "wrong"})
 
     assert client.get("/login").status_code == 200
     assert client.get("/dashboard").status_code == 302

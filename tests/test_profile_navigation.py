@@ -4,6 +4,7 @@ import app as application
 def set_authenticated_session(client):
     with client.session_transaction() as session:
         session["uid"] = 7
+        session["auth_session_token"] = f"fixture-session-{session['uid']}"
         session["username"] = "Profile Owner"
         session["email"] = "owner@example.com"
 
@@ -20,7 +21,8 @@ def assert_account_dropdown(response):
     assert b"<span>Profile</span>" not in response.data
 
 
-def test_profile_navigation_is_active_on_my_profile(monkeypatch):
+def test_profile_navigation_is_active_on_my_profile(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     monkeypatch.setattr(
         application,
         "get_user_by_id",
@@ -44,7 +46,8 @@ def test_profile_navigation_is_active_on_my_profile(monkeypatch):
     assert b'class="bi ' not in response.data
 
 
-def test_profile_navigation_is_active_on_preferences(monkeypatch):
+def test_profile_navigation_is_active_on_preferences(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     monkeypatch.setattr(
         application,
         "ensure_user_preferences",
@@ -66,7 +69,8 @@ def test_profile_navigation_is_active_on_preferences(monkeypatch):
     assert_account_dropdown(client.get("/profile/preferences"))
 
 
-def test_profile_navigation_is_active_on_security_and_contains_password_form(monkeypatch):
+def test_profile_navigation_is_active_on_security_and_contains_password_form(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     monkeypatch.setattr(application, "list_active_user_sessions", lambda *args: [])
     monkeypatch.setattr(
         application,

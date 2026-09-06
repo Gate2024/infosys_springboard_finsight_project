@@ -32,6 +32,7 @@ DB_USER=postgres
 DB_PASSWORD=your_password
 DB_PORT=5432
 SECRET_KEY=your_secret_key
+FLASK_DEBUG=true  # local development only
 
 ### 5. Database
 

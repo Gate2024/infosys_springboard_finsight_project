@@ -2,9 +2,10 @@ import csv
 import base64
 import hashlib
 import os
+import re
 import secrets
 import time
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal, InvalidOperation
 from html import escape
 from io import BytesIO, StringIO
@@ -12,6 +13,7 @@ from io import BytesIO, StringIO
 from flask import (
     Flask,
     flash,
+    g,
     jsonify,
     redirect,
     render_template,
@@ -32,6 +34,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from werkzeug.security import generate_password_hash
 
 from config import Config
 from db import (
@@ -62,6 +65,25 @@ from db import (
     mark_all_notifications_read,
     mark_notification_read,
     register_user,
+    create_remember_me_token,
+    rotate_remember_me_token,
+    revoke_remember_me_token,
+    revoke_all_remember_me_tokens,
+    create_pending_registration,
+    get_pending_registration,
+    replace_pending_registration_otp,
+    complete_pending_registration,
+    get_registration_resend_status,
+    registration_otp_digest,
+    get_user_for_password_reset,
+    get_password_reset_challenge,
+    get_password_reset_challenge_by_id,
+    create_password_reset_challenge,
+    get_password_reset_resend_status,
+    replace_password_reset_otp,
+    verify_password_reset_otp,
+    get_password_reset_authorization,
+    reset_password_with_authorization,
     revoke_all_user_sessions,
     revoke_current_user_session,
     revoke_user_session,
@@ -78,6 +100,7 @@ from goal_service import GOAL_CATEGORIES, GoalService
 from financial_health_service import calculate_financial_health
 from i18n import TRANSLATIONS, currency_symbol, format_currency, translate
 from report_service import ReportValidationError, build_reporting_data
+from email_service import email_service
 
 app = Flask(__name__)
 
@@ -100,12 +123,59 @@ def _get_secret_key():
 
 
 def _debug_enabled():
+    if _is_production_environment():
+        return False
     return os.getenv("FLASK_DEBUG", "").strip().lower() in {
         "1", "true", "yes", "on"
     }
 
 
 app.config["SECRET_KEY"] = _get_secret_key()
+
+
+DEFAULT_SESSION_INACTIVITY_TIMEOUT_SECONDS = 30 * 60
+DEFAULT_SESSION_ABSOLUTE_TIMEOUT_SECONDS = 24 * 60 * 60
+DEFAULT_REMEMBER_ME_TIMEOUT_SECONDS = 30 * 24 * 60 * 60
+REMEMBER_ME_COOKIE_NAME = "finsight_remember_me"
+PASSWORD_RESET_OTP_TIMEOUT_SECONDS = 10 * 60
+PASSWORD_RESET_AUTH_TIMEOUT_SECONDS = 10 * 60
+PASSWORD_RESET_GENERIC_MESSAGE = (
+    "If the account exists, a verification code has been sent to the email address."
+)
+PASSWORD_RESET_INVALID_MESSAGE = "Invalid or expired verification code."
+
+
+def _session_timeout_setting(name, default):
+    raw_value = os.getenv(name)
+    if raw_value is None or not raw_value.strip():
+        return default
+    try:
+        value = int(raw_value)
+    except (TypeError, ValueError) as exc:
+        raise RuntimeError(f"{name} must be a positive integer.") from exc
+    if value <= 0:
+        raise RuntimeError(f"{name} must be a positive integer.")
+    return value
+
+
+app.config.update(
+    SESSION_INACTIVITY_TIMEOUT_SECONDS=_session_timeout_setting(
+        "SESSION_INACTIVITY_TIMEOUT_SECONDS",
+        DEFAULT_SESSION_INACTIVITY_TIMEOUT_SECONDS,
+    ),
+    SESSION_ABSOLUTE_TIMEOUT_SECONDS=_session_timeout_setting(
+        "SESSION_ABSOLUTE_TIMEOUT_SECONDS",
+        DEFAULT_SESSION_ABSOLUTE_TIMEOUT_SECONDS,
+    ),
+    REMEMBER_ME_TIMEOUT_SECONDS=_session_timeout_setting(
+        "REMEMBER_ME_TIMEOUT_SECONDS",
+        DEFAULT_REMEMBER_ME_TIMEOUT_SECONDS,
+    ),
+)
+if app.config["REMEMBER_ME_TIMEOUT_SECONDS"] <= app.config["SESSION_ABSOLUTE_TIMEOUT_SECONDS"]:
+    raise RuntimeError(
+        "REMEMBER_ME_TIMEOUT_SECONDS must exceed SESSION_ABSOLUTE_TIMEOUT_SECONDS."
+    )
 
 
 def _secure_session_cookie_enabled():
@@ -232,12 +302,16 @@ def sync_theme_session(preferences):
 
 
 def login_required_redirect():
-    if not session.get("uid"):
-        return redirect(url_for("login"))
-
+    user_id = session.get("uid")
     session_token_hash = current_session_token_hash()
-    if session_token_hash and not is_user_session_active(
-        current_user_id(), session_token_hash
+    if type(user_id) is not int or user_id <= 0 or not session_token_hash:
+        session.clear()
+        return redirect(url_for("login"))
+    if not is_user_session_active(
+        user_id,
+        session_token_hash,
+        app.config["SESSION_INACTIVITY_TIMEOUT_SECONDS"],
+        app.config["SESSION_ABSOLUTE_TIMEOUT_SECONDS"],
     ):
         session.clear()
         flash("Your session is no longer active. Please sign in again.", "danger")
@@ -307,6 +381,143 @@ def establish_authenticated_session(user):
         preferences = None
     sync_theme_session(preferences)
     return True
+
+
+def _remember_me_token_hash(token):
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def _remember_me_requested():
+    return request.form.get("remember_me", "").strip().lower() in {
+        "1", "true", "on", "yes"
+    }
+
+
+def _issue_remember_me_token(user_id):
+    raw_token = secrets.token_urlsafe(32)
+    try:
+        create_remember_me_token(
+            user_id,
+            _remember_me_token_hash(raw_token),
+            app.config["REMEMBER_ME_TIMEOUT_SECONDS"],
+            request_device_info(),
+            request_ip_address(),
+        )
+    except Exception:
+        app.logger.exception("Remember Me credential creation failed")
+        return None
+    return raw_token
+
+
+def _set_remember_me_cookie(response, raw_token):
+    g.clear_remember_me_cookie = False
+    timeout = app.config["REMEMBER_ME_TIMEOUT_SECONDS"]
+    response.set_cookie(
+        REMEMBER_ME_COOKIE_NAME,
+        raw_token,
+        max_age=timeout,
+        expires=datetime.now(timezone.utc) + timedelta(seconds=timeout),
+        path="/",
+        httponly=True,
+        secure=app.config["SESSION_COOKIE_SECURE"],
+        samesite=app.config["SESSION_COOKIE_SAMESITE"],
+    )
+    return response
+
+
+def _clear_remember_me_cookie(response):
+    g.remember_me_cookie_token = None
+    g.clear_remember_me_cookie = False
+    response.delete_cookie(
+        REMEMBER_ME_COOKIE_NAME,
+        path="/",
+        secure=app.config["SESSION_COOKIE_SECURE"],
+        httponly=True,
+        samesite=app.config["SESSION_COOKIE_SAMESITE"],
+    )
+    return response
+
+
+def _forget_remember_me_cookie():
+    g.remember_me_cookie_token = None
+    g.clear_remember_me_cookie = True
+
+
+def _revoke_remember_me_token(user_id, raw_token):
+    if not raw_token:
+        return
+    try:
+        revoke_remember_me_token(user_id, _remember_me_token_hash(raw_token))
+    except Exception:
+        app.logger.exception("Remember Me credential revocation failed")
+
+
+@app.after_request
+def apply_remember_me_cookie(response):
+    raw_token = getattr(g, "remember_me_cookie_token", None)
+    if raw_token:
+        _set_remember_me_cookie(response, raw_token)
+    elif getattr(g, "clear_remember_me_cookie", False):
+        _clear_remember_me_cookie(response)
+    return response
+
+
+@app.before_request
+def restore_remembered_session():
+    if (
+        request.endpoint == "static"
+        or session.get("uid")
+        or session.get("pending_2fa_user_id")
+    ):
+        return None
+
+    raw_token = request.cookies.get(REMEMBER_ME_COOKIE_NAME)
+    if not raw_token:
+        return None
+
+    new_raw_token = secrets.token_urlsafe(32)
+    try:
+        user_id = rotate_remember_me_token(
+            _remember_me_token_hash(raw_token),
+            _remember_me_token_hash(new_raw_token),
+            app.config["REMEMBER_ME_TIMEOUT_SECONDS"],
+            request_device_info(),
+            request_ip_address(),
+        )
+    except Exception:
+        app.logger.exception("Remember Me credential validation failed")
+        g.clear_remember_me_cookie = True
+        return None
+
+    if not user_id:
+        g.clear_remember_me_cookie = True
+        return None
+
+    try:
+        user = get_user_by_id(user_id)
+        if not user:
+            g.clear_remember_me_cookie = True
+            _revoke_remember_me_token(user_id, new_raw_token)
+            return None
+        totp_status = get_totp_status(user_id)
+    except Exception:
+        app.logger.exception("Remember Me user validation failed")
+        g.clear_remember_me_cookie = True
+        _revoke_remember_me_token(user_id, new_raw_token)
+        return None
+
+    g.remember_me_cookie_token = new_raw_token
+    if (totp_status or {}).get("is_enabled"):
+        session.clear()
+        session["pending_2fa_user_id"] = user_id
+        session["pending_2fa_remembered_session"] = True
+        return redirect(url_for("login_two_factor"))
+
+    if not establish_authenticated_session(user):
+        session.clear()
+        g.clear_remember_me_cookie = True
+        _revoke_remember_me_token(user_id, new_raw_token)
+    return None
 
 
 def _safe_non_negative_decimal(value):
@@ -674,6 +885,110 @@ def inject_notification_header_data():
         }
 
 
+def auth_csrf_token():
+    token = session.get("auth_csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(32)
+        session["auth_csrf_token"] = token
+    return token
+
+
+def auth_csrf_valid():
+    expected = session.get("auth_csrf_token")
+    supplied = request.form.get("_auth_csrf_token", "")
+    return bool(expected and supplied and secrets.compare_digest(expected, supplied))
+
+
+def _password_reset_challenge_id(session_key="password_reset_challenge_id"):
+    challenge_id = session.get(session_key)
+    return challenge_id if type(challenge_id) is int and challenge_id > 0 else None
+
+
+def _otp_resend_view_data(resend_status):
+    """Convert persisted resend state into safe data attributes for the OTP UI."""
+    if not resend_status:
+        return {
+            "resend_remaining_seconds": 0,
+            "resend_eligible": False,
+            "resend_limit_reached": False,
+        }
+    try:
+        resend_count = max(0, int(resend_status.get("resend_count", 0)))
+        remaining_seconds = max(
+            0, int(resend_status.get("remaining_seconds", 0) or 0)
+        )
+    except (TypeError, ValueError):
+        resend_count = 0
+        remaining_seconds = 0
+    return {
+        "resend_remaining_seconds": remaining_seconds,
+        "resend_eligible": resend_count < 5
+        and (remaining_seconds > 0 or bool(resend_status.get("can_resend"))),
+        "resend_limit_reached": resend_count >= 5,
+    }
+
+
+def _password_reset_otp_hash(email):
+    otp = f"{secrets.randbelow(1000000):06d}"
+    try:
+        otp_hash = registration_otp_digest(otp)
+        email_service.send_password_reset_otp(email, otp)
+    except Exception:
+        app.logger.exception("Password reset verification email delivery failed")
+        return None
+    return otp_hash
+
+
+def _password_reset_expiry():
+    return datetime.now(timezone.utc) + timedelta(
+        seconds=PASSWORD_RESET_OTP_TIMEOUT_SECONDS
+    )
+
+
+def _prepare_password_reset_for_user(user):
+    challenge = get_password_reset_challenge(user["id"])
+    if challenge:
+        if challenge.get("verified_at") is not None:
+            authorization = get_password_reset_authorization(challenge["id"])
+            if authorization:
+                session.pop("password_reset_challenge_id", None)
+                session["password_reset_authorized_challenge_id"] = challenge["id"]
+                return
+            challenge = None
+
+        if challenge:
+            resend_status = get_password_reset_resend_status(challenge["id"])
+            if resend_status and resend_status.get("otp_expired"):
+                challenge = None
+            elif not resend_status or not resend_status.get("can_resend"):
+                session["password_reset_challenge_id"] = challenge["id"]
+                return
+            else:
+                session["password_reset_challenge_id"] = challenge["id"]
+                otp_hash = _password_reset_otp_hash(user["email"])
+                if otp_hash:
+                    updated = replace_password_reset_otp(
+                        challenge["id"], otp_hash, _password_reset_expiry()
+                    )
+                    if updated:
+                        session["password_reset_challenge_id"] = updated["id"]
+                return
+
+    otp_hash = _password_reset_otp_hash(user["email"])
+    if not otp_hash:
+        return
+    challenge = create_password_reset_challenge(
+        user["id"], user["email"], otp_hash, _password_reset_expiry()
+    )
+    if not challenge:
+        challenge = get_password_reset_challenge(user["id"])
+    if challenge:
+        session["password_reset_challenge_id"] = challenge["id"]
+
+
+app.jinja_env.globals["auth_csrf_token"] = auth_csrf_token
+
+
 def security_sessions_csrf_token():
     token = session.get("security_sessions_csrf_token")
     if not token:
@@ -706,22 +1021,25 @@ def two_factor_login_csrf_valid():
 def home():
     if session.get("uid"):
         return redirect(url_for("dashboard"))
-    return redirect(url_for("login"))
+    return render_template(
+        "landing.html", current_year=datetime.now(timezone.utc).year
+    )
 
 
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if session.get("uid"):
-        session_token_hash = current_session_token_hash()
-        if not session_token_hash or is_user_session_active(
-            current_user_id(), session_token_hash
-        ):
+        if login_required_redirect() is None:
             return redirect(url_for("dashboard"))
-        session.clear()
 
     if request.method == "POST":
+        if not auth_csrf_valid():
+            return render_template(
+                "login.html", error="The form security token is missing or invalid."
+            ), 400
         email = request.form.get("email", "").strip().lower()
         password = request.form.get("password", "")
+        remember_me = _remember_me_requested()
 
         if _login_rate_limited():
             return render_template(
@@ -735,6 +1053,7 @@ def login():
             session.clear()
             if get_totp_status(user["id"])["is_enabled"]:
                 session["pending_2fa_user_id"] = user["id"]
+                session["pending_2fa_remember_me"] = remember_me
                 return redirect(url_for("login_two_factor"))
 
             if not establish_authenticated_session(user):
@@ -742,12 +1061,22 @@ def login():
                     "login.html",
                     error="Unable to start a secure session. Please try again.",
                 ), 503
-            return redirect(url_for("dashboard"))
+            response = redirect(url_for("dashboard"))
+            if remember_me:
+                raw_token = _issue_remember_me_token(user["id"])
+                if raw_token:
+                    _set_remember_me_cookie(response, raw_token)
+            return response
 
         _record_login_failure()
         return render_template("login.html", error="Invalid email or password.")
 
-    return render_template("login.html", error=None)
+    success = (
+        "Password reset successful. Please sign in with your new password."
+        if request.args.get("reset") == "success"
+        else None
+    )
+    return render_template("login.html", error=None, success=success)
 
 
 @app.route("/login/2fa", methods=["GET", "POST"])
@@ -796,6 +1125,8 @@ def login_two_factor():
             error="Invalid verification code.",
         )
 
+    remember_me = bool(session.pop("pending_2fa_remember_me", False))
+    remembered_session = bool(session.pop("pending_2fa_remembered_session", False))
     user = get_user_by_id(pending_user_id)
     if not user or not establish_authenticated_session(user):
         session.clear()
@@ -805,47 +1136,391 @@ def login_two_factor():
         ), 503
 
     _clear_login_failures()
-    return redirect(url_for("dashboard"))
+    response = redirect(url_for("dashboard"))
+    if remember_me and not remembered_session:
+        raw_token = _issue_remember_me_token(user["id"])
+        if raw_token:
+            _set_remember_me_cookie(response, raw_token)
+    return response
+
+
+@app.route("/forgot-password", methods=["GET", "POST"])
+def forgot_password():
+    if request.method == "GET":
+        return render_template("forgot_password.html", error=None, success=None)
+
+    if not auth_csrf_valid():
+        return render_template(
+            "forgot_password.html",
+            error="The form security token is missing or invalid.",
+            success=None,
+        ), 400
+
+    email = request.form.get("email", "").strip().lower()
+    if not email or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        return render_template(
+            "forgot_password.html",
+            error="Enter a valid email address.",
+            success=None,
+        ), 400
+
+    session.pop("password_reset_challenge_id", None)
+    session.pop("password_reset_authorized_challenge_id", None)
+    try:
+        user = get_user_for_password_reset(email)
+        if user:
+            _prepare_password_reset_for_user(user)
+    except Exception:
+        app.logger.exception("Password reset request failed")
+
+    return redirect(url_for("forgot_password_verify"))
+
+
+def render_password_reset_otp(error=None, success=None, status=200):
+    challenge_id = _password_reset_challenge_id()
+    challenge = (
+        get_password_reset_challenge_by_id(challenge_id) if challenge_id else None
+    )
+    resend_status = (
+        get_password_reset_resend_status(challenge_id) if challenge else None
+    )
+    if not resend_status:
+        resend_status = {"resend_count": 0, "remaining_seconds": 60}
+    return render_template(
+        "password_reset_otp.html",
+        error=error,
+        success=success,
+        auth_csrf_token=auth_csrf_token(),
+        **_otp_resend_view_data(resend_status),
+    ), status
+
+
+@app.route("/forgot-password/verify", methods=["GET", "POST"])
+def forgot_password_verify():
+    authorized_id = _password_reset_challenge_id(
+        "password_reset_authorized_challenge_id"
+    )
+    if request.method == "GET":
+        if authorized_id and get_password_reset_authorization(authorized_id):
+            return redirect(url_for("password_reset"))
+        return render_password_reset_otp(
+            success=PASSWORD_RESET_GENERIC_MESSAGE,
+        )
+
+    if not auth_csrf_valid():
+        return render_password_reset_otp(
+            error="The form security token is missing or invalid.", status=400
+        )
+
+    challenge_id = _password_reset_challenge_id()
+    otp = request.form.get("otp", "").strip()
+    if not challenge_id or not otp.isdigit() or len(otp) != 6:
+        return render_password_reset_otp(
+            error="Enter the six-digit verification code.", status=400
+        )
+
+    reset_token = secrets.token_urlsafe(32)
+    try:
+        verified, result = verify_password_reset_otp(
+            challenge_id,
+            registration_otp_digest(otp),
+            hashlib.sha256(reset_token.encode("utf-8")).hexdigest(),
+            datetime.now(timezone.utc)
+            + timedelta(seconds=PASSWORD_RESET_AUTH_TIMEOUT_SECONDS),
+        )
+    except Exception:
+        app.logger.exception("Password reset verification failed")
+        return render_password_reset_otp(
+            error="Unable to verify the code. Please try again.", status=503
+        )
+
+    if not verified:
+        messages = {
+            "expired": "This verification code has expired. Please request a new code.",
+            "attempts": "Too many verification attempts. Please request a new code.",
+            "consumed": "This verification code is no longer valid. Please request a new code.",
+        }
+        return render_password_reset_otp(
+            error=messages.get(result, PASSWORD_RESET_INVALID_MESSAGE), status=400
+        )
+
+    session.pop("password_reset_challenge_id", None)
+    session["password_reset_authorized_challenge_id"] = challenge_id
+    return redirect(url_for("password_reset"))
+
+
+@app.post("/forgot-password/resend")
+def resend_password_reset_otp():
+    if not auth_csrf_valid():
+        return render_password_reset_otp(
+            error="The form security token is missing or invalid.", status=400
+        )
+
+    challenge_id = _password_reset_challenge_id()
+    challenge = (
+        get_password_reset_challenge_by_id(challenge_id) if challenge_id else None
+    )
+    status = (
+        get_password_reset_resend_status(challenge_id) if challenge else None
+    )
+    if not status or not status.get("can_resend"):
+        error = (
+            "You have reached the resend limit. Please request a new password reset."
+            if status and status.get("resend_count", 0) >= 5
+            else "Please wait before requesting another code."
+        )
+        return render_password_reset_otp(error=error, status=429)
+
+    otp_hash = _password_reset_otp_hash(challenge["email"])
+    if not otp_hash:
+        return render_password_reset_otp(
+            error="Unable to send the verification email. Please try again later.",
+            status=503,
+        )
+
+    updated = replace_password_reset_otp(
+        challenge_id, otp_hash, _password_reset_expiry()
+    )
+    if not updated:
+        return render_password_reset_otp(
+            error="Please wait before requesting another code.", status=429
+        )
+    return render_password_reset_otp(
+        success="A new verification code has been sent."
+    )
+
+
+@app.route("/forgot-password/reset", methods=["GET", "POST"])
+def password_reset():
+    challenge_id = _password_reset_challenge_id(
+        "password_reset_authorized_challenge_id"
+    )
+    authorization = (
+        get_password_reset_authorization(challenge_id) if challenge_id else None
+    )
+    if not authorization:
+        session.pop("password_reset_authorized_challenge_id", None)
+        return redirect(url_for("forgot_password_verify"))
+
+    if request.method == "GET":
+        return render_template("password_reset.html", error=None)
+
+    if not auth_csrf_valid():
+        return render_template(
+            "password_reset.html",
+            error="The form security token is missing or invalid.",
+        ), 400
+
+    new_password = request.form.get("new_password", "")
+    confirm_password = request.form.get("confirm_password", "")
+    if len(new_password) < 8:
+        return render_template(
+            "password_reset.html",
+            error="Password must contain at least 8 characters.",
+        ), 400
+    if new_password != confirm_password:
+        return render_template(
+            "password_reset.html",
+            error="Passwords do not match.",
+        ), 400
+
+    try:
+        changed = reset_password_with_authorization(
+            challenge_id, generate_password_hash(new_password)
+        )
+    except Exception:
+        app.logger.exception("Password reset failed")
+        changed = False
+    if not changed:
+        session.pop("password_reset_authorized_challenge_id", None)
+        return render_template(
+            "password_reset.html",
+            error="Unable to reset password. Please start again.",
+        ), 400
+
+    session.clear()
+    return redirect(url_for("login", reset="success"))
 
 
 @app.route("/register", methods=["GET", "POST"])
 def register():
     if session.get("uid"):
-        return redirect(url_for("dashboard"))
+        if login_required_redirect() is None:
+            return redirect(url_for("dashboard"))
 
     if request.method == "GET":
         return redirect(url_for("login"))
 
-    username = request.form.get("username", "").strip()
-    email = request.form.get("email", "").strip().lower()
-    password = request.form.get("password", "")
-
-    if not username or not email or not password:
-        return render_template("login.html", error="All fields are required.")
-    if len(password) < 6:
+    if not auth_csrf_valid():
         return render_template(
-            "login.html", error="Password must contain at least 6 characters."
+            "login.html", error="The form security token is missing or invalid."
+        ), 400
+
+    full_name = request.form.get("username", "").strip()
+    email = request.form.get("email", "").strip().lower()
+    mobile_number = request.form.get("mobile_number", "").strip()
+    password = request.form.get("password", "")
+    confirm_password = request.form.get("confirm_password", "")
+
+    if not password:
+        return render_template("login.html", error="All fields are required.")
+    if len(password) < 8:
+        return render_template(
+            "login.html", error="Password must contain at least 8 characters."
+        )
+    if not full_name or not email or not mobile_number or not confirm_password:
+        return render_template("login.html", error="All fields are required.")
+    if len(full_name) > 150 or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
+        return render_template("login.html", error="Enter valid registration details.")
+    if not re.fullmatch(r"[0-9+() -]{7,30}", mobile_number):
+        return render_template("login.html", error="Enter a valid mobile number.")
+    if password != confirm_password:
+        return render_template("login.html", error="Passwords do not match.")
+
+    otp = f"{secrets.randbelow(1000000):06d}"
+    try:
+        otp_hash = registration_otp_digest(otp)
+    except RuntimeError:
+        return render_template(
+            "login.html",
+            error="Unable to begin registration verification.",
+        ), 503
+    pending = create_pending_registration(
+        full_name,
+        email,
+        mobile_number,
+        generate_password_hash(password),
+        otp_hash,
+        datetime.now(timezone.utc) + timedelta(minutes=10),
+    )
+    if not pending:
+        return render_template("login.html", error="Unable to begin registration verification.")
+    try:
+        email_service.send_registration_otp(email, otp)
+    except Exception:
+        app.logger.exception("Registration verification email delivery failed")
+        return render_template(
+            "login.html",
+            error="Unable to send the verification email. Please try again later.",
+        ), 503
+
+    session["pending_registration_id"] = pending["id"]
+    return render_registration_otp(success="A verification code was sent to your email.")
+
+
+def render_registration_otp(error=None, success=None, status=200):
+    pending_id = session.get("pending_registration_id")
+    pending = get_pending_registration(pending_id) if pending_id else None
+    if not pending:
+        return redirect(url_for("login"))
+    resend_status = get_registration_resend_status(pending_id)
+    return render_template(
+        "registration_otp.html",
+        email=pending["email"],
+        auth_csrf_token=auth_csrf_token(),
+        error=error,
+        success=success,
+        **_otp_resend_view_data(resend_status),
+    ), status
+
+
+@app.route("/verify-registration-otp", methods=["GET", "POST"])
+def verify_registration_otp():
+    if request.method == "GET":
+        return render_registration_otp()
+    if not auth_csrf_valid():
+        return render_registration_otp(
+            "The form security token is missing or invalid.", status=400
         )
 
-    success, result = register_user(username, email, password)
-    if success:
-        flash("Account created successfully. Please sign in.", "success")
+    pending_id = session.get("pending_registration_id")
+    otp = request.form.get("otp", "").strip()
+    if not isinstance(pending_id, int) or not otp.isdigit() or len(otp) != 6:
+        return render_registration_otp(
+            "Enter the six-digit verification code.", status=400
+        )
+
+    success, result = complete_pending_registration(
+        pending_id,
+        registration_otp_digest(otp),
+    )
+    if not success:
+        messages = {
+            "expired": "This verification code has expired. Please request a new code.",
+            "attempts": "Too many verification attempts. Please request a new code.",
+        }
+        return render_registration_otp(messages.get(result, "The verification code is invalid."))
+
+    session.pop("pending_registration_id", None)
+    return render_template("registration_success.html")
+
+
+@app.post("/resend-registration-otp")
+def resend_registration_otp():
+    if not auth_csrf_valid():
+        return render_registration_otp(
+            "The form security token is missing or invalid.", status=400
+        )
+    pending_id = session.get("pending_registration_id")
+    pending = get_pending_registration(pending_id) if isinstance(pending_id, int) else None
+    if not pending:
         return redirect(url_for("login"))
 
-    return render_template("login.html", error=result)
+    resend_status = get_registration_resend_status(pending_id)
+    if not resend_status or not resend_status.get("can_resend"):
+        message = (
+            "You have reached the resend limit for this registration."
+            if resend_status and resend_status.get("resend_count", 0) >= 5
+            else "Please wait before requesting another code."
+        )
+        return render_registration_otp(message, status=429)
+
+    otp = f"{secrets.randbelow(1000000):06d}"
+    try:
+        otp_hash = registration_otp_digest(otp)
+    except RuntimeError:
+        return render_registration_otp(
+            "Unable to send the verification email. Please try again later.", status=503
+        )
+    try:
+        email_service.send_registration_otp(pending["email"], otp)
+    except Exception:
+        app.logger.exception("Registration verification email delivery failed")
+        return render_registration_otp(
+            "Unable to send the verification email. Please try again later.", status=503
+        )
+    updated = replace_pending_registration_otp(
+        pending_id,
+        otp_hash,
+        datetime.now(timezone.utc) + timedelta(minutes=10),
+    )
+    if not updated:
+        return render_registration_otp(
+            "Unable to update the verification challenge. Please try again.", status=503
+        )
+    return render_registration_otp(success="A new verification code was sent.")
 
 
-@app.route("/logout")
+@app.post("/logout")
 def logout():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+    if not auth_csrf_valid():
+        return "The form security token is missing or invalid.", 400
     user_id = session.get("uid")
     session_token_hash = current_session_token_hash()
+    remember_me_token = request.cookies.get(REMEMBER_ME_COOKIE_NAME)
+    rotated_remember_me_token = getattr(g, "remember_me_cookie_token", None)
     if user_id and session_token_hash:
         try:
             revoke_current_user_session(user_id, session_token_hash)
         except Exception:
             app.logger.exception("Authenticated session revocation failed during logout")
+    _revoke_remember_me_token(user_id, remember_me_token)
+    _revoke_remember_me_token(user_id, rotated_remember_me_token)
     session.clear()
-    return redirect(url_for("login"))
+    return _clear_remember_me_cookie(redirect(url_for("login")))
 
 
 @app.get("/profile")
@@ -918,8 +1593,8 @@ def change_password():
     if verify_user_password(user_id, new_password):
         flash("New password must be different from the current password.", "danger")
         return render_security_sessions(active_sessions, totp_status, 400)
-    if len(new_password) < 6:
-        flash("Password must contain at least 6 characters.", "danger")
+    if len(new_password) < 8:
+        flash("Password must contain at least 8 characters.", "danger")
         return render_security_sessions(active_sessions, totp_status, 400)
 
     try:
@@ -935,6 +1610,7 @@ def change_password():
         flash("Unable to change password. Please try again.", "danger")
         return render_security_sessions(active_sessions, totp_status, 503)
 
+    _forget_remember_me_cookie()
     flash("Password changed successfully. Other active devices were signed out.", "success")
     return redirect(url_for("profile_security"))
 
@@ -1068,10 +1744,16 @@ def logout_all_device_sessions():
         active_sessions, totp_status = security_page_data(current_user_id())
         return render_security_sessions(active_sessions, totp_status, 400)
 
-    revoke_all_user_sessions(current_user_id())
+    user_id = current_user_id()
+    revoke_all_user_sessions(user_id)
+    try:
+        revoke_all_remember_me_tokens(user_id)
+    except Exception:
+        app.logger.exception("Remember Me credential revocation failed during logout all")
     session.clear()
+    _forget_remember_me_cookie()
     flash("You have been signed out from all devices.", "success")
-    return redirect(url_for("login"))
+    return _clear_remember_me_cookie(redirect(url_for("login")))
 
 
 def preference_reference_options():
@@ -2982,4 +3664,5 @@ def delete_goal(goal_id):
 
 
 if __name__ == "__main__":
-    app.run(debug=_debug_enabled())
+    debug = _debug_enabled()
+    app.run(debug=debug, use_reloader=debug)
