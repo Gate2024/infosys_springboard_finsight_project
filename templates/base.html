@@ -39,7 +39,7 @@
       </div>
     </a>
 
-    <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-label="{{ t('Toggle sidebar') }}">
+    <button class="sidebar-toggle" type="button" data-sidebar-toggle aria-controls="sidebar" aria-expanded="false" aria-label="{{ t('Toggle sidebar') }}">
       <i class="fa-solid fa-bars"></i>
     </button>
 
@@ -162,6 +162,7 @@
         </ul>
       </nav>
     </aside>
+    <div class="sidebar-overlay" data-sidebar-overlay aria-hidden="true"></div>
     <main class="app-container">
 
     <!-- Flask Flash Alert Messages -->

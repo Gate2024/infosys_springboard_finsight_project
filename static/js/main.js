@@ -54,16 +54,49 @@ window.finSightFormatCompactCurrency = finSightFormatCompactCurrency;
 
 document.addEventListener("DOMContentLoaded", () => {
   const sidebarToggle = document.querySelector("[data-sidebar-toggle]");
+  const sidebar = document.querySelector("[data-sidebar]") || document.getElementById("sidebar");
+  const sidebarOverlay = document.querySelector("[data-sidebar-overlay]");
+  const setSidebarOpen = (open) => {
+    const mobile = window.matchMedia("(max-width: 768px)").matches;
+    if (!mobile) open = false;
+    document.body.classList.toggle("sidebar-open", open);
+    if (sidebarToggle) sidebarToggle.setAttribute("aria-expanded", String(open));
+    if (sidebar) sidebar.setAttribute("aria-hidden", String(mobile && !open));
+    if (sidebarOverlay) sidebarOverlay.setAttribute("aria-hidden", String(!open));
+  };
+
   if (sidebarToggle) {
     sidebarToggle.addEventListener("click", () => {
       if (window.matchMedia("(max-width: 768px)").matches) {
-        document.body.classList.toggle("sidebar-open");
+        setSidebarOpen(!document.body.classList.contains("sidebar-open"));
         return;
       }
 
       document.body.classList.toggle("sidebar-collapsed");
     });
   }
+
+  if (sidebar) {
+    sidebar.setAttribute(
+      "aria-hidden",
+      String(window.matchMedia("(max-width: 768px)").matches)
+    );
+    sidebar.querySelectorAll("a").forEach((link) => {
+      link.addEventListener("click", () => {
+        if (window.matchMedia("(max-width: 768px)").matches) setSidebarOpen(false);
+      });
+    });
+  }
+  if (sidebarOverlay) sidebarOverlay.addEventListener("click", () => setSidebarOpen(false));
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && document.body.classList.contains("sidebar-open")) {
+      setSidebarOpen(false);
+      sidebarToggle?.focus();
+    }
+  });
+  window.addEventListener("resize", () => {
+    if (!window.matchMedia("(max-width: 768px)").matches) setSidebarOpen(false);
+  });
 
   const applyTheme = (theme) => {
     document.documentElement.dataset.theme = theme === "dark" ? "dark" : "light";
