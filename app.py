@@ -35,6 +35,7 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 from werkzeug.security import generate_password_hash
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import Config
 from db import (
@@ -130,6 +131,10 @@ def _debug_enabled():
     }
 
 
+if _is_production_environment():
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
+
+
 app.config["SECRET_KEY"] = _get_secret_key()
 
 
@@ -219,6 +224,10 @@ SECURITY_HEADERS = {
 def add_security_headers(response):
     for header, value in SECURITY_HEADERS.items():
         response.headers.setdefault(header, value)
+    if _is_production_environment() and request.is_secure:
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000"
+        )
     return response
 
 
@@ -1024,6 +1033,11 @@ def home():
     return render_template(
         "landing.html", current_year=datetime.now(timezone.utc).year
     )
+
+
+@app.get("/health")
+def health():
+    return jsonify(status="ok")
 
 
 @app.route("/login", methods=["GET", "POST"])
