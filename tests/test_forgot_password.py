@@ -2,11 +2,18 @@ from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 import hashlib
 
+import pytest
 from werkzeug.security import check_password_hash
 
 import app as application
 import db
 from tests.auth_helpers import auth_form
+
+
+@pytest.fixture(autouse=True)
+def app_context():
+    with application.app.app_context():
+        yield
 
 
 class ResetStore:

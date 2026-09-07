@@ -6,6 +6,7 @@ from datetime import date, datetime, timezone
 from decimal import Decimal
 
 import psycopg2
+from flask import current_app
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -142,7 +143,7 @@ def serialize_rows(rows):
 
 
 def registration_otp_digest(otp):
-    pepper = Config.SECRET_KEY
+    pepper = current_app.config.get("SECRET_KEY")
     if not isinstance(pepper, str) or not pepper:
         raise RuntimeError("Registration OTP pepper is not configured.")
     return hmac.new(

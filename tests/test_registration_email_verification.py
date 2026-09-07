@@ -136,8 +136,9 @@ class PendingRegistrationDatabase:
 def real_pending_db(monkeypatch):
     database = PendingRegistrationDatabase()
     monkeypatch.setattr(db, "get_connection", database.connect)
-    monkeypatch.setattr(db.Config, "SECRET_KEY", "test-registration-pepper")
-    return database
+    monkeypatch.setitem(application.app.config, "SECRET_KEY", "test-registration-pepper")
+    with application.app.app_context():
+        yield database
 
 
 def create_real_pending(database, email="new-owner@example.com", otp="123456", expires=None):
@@ -545,10 +546,11 @@ def test_duplicate_full_names_are_allowed_for_different_emails(real_pending_db):
 
 
 def test_registration_otp_pepper_is_required(monkeypatch):
-    monkeypatch.setattr(db.Config, "SECRET_KEY", None)
+    with application.app.app_context():
+        monkeypatch.setitem(application.app.config, "SECRET_KEY", None)
 
-    with pytest.raises(RuntimeError):
-        db.registration_otp_digest("123456")
+        with pytest.raises(RuntimeError):
+            db.registration_otp_digest("123456")
 
 
 def test_phase_2a_migration_adds_active_email_uniqueness_and_resend_limit():
