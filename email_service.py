@@ -2,6 +2,9 @@
 
 import os
 import smtplib
+import json
+from urllib import error as urllib_error
+from urllib import request as urllib_request
 from email.message import EmailMessage
 from html import escape
 
@@ -16,6 +19,10 @@ def _is_production_environment():
 
 
 class EmailConfigurationError(RuntimeError):
+    pass
+
+
+class EmailDeliveryError(RuntimeError):
     pass
 
 
@@ -54,9 +61,62 @@ class SMTPEmailTransport:
             server.send_message(message)
 
 
+class ResendEmailTransport:
+    """HTTPS transport for Resend's transactional email API."""
+
+    endpoint = "https://api.resend.com/emails"
+
+    def __init__(self, api_key, sender, timeout=15):
+        self.api_key = api_key
+        self.sender = sender
+        self.timeout = timeout
+
+    def send(self, recipient, subject, body):
+        self._send(recipient, subject, body, None)
+
+    def send_html(self, recipient, subject, body, html_body):
+        self._send(recipient, subject, body, html_body)
+
+    def _send(self, recipient, subject, body, html_body):
+        payload = {"from": self.sender, "to": [recipient], "subject": subject, "text": body}
+        if html_body is not None:
+            payload["html"] = html_body
+        data = json.dumps(payload).encode("utf-8")
+        request = urllib_request.Request(
+            self.endpoint,
+            data=data,
+            headers={
+                "Authorization": f"Bearer {self.api_key}",
+                "Content-Type": "application/json",
+            },
+            method="POST",
+        )
+        try:
+            with urllib_request.urlopen(request, timeout=self.timeout) as response:
+                if not 200 <= response.status < 300:
+                    raise EmailDeliveryError("Resend email delivery failed.")
+        except EmailDeliveryError:
+            raise
+        except (OSError, urllib_error.URLError, urllib_error.HTTPError) as exc:
+            raise EmailDeliveryError("Resend email delivery failed.") from exc
+
+
 class EmailService:
     def __init__(self, transport_factory=None):
-        self.transport_factory = transport_factory or self._smtp_transport
+        self.transport_factory = transport_factory or self._configured_transport
+
+    @staticmethod
+    def _configured_transport():
+        transport = os.getenv("EMAIL_TRANSPORT", "smtp").strip().lower()
+        if transport == "resend":
+            api_key = os.getenv("RESEND_API_KEY", "").strip()
+            sender = os.getenv("EMAIL_FROM_EMAIL", "").strip()
+            if not api_key or not sender:
+                raise EmailConfigurationError("Resend email configuration is incomplete.")
+            return ResendEmailTransport(api_key=api_key, sender=sender)
+        if transport == "smtp":
+            return EmailService._smtp_transport()
+        raise EmailConfigurationError("Unsupported email transport.")
 
     @staticmethod
     def _smtp_transport():
