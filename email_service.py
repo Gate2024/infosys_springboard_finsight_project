@@ -3,6 +3,7 @@
 import json
 import logging
 import os
+import re
 import smtplib
 from urllib import error as urllib_error
 from urllib import request as urllib_request
@@ -13,6 +14,23 @@ from i18n import translate
 
 
 logger = logging.getLogger(__name__)
+
+
+def _safe_resend_error_body(error):
+    try:
+        body = error.read(4096).decode("utf-8", errors="replace")
+    except (OSError, UnicodeError):
+        return "<unavailable>"
+    body = re.sub(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", "[redacted-email]", body)
+    body = re.sub(r"\b\d{6}\b", "[redacted-code]", body)
+    body = re.sub(
+        r"(?i)([\"']?(?:authorization|api[-_ ]?key|bearer|password|passwd|"
+        r"cookie|set-cookie|secret|token|access[_-]?token|refresh[_-]?token)"
+        r"[\"']?\s*[:=]\s*)(\"[^\"]*\"|'[^']*'|Bearer\s+[^,\s}\]]+|[^,\s}\]]+)",
+        r"\1[redacted]",
+        body,
+    )
+    return body[:500]
 
 
 def _is_production_environment():
@@ -102,7 +120,14 @@ class ResendEmailTransport:
                     raise EmailDeliveryError("Resend email delivery failed.")
         except EmailDeliveryError:
             raise
-        except (OSError, urllib_error.URLError, urllib_error.HTTPError) as exc:
+        except urllib_error.HTTPError as exc:
+            logger.warning(
+                "Resend email request failed with HTTP status %s: %s",
+                exc.code,
+                _safe_resend_error_body(exc),
+            )
+            raise EmailDeliveryError("Resend email delivery failed.") from None
+        except (OSError, urllib_error.URLError) as exc:
             logger.warning("Resend email request failed with %s", type(exc).__name__)
             raise EmailDeliveryError("Resend email delivery failed.") from None
 
