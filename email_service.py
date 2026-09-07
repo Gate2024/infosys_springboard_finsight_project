@@ -1,14 +1,18 @@
 """Small injectable email boundary used by authentication flows."""
 
+import json
+import logging
 import os
 import smtplib
-import json
 from urllib import error as urllib_error
 from urllib import request as urllib_request
 from email.message import EmailMessage
 from html import escape
 
 from i18n import translate
+
+
+logger = logging.getLogger(__name__)
 
 
 def _is_production_environment():
@@ -94,11 +98,13 @@ class ResendEmailTransport:
         try:
             with urllib_request.urlopen(request, timeout=self.timeout) as response:
                 if not 200 <= response.status < 300:
+                    logger.warning("Resend email request returned HTTP status %s", response.status)
                     raise EmailDeliveryError("Resend email delivery failed.")
         except EmailDeliveryError:
             raise
         except (OSError, urllib_error.URLError, urllib_error.HTTPError) as exc:
-            raise EmailDeliveryError("Resend email delivery failed.") from exc
+            logger.warning("Resend email request failed with %s", type(exc).__name__)
+            raise EmailDeliveryError("Resend email delivery failed.") from None
 
 
 class EmailService:
@@ -111,6 +117,11 @@ class EmailService:
         if transport == "resend":
             api_key = os.getenv("RESEND_API_KEY", "").strip()
             sender = os.getenv("EMAIL_FROM_EMAIL", "").strip()
+            logger.info(
+                "Email transport selected: resend (api_key_configured=%s, sender_configured=%s)",
+                bool(api_key),
+                bool(sender),
+            )
             if not api_key or not sender:
                 raise EmailConfigurationError("Resend email configuration is incomplete.")
             return ResendEmailTransport(api_key=api_key, sender=sender)
