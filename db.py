@@ -161,7 +161,7 @@ def _registration_username(full_name, email):
     return f"fs_{digest}"
 
 
-def register_user(username, email, password):
+def register_user(username, email, password, mobile_number=None):
     """Create a legacy registration while enforcing uniqueness by email only."""
     email = str(email or "").strip().lower()
     with get_connection() as conn:
@@ -176,13 +176,16 @@ def register_user(username, email, password):
 
             cursor.execute(
                 """
-                INSERT INTO users (username, email, password_hash, display_name)
-                VALUES (%s, %s, %s, %s)
+                INSERT INTO users (
+                    username, email, mobile_number, password_hash, display_name
+                )
+                VALUES (%s, %s, %s, %s, %s)
                 RETURNING id, display_name AS username, email
                 """,
                 (
                     _registration_username(username, email),
                     email,
+                    mobile_number,
                     generate_password_hash(password),
                     username,
                 ),
@@ -210,170 +213,6 @@ def login_user(email, password):
         return False, None
 
     return True, serialize_row({key: user[key] for key in ("id", "username", "email")})
-
-
-def create_pending_registration(full_name, email, mobile_number, password_hash, otp_hash, expires_at):
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT 1
-                FROM users
-                WHERE lower(email) = lower(%s)
-                LIMIT 1
-                """,
-                (email,),
-            )
-            if cursor.fetchone():
-                return None
-            cursor.execute(
-                """
-                UPDATE pending_registrations
-                SET consumed_at = CURRENT_TIMESTAMP
-                WHERE lower(email) = lower(%s) AND consumed_at IS NULL
-                """,
-                (email,),
-            )
-            cursor.execute(
-                """
-                INSERT INTO pending_registrations (
-                    full_name, email, mobile_number, password_hash,
-                    otp_hash, otp_expires_at
-                )
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT DO NOTHING
-                RETURNING id
-                """,
-                (full_name, email, mobile_number, password_hash, otp_hash, expires_at),
-            )
-            return serialize_row(cursor.fetchone())
-
-
-def get_pending_registration(pending_id):
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, full_name, email, mobile_number, password_hash,
-                       otp_hash, otp_expires_at, otp_attempts, last_sent_at,
-                       resend_count,
-                       created_at, verified_at, consumed_at
-                FROM pending_registrations
-                WHERE id = %s AND consumed_at IS NULL
-                """,
-                (pending_id,),
-            )
-            return serialize_row(cursor.fetchone())
-
-
-def get_registration_resend_status(pending_id):
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT resend_count,
-                       last_sent_at,
-                       GREATEST(
-                           0,
-                           CEIL(EXTRACT(EPOCH FROM (
-                               last_sent_at + INTERVAL '60 seconds'
-                               - CURRENT_TIMESTAMP
-                           )))
-                       )::INTEGER AS remaining_seconds,
-                       resend_count < 5
-                       AND last_sent_at <= CURRENT_TIMESTAMP - INTERVAL '60 seconds'
-                       AS can_resend
-                FROM pending_registrations
-                WHERE id = %s AND consumed_at IS NULL
-                """,
-                (pending_id,),
-            )
-            return serialize_row(cursor.fetchone())
-
-
-def replace_pending_registration_otp(pending_id, otp_hash, expires_at):
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                UPDATE pending_registrations
-                SET otp_hash = %s,
-                    otp_expires_at = %s,
-                    otp_attempts = 0,
-                    last_sent_at = CURRENT_TIMESTAMP,
-                    resend_count = resend_count + 1
-                WHERE id = %s AND consumed_at IS NULL
-                  AND resend_count < 5
-                  AND last_sent_at <= CURRENT_TIMESTAMP - INTERVAL '60 seconds'
-                RETURNING id, email
-                """,
-                (otp_hash, expires_at, pending_id),
-            )
-            return serialize_row(cursor.fetchone())
-
-
-def complete_pending_registration(pending_id, otp_hash, now=None):
-    now = now or datetime.now(timezone.utc)
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT id, full_name, email, mobile_number, password_hash, otp_hash,
-                       otp_expires_at, otp_attempts
-                FROM pending_registrations
-                WHERE id = %s AND consumed_at IS NULL
-                FOR UPDATE
-                """,
-                (pending_id,),
-            )
-            pending = cursor.fetchone()
-            if not pending:
-                return False, "invalid"
-            if pending["otp_attempts"] >= 5:
-                return False, "attempts"
-            if pending["otp_expires_at"] <= now:
-                return False, "expired"
-
-            cursor.execute(
-                """
-                UPDATE pending_registrations
-                SET otp_attempts = otp_attempts + 1
-                WHERE id = %s
-                """,
-                (pending_id,),
-            )
-            if not hmac.compare_digest(pending["otp_hash"], otp_hash):
-                return False, "invalid"
-
-            cursor.execute(
-                """
-                INSERT INTO users (
-                    username, email, mobile_number, password_hash, display_name
-                )
-                VALUES (%s, %s, %s, %s, %s)
-                ON CONFLICT DO NOTHING
-                RETURNING id, display_name AS username, email
-                """,
-                (
-                    _registration_username(pending["full_name"], pending["email"]),
-                    pending["email"],
-                    pending["mobile_number"],
-                    pending["password_hash"],
-                    pending["full_name"],
-                ),
-            )
-            user = serialize_row(cursor.fetchone())
-            if not user:
-                return False, "already_registered"
-            cursor.execute(
-                """
-                UPDATE pending_registrations
-                SET verified_at = CURRENT_TIMESTAMP, consumed_at = CURRENT_TIMESTAMP
-                WHERE id = %s
-                """,
-                (pending_id,),
-            )
-            return True, user
 
 
 def get_user_for_password_reset(email):

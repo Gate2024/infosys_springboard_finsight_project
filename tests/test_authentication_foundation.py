@@ -42,19 +42,11 @@ def auth_store(monkeypatch):
     calls = {
         "login": Mock(return_value=(True, user)),
         "register": Mock(return_value=(True, user)),
-        "pending": Mock(return_value={"id": 1}),
-        "pending_record": Mock(return_value={"id": 1, "email": "owner@example.com"}),
-        "resend_status": Mock(return_value={"resend_count": 0, "can_resend": False, "remaining_seconds": 60}),
-        "email": Mock(),
         "create": Mock(return_value={"id": 1}),
         "revoke": Mock(return_value=True),
     }
     monkeypatch.setattr(application, "login_user", calls["login"])
     monkeypatch.setattr(application, "register_user", calls["register"])
-    monkeypatch.setattr(application, "create_pending_registration", calls["pending"])
-    monkeypatch.setattr(application, "get_pending_registration", calls["pending_record"])
-    monkeypatch.setattr(application, "get_registration_resend_status", calls["resend_status"])
-    monkeypatch.setattr(application.email_service, "send_registration_otp", calls["email"])
     monkeypatch.setattr(application, "create_user_session", calls["create"])
     monkeypatch.setattr(application, "revoke_current_user_session", calls["revoke"])
     monkeypatch.setattr(application, "get_totp_status", lambda uid: {"is_enabled": False})
@@ -178,10 +170,10 @@ def test_registration_eight_character_boundary(auth_store, password):
         auth_store["register"].assert_not_called()
     else:
         assert response.status_code == 200
-        assert b"verification code" in response.data
-        auth_store["pending"].assert_called_once()
-        auth_store["register"].assert_not_called()
-        auth_store["email"].assert_called_once()
+        assert b"Account Created Successfully" in response.data
+        auth_store["register"].assert_called_once_with(
+            "Owner", "owner@example.com", password, "9876543210"
+        )
 
 
 @pytest.mark.parametrize("token", [None, "invalid"])

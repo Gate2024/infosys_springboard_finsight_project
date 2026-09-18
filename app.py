@@ -70,11 +70,6 @@ from db import (
     rotate_remember_me_token,
     revoke_remember_me_token,
     revoke_all_remember_me_tokens,
-    create_pending_registration,
-    get_pending_registration,
-    replace_pending_registration_otp,
-    complete_pending_registration,
-    get_registration_resend_status,
     registration_otp_digest,
     get_user_for_password_reset,
     get_password_reset_challenge,
@@ -1391,128 +1386,22 @@ def register():
     if password != confirm_password:
         return render_template("login.html", error="Passwords do not match.")
 
-    otp = f"{secrets.randbelow(1000000):06d}"
     try:
-        otp_hash = registration_otp_digest(otp)
-    except RuntimeError:
-        return render_template(
-            "login.html",
-            error="Unable to begin registration verification.",
-        ), 503
-    pending = create_pending_registration(
-        full_name,
-        email,
-        mobile_number,
-        generate_password_hash(password),
-        otp_hash,
-        datetime.now(timezone.utc) + timedelta(minutes=10),
-    )
-    if not pending:
-        return render_template("login.html", error="Unable to begin registration verification.")
-    try:
-        email_service.send_registration_otp(email, otp)
+        created, result = register_user(
+            full_name,
+            email,
+            password,
+            mobile_number,
+        )
     except Exception:
-        app.logger.exception("Registration verification email delivery failed")
+        app.logger.exception("Registration failed")
         return render_template(
             "login.html",
-            error="Unable to send the verification email. Please try again later.",
+            error="Unable to create your account. Please try again.",
         ), 503
-
-    session["pending_registration_id"] = pending["id"]
-    return render_registration_otp(success="A verification code was sent to your email.")
-
-
-def render_registration_otp(error=None, success=None, status=200):
-    pending_id = session.get("pending_registration_id")
-    pending = get_pending_registration(pending_id) if pending_id else None
-    if not pending:
-        return redirect(url_for("login"))
-    resend_status = get_registration_resend_status(pending_id)
-    return render_template(
-        "registration_otp.html",
-        email=pending["email"],
-        auth_csrf_token=auth_csrf_token(),
-        error=error,
-        success=success,
-        **_otp_resend_view_data(resend_status),
-    ), status
-
-
-@app.route("/verify-registration-otp", methods=["GET", "POST"])
-def verify_registration_otp():
-    if request.method == "GET":
-        return render_registration_otp()
-    if not auth_csrf_valid():
-        return render_registration_otp(
-            "The form security token is missing or invalid.", status=400
-        )
-
-    pending_id = session.get("pending_registration_id")
-    otp = request.form.get("otp", "").strip()
-    if not isinstance(pending_id, int) or not otp.isdigit() or len(otp) != 6:
-        return render_registration_otp(
-            "Enter the six-digit verification code.", status=400
-        )
-
-    success, result = complete_pending_registration(
-        pending_id,
-        registration_otp_digest(otp),
-    )
-    if not success:
-        messages = {
-            "expired": "This verification code has expired. Please request a new code.",
-            "attempts": "Too many verification attempts. Please request a new code.",
-        }
-        return render_registration_otp(messages.get(result, "The verification code is invalid."))
-
-    session.pop("pending_registration_id", None)
+    if not created:
+        return render_template("login.html", error=result or "Unable to create your account.")
     return render_template("registration_success.html")
-
-
-@app.post("/resend-registration-otp")
-def resend_registration_otp():
-    if not auth_csrf_valid():
-        return render_registration_otp(
-            "The form security token is missing or invalid.", status=400
-        )
-    pending_id = session.get("pending_registration_id")
-    pending = get_pending_registration(pending_id) if isinstance(pending_id, int) else None
-    if not pending:
-        return redirect(url_for("login"))
-
-    resend_status = get_registration_resend_status(pending_id)
-    if not resend_status or not resend_status.get("can_resend"):
-        message = (
-            "You have reached the resend limit for this registration."
-            if resend_status and resend_status.get("resend_count", 0) >= 5
-            else "Please wait before requesting another code."
-        )
-        return render_registration_otp(message, status=429)
-
-    otp = f"{secrets.randbelow(1000000):06d}"
-    try:
-        otp_hash = registration_otp_digest(otp)
-    except RuntimeError:
-        return render_registration_otp(
-            "Unable to send the verification email. Please try again later.", status=503
-        )
-    try:
-        email_service.send_registration_otp(pending["email"], otp)
-    except Exception:
-        app.logger.exception("Registration verification email delivery failed")
-        return render_registration_otp(
-            "Unable to send the verification email. Please try again later.", status=503
-        )
-    updated = replace_pending_registration_otp(
-        pending_id,
-        otp_hash,
-        datetime.now(timezone.utc) + timedelta(minutes=10),
-    )
-    if not updated:
-        return render_registration_otp(
-            "Unable to update the verification challenge. Please try again.", status=503
-        )
-    return render_registration_otp(success="A new verification code was sent.")
 
 
 @app.post("/logout")

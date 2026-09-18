@@ -188,9 +188,6 @@ class EmailService:
             return
         transport.send(recipient, email["subject"], email["text"])
 
-    def send_registration_otp(self, recipient, otp, language="en"):
-        self._send_otp(recipient, otp, "registration", language)
-
     def send_password_reset_otp(self, recipient, otp, language="en"):
         self._send_otp(recipient, otp, "password_reset", language)
 
