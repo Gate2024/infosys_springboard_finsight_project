@@ -188,24 +188,11 @@ class EmailService:
             return
         transport.send(recipient, email["subject"], email["text"])
 
-    def send_password_reset_otp(self, recipient, otp, language="en"):
-        self._send_otp(recipient, otp, "password_reset", language)
-
-
 def render_otp_email(otp, purpose="registration", language="en"):
-    """Build the shared text and HTML OTP email presentation."""
-    is_password_reset = purpose == "password_reset"
-    heading_key = "Reset Your Password" if is_password_reset else "Verify Your Email"
-    detail_key = (
-        "Use the verification code below to continue resetting your FinSight password."
-        if is_password_reset
-        else "Use the verification code below to complete your FinSight account registration."
-    )
-    subject = (
-        "FinSight password reset verification code"
-        if is_password_reset
-        else "FinSight registration verification code"
-    )
+    """Build the registration OTP email presentation."""
+    heading_key = "Verify Your Email"
+    detail_key = "Use the verification code below to complete your FinSight account registration."
+    subject = "FinSight registration verification code"
     heading = translate(heading_key, language)
     detail = translate(detail_key, language)
     expiry = translate("This code will expire in 10 minutes.", language)

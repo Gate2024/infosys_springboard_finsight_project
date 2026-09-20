@@ -81,43 +81,4 @@ document.querySelectorAll('[data-dismiss-auth-alert]').forEach(button=>{
   button.addEventListener('click', () => button.closest('.auth-alert')?.remove());
 });
 
-document.querySelectorAll('[data-otp-countdown]').forEach(panel=>{
-  const button = panel.querySelector('[data-otp-resend]');
-  const label = panel.querySelector('[data-otp-resend-label]');
-  if (!button || !label) return;
-
-  let remaining = Math.max(
-    0,
-    Number.parseInt(panel.dataset.otpRemainingSeconds || '0', 10) || 0
-  );
-  const eligible = panel.dataset.otpResendEligible === 'true';
-  const limitReached = panel.dataset.otpLimitReached === 'true';
-  const readyLabel = button.dataset.readyLabel || 'Resend OTP';
-  const countdownLabel = button.dataset.countdownLabel || 'Resend OTP in {seconds}s';
-
-  const render = () => {
-    const ready = eligible && remaining === 0;
-    button.disabled = !ready;
-    button.setAttribute('aria-disabled', String(!ready));
-    if (limitReached) {
-      label.textContent = 'Resend limit reached';
-    } else if (ready) {
-      label.textContent = readyLabel;
-    } else if (remaining === 0) {
-      label.textContent = readyLabel;
-    } else {
-      label.textContent = countdownLabel.replace('{seconds}', String(remaining));
-    }
-  };
-
-  render();
-  if (eligible && remaining > 0) {
-    const timer = window.setInterval(() => {
-      remaining = Math.max(0, remaining - 1);
-      render();
-      if (remaining === 0) window.clearInterval(timer);
-    }, 1000);
-  }
-});
-
 

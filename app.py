@@ -70,16 +70,6 @@ from db import (
     rotate_remember_me_token,
     revoke_remember_me_token,
     revoke_all_remember_me_tokens,
-    registration_otp_digest,
-    get_user_for_password_reset,
-    get_password_reset_challenge,
-    get_password_reset_challenge_by_id,
-    create_password_reset_challenge,
-    get_password_reset_resend_status,
-    replace_password_reset_otp,
-    verify_password_reset_otp,
-    get_password_reset_authorization,
-    reset_password_with_authorization,
     revoke_all_user_sessions,
     revoke_current_user_session,
     revoke_user_session,
@@ -96,7 +86,6 @@ from goal_service import GOAL_CATEGORIES, GoalService
 from financial_health_service import calculate_financial_health
 from i18n import TRANSLATIONS, currency_symbol, format_currency, translate
 from report_service import ReportValidationError, build_reporting_data
-from email_service import email_service
 
 app = Flask(__name__)
 
@@ -137,12 +126,6 @@ DEFAULT_SESSION_INACTIVITY_TIMEOUT_SECONDS = 30 * 60
 DEFAULT_SESSION_ABSOLUTE_TIMEOUT_SECONDS = 24 * 60 * 60
 DEFAULT_REMEMBER_ME_TIMEOUT_SECONDS = 30 * 24 * 60 * 60
 REMEMBER_ME_COOKIE_NAME = "finsight_remember_me"
-PASSWORD_RESET_OTP_TIMEOUT_SECONDS = 10 * 60
-PASSWORD_RESET_AUTH_TIMEOUT_SECONDS = 10 * 60
-PASSWORD_RESET_GENERIC_MESSAGE = (
-    "If the account exists, a verification code has been sent to the email address."
-)
-PASSWORD_RESET_INVALID_MESSAGE = "Invalid or expired verification code."
 
 
 def _session_timeout_setting(name, default):
@@ -903,93 +886,6 @@ def auth_csrf_valid():
     return bool(expected and supplied and secrets.compare_digest(expected, supplied))
 
 
-def _password_reset_challenge_id(session_key="password_reset_challenge_id"):
-    challenge_id = session.get(session_key)
-    return challenge_id if type(challenge_id) is int and challenge_id > 0 else None
-
-
-def _otp_resend_view_data(resend_status):
-    """Convert persisted resend state into safe data attributes for the OTP UI."""
-    if not resend_status:
-        return {
-            "resend_remaining_seconds": 0,
-            "resend_eligible": False,
-            "resend_limit_reached": False,
-        }
-    try:
-        resend_count = max(0, int(resend_status.get("resend_count", 0)))
-        remaining_seconds = max(
-            0, int(resend_status.get("remaining_seconds", 0) or 0)
-        )
-    except (TypeError, ValueError):
-        resend_count = 0
-        remaining_seconds = 0
-    return {
-        "resend_remaining_seconds": remaining_seconds,
-        "resend_eligible": resend_count < 5
-        and (remaining_seconds > 0 or bool(resend_status.get("can_resend"))),
-        "resend_limit_reached": resend_count >= 5,
-    }
-
-
-def _password_reset_otp_hash(email):
-    otp = f"{secrets.randbelow(1000000):06d}"
-    try:
-        otp_hash = registration_otp_digest(otp)
-        email_service.send_password_reset_otp(email, otp)
-    except Exception:
-        app.logger.exception("Password reset verification email delivery failed")
-        return None
-    return otp_hash
-
-
-def _password_reset_expiry():
-    return datetime.now(timezone.utc) + timedelta(
-        seconds=PASSWORD_RESET_OTP_TIMEOUT_SECONDS
-    )
-
-
-def _prepare_password_reset_for_user(user):
-    challenge = get_password_reset_challenge(user["id"])
-    if challenge:
-        if challenge.get("verified_at") is not None:
-            authorization = get_password_reset_authorization(challenge["id"])
-            if authorization:
-                session.pop("password_reset_challenge_id", None)
-                session["password_reset_authorized_challenge_id"] = challenge["id"]
-                return
-            challenge = None
-
-        if challenge:
-            resend_status = get_password_reset_resend_status(challenge["id"])
-            if resend_status and resend_status.get("otp_expired"):
-                challenge = None
-            elif not resend_status or not resend_status.get("can_resend"):
-                session["password_reset_challenge_id"] = challenge["id"]
-                return
-            else:
-                session["password_reset_challenge_id"] = challenge["id"]
-                otp_hash = _password_reset_otp_hash(user["email"])
-                if otp_hash:
-                    updated = replace_password_reset_otp(
-                        challenge["id"], otp_hash, _password_reset_expiry()
-                    )
-                    if updated:
-                        session["password_reset_challenge_id"] = updated["id"]
-                return
-
-    otp_hash = _password_reset_otp_hash(user["email"])
-    if not otp_hash:
-        return
-    challenge = create_password_reset_challenge(
-        user["id"], user["email"], otp_hash, _password_reset_expiry()
-    )
-    if not challenge:
-        challenge = get_password_reset_challenge(user["id"])
-    if challenge:
-        session["password_reset_challenge_id"] = challenge["id"]
-
-
 app.jinja_env.globals["auth_csrf_token"] = auth_csrf_token
 
 
@@ -1151,204 +1047,6 @@ def login_two_factor():
         if raw_token:
             _set_remember_me_cookie(response, raw_token)
     return response
-
-
-@app.route("/forgot-password", methods=["GET", "POST"])
-def forgot_password():
-    if request.method == "GET":
-        return render_template("forgot_password.html", error=None, success=None)
-
-    if not auth_csrf_valid():
-        return render_template(
-            "forgot_password.html",
-            error="The form security token is missing or invalid.",
-            success=None,
-        ), 400
-
-    email = request.form.get("email", "").strip().lower()
-    if not email or not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
-        return render_template(
-            "forgot_password.html",
-            error="Enter a valid email address.",
-            success=None,
-        ), 400
-
-    session.pop("password_reset_challenge_id", None)
-    session.pop("password_reset_authorized_challenge_id", None)
-    try:
-        user = get_user_for_password_reset(email)
-        if user:
-            _prepare_password_reset_for_user(user)
-    except Exception:
-        app.logger.exception("Password reset request failed")
-
-    return redirect(url_for("forgot_password_verify"))
-
-
-def render_password_reset_otp(error=None, success=None, status=200):
-    challenge_id = _password_reset_challenge_id()
-    challenge = (
-        get_password_reset_challenge_by_id(challenge_id) if challenge_id else None
-    )
-    resend_status = (
-        get_password_reset_resend_status(challenge_id) if challenge else None
-    )
-    if not resend_status:
-        resend_status = {"resend_count": 0, "remaining_seconds": 60}
-    return render_template(
-        "password_reset_otp.html",
-        error=error,
-        success=success,
-        auth_csrf_token=auth_csrf_token(),
-        **_otp_resend_view_data(resend_status),
-    ), status
-
-
-@app.route("/forgot-password/verify", methods=["GET", "POST"])
-def forgot_password_verify():
-    authorized_id = _password_reset_challenge_id(
-        "password_reset_authorized_challenge_id"
-    )
-    if request.method == "GET":
-        if authorized_id and get_password_reset_authorization(authorized_id):
-            return redirect(url_for("password_reset"))
-        return render_password_reset_otp(
-            success=PASSWORD_RESET_GENERIC_MESSAGE,
-        )
-
-    if not auth_csrf_valid():
-        return render_password_reset_otp(
-            error="The form security token is missing or invalid.", status=400
-        )
-
-    challenge_id = _password_reset_challenge_id()
-    otp = request.form.get("otp", "").strip()
-    if not challenge_id or not otp.isdigit() or len(otp) != 6:
-        return render_password_reset_otp(
-            error="Enter the six-digit verification code.", status=400
-        )
-
-    reset_token = secrets.token_urlsafe(32)
-    try:
-        verified, result = verify_password_reset_otp(
-            challenge_id,
-            registration_otp_digest(otp),
-            hashlib.sha256(reset_token.encode("utf-8")).hexdigest(),
-            datetime.now(timezone.utc)
-            + timedelta(seconds=PASSWORD_RESET_AUTH_TIMEOUT_SECONDS),
-        )
-    except Exception:
-        app.logger.exception("Password reset verification failed")
-        return render_password_reset_otp(
-            error="Unable to verify the code. Please try again.", status=503
-        )
-
-    if not verified:
-        messages = {
-            "expired": "This verification code has expired. Please request a new code.",
-            "attempts": "Too many verification attempts. Please request a new code.",
-            "consumed": "This verification code is no longer valid. Please request a new code.",
-        }
-        return render_password_reset_otp(
-            error=messages.get(result, PASSWORD_RESET_INVALID_MESSAGE), status=400
-        )
-
-    session.pop("password_reset_challenge_id", None)
-    session["password_reset_authorized_challenge_id"] = challenge_id
-    return redirect(url_for("password_reset"))
-
-
-@app.post("/forgot-password/resend")
-def resend_password_reset_otp():
-    if not auth_csrf_valid():
-        return render_password_reset_otp(
-            error="The form security token is missing or invalid.", status=400
-        )
-
-    challenge_id = _password_reset_challenge_id()
-    challenge = (
-        get_password_reset_challenge_by_id(challenge_id) if challenge_id else None
-    )
-    status = (
-        get_password_reset_resend_status(challenge_id) if challenge else None
-    )
-    if not status or not status.get("can_resend"):
-        error = (
-            "You have reached the resend limit. Please request a new password reset."
-            if status and status.get("resend_count", 0) >= 5
-            else "Please wait before requesting another code."
-        )
-        return render_password_reset_otp(error=error, status=429)
-
-    otp_hash = _password_reset_otp_hash(challenge["email"])
-    if not otp_hash:
-        return render_password_reset_otp(
-            error="Unable to send the verification email. Please try again later.",
-            status=503,
-        )
-
-    updated = replace_password_reset_otp(
-        challenge_id, otp_hash, _password_reset_expiry()
-    )
-    if not updated:
-        return render_password_reset_otp(
-            error="Please wait before requesting another code.", status=429
-        )
-    return render_password_reset_otp(
-        success="A new verification code has been sent."
-    )
-
-
-@app.route("/forgot-password/reset", methods=["GET", "POST"])
-def password_reset():
-    challenge_id = _password_reset_challenge_id(
-        "password_reset_authorized_challenge_id"
-    )
-    authorization = (
-        get_password_reset_authorization(challenge_id) if challenge_id else None
-    )
-    if not authorization:
-        session.pop("password_reset_authorized_challenge_id", None)
-        return redirect(url_for("forgot_password_verify"))
-
-    if request.method == "GET":
-        return render_template("password_reset.html", error=None)
-
-    if not auth_csrf_valid():
-        return render_template(
-            "password_reset.html",
-            error="The form security token is missing or invalid.",
-        ), 400
-
-    new_password = request.form.get("new_password", "")
-    confirm_password = request.form.get("confirm_password", "")
-    if len(new_password) < 8:
-        return render_template(
-            "password_reset.html",
-            error="Password must contain at least 8 characters.",
-        ), 400
-    if new_password != confirm_password:
-        return render_template(
-            "password_reset.html",
-            error="Passwords do not match.",
-        ), 400
-
-    try:
-        changed = reset_password_with_authorization(
-            challenge_id, generate_password_hash(new_password)
-        )
-    except Exception:
-        app.logger.exception("Password reset failed")
-        changed = False
-    if not changed:
-        session.pop("password_reset_authorized_challenge_id", None)
-        return render_template(
-            "password_reset.html",
-            error="Unable to reset password. Please start again.",
-        ), 400
-
-    session.clear()
-    return redirect(url_for("login", reset="success"))
 
 
 @app.route("/register", methods=["GET", "POST"])

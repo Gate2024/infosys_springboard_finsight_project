@@ -131,15 +131,6 @@ def test_register_user_rejects_duplicate_email(monkeypatch):
     assert cursor.execute.call_count == 1
 
 
-def test_registration_otp_digest_remains_available_for_password_reset(monkeypatch):
-    with application.app.app_context():
-        monkeypatch.setitem(application.app.config, "SECRET_KEY", "test-registration-pepper")
-        digest = db.registration_otp_digest("123456")
-
-    assert len(digest) == 64
-    assert digest != "123456"
-
-
 def test_phase_2a_migration_adds_active_email_uniqueness_and_resend_limit():
     migration = Path("database/migrations/011_harden_pending_registration_challenges.sql").read_text()
     upper_migration = migration.upper()
