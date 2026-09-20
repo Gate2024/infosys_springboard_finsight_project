@@ -1421,3 +1421,75 @@
         max-width: 100%;
     }
 }
+
+@media (max-width: 768px) {
+    .dashboard-page .dashboard-container {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .dashboard-page .dashboard-container > .container-fluid {
+        padding-left: 0;
+        padding-right: 0;
+    }
+
+    .dashboard-page .card,
+    .dashboard-page .chart-card,
+    .financial-health-card {
+        max-width: 100%;
+    }
+
+    .dashboard-page .dashboard-primary-row .dashboard-chart-area {
+        min-width: 0;
+    }
+
+    .dashboard-page .dashboard-primary-row .chart-card canvas {
+        width: 100% !important;
+        max-width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .dashboard-page .summary-grid {
+        gap: 0.75rem;
+    }
+
+    .dashboard-page .card {
+        min-height: 104px;
+        padding: 1rem;
+        gap: 0.75rem;
+    }
+
+    .dashboard-page .card-icon {
+        width: 44px;
+        height: 44px;
+        min-width: 44px;
+        border-radius: 13px;
+        font-size: 1.1rem;
+    }
+
+    .dashboard-page .card-info h2 {
+        font-size: 1.35rem;
+        overflow-wrap: anywhere;
+    }
+
+    .dashboard-page .dashboard-primary-row .chart-card canvas {
+        height: 190px !important;
+    }
+
+    .dashboard-page .dashboard-analytics-row .chart-container {
+        height: 190px;
+        min-height: 190px;
+    }
+
+    .financial-health-card {
+        overflow: visible;
+    }
+
+    .financial-health-header p,
+    .financial-health-coverage,
+    .health-component-header span,
+    .health-component-header strong {
+        overflow-wrap: anywhere;
+    }
+}
