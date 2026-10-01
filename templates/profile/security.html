@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}{{ t("Security & 2FA") }}{% endblock %}
+{% block title %}{{ t("Security") }}{% endblock %}
 
 {% block page_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
@@ -11,13 +11,13 @@
 <header class="profile-page-header animated-fade-in">
   <div>
     <div class="profile-heading-eyebrow">{{ t("Account protection") }}</div>
-    <h1 class="profile-page-title"><i class="fa-solid fa-shield-halved"></i> {{ t("Security & 2FA") }}</h1>
-    <p class="profile-page-subtitle">{{ t("Manage your password, signed-in devices, and two-factor authentication.") }}</p>
+    <h1 class="profile-page-title"><i class="fa-solid fa-shield-halved"></i> {{ t("Security") }}</h1>
+    <p class="profile-page-subtitle">{{ t("Account protection") }}</p>
   </div>
   <nav class="profile-nav" aria-label="Profile management">
     <a href="{{ url_for('profile') }}" class="btn btn-outline"><i class="fa-solid fa-user"></i> {{ t("My Profile") }}</a>
     <a href="{{ url_for('profile_preferences') }}" class="btn btn-outline"><i class="fa-solid fa-sliders"></i> {{ t("Preferences") }}</a>
-    <a href="{{ url_for('profile_security') }}" class="btn btn-emerald"><i class="fa-solid fa-shield-halved"></i> {{ t("Security & 2FA") }}</a>
+    <a href="{{ url_for('profile_security') }}" class="btn btn-emerald"><i class="fa-solid fa-shield-halved"></i> {{ t("Security") }}</a>
   </nav>
 </header>
 
@@ -48,73 +48,6 @@
       <button type="submit" class="btn btn-emerald"><i class="fa-solid fa-key"></i> {{ t("Change Password") }}</button>
     </div>
   </form>
-</section>
-
-<section class="profile-card security-card animated-fade-in" aria-labelledby="two-factor-title">
-  <div class="profile-card-heading">
-    <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-shield-halved"></i></span>
-    <div>
-      <h2 id="two-factor-title" class="profile-card-title">{{ t("Two-Factor Authentication") }}</h2>
-      <p class="profile-card-description">{{ t("Add an authenticator step to strengthen sign-in protection.") }}</p>
-    </div>
-  </div>
-  {% if totp_status.is_enabled %}
-    <div class="toggle-switch-wrapper">
-      <div class="toggle-info">
-        <span class="toggle-title">{{ t("2FA Enabled") }}</span>
-        <span class="toggle-desc">{{ t("Your account requires an authenticator code when signing in.") }}</span>
-      </div>
-      <span class="toggle-title">{{ t("Enabled") }}</span>
-    </div>
-    <form method="POST" action="{{ url_for('disable_totp') }}" class="form-grid">
-      <input type="hidden" name="_security_sessions_csrf_token" value="{{ security_sessions_csrf_token }}">
-      <div>
-        <label for="current_password" class="form-label">{{ t("Current Password") }}</label>
-        <input id="current_password" name="current_password" type="password" class="input-control" autocomplete="current-password" required>
-      </div>
-      <div>
-        <label for="disable_totp_code" class="form-label">{{ t("Authenticator Code") }}</label>
-        <input id="disable_totp_code" name="totp_code" type="text" class="input-control" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
-      </div>
-      <div class="form-group-full form-actions-bar">
-        <span class="toggle-desc">{{ t("Disabling 2FA removes the saved authenticator credential.") }}</span>
-        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-shield-halved"></i> {{ t("Disable 2FA") }}</button>
-      </div>
-    </form>
-  {% elif setup_secret %}
-    <div class="toggle-switch-wrapper">
-      <div class="toggle-info">
-        <span class="toggle-title">{{ t("Verification Required") }}</span>
-        <span class="toggle-desc">{{ t("Add this key to an authenticator app, then enter its current six-digit code.") }}</span>
-      </div>
-    </div>
-    <div class="form-group-full">
-      <span class="form-label">{{ t("Manual Setup Key") }}</span>
-      <div class="input-control">{{ setup_secret }}</div>
-    </div>
-    <form method="POST" action="{{ url_for('verify_totp_setup') }}" class="form-grid">
-      <input type="hidden" name="_security_sessions_csrf_token" value="{{ security_sessions_csrf_token }}">
-      <div>
-        <label for="setup_totp_code" class="form-label">{{ t("Authenticator Code") }}</label>
-        <input id="setup_totp_code" name="totp_code" type="text" class="input-control" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required>
-      </div>
-      <div class="form-group-full form-actions-bar">
-        <span class="toggle-desc">{{ t("2FA remains disabled until this code is verified.") }}</span>
-        <button type="submit" class="btn btn-emerald"><i class="fa-solid fa-circle-check"></i> {{ t("Verify and Enable") }}</button>
-      </div>
-    </form>
-  {% else %}
-    <div class="toggle-switch-wrapper">
-      <div class="toggle-info">
-        <span class="toggle-title">{% if totp_status.setup_pending %}{{ t("Verification Required") }}{% else %}{{ t("2FA Disabled") }}{% endif %}</span>
-        <span class="toggle-desc">{% if totp_status.setup_pending %}{{ t("Start setup again to display a new manual key.") }}{% else %}{{ t("Protect your account with an authenticator app.") }}{% endif %}</span>
-      </div>
-      <form method="POST" action="{{ url_for('setup_totp') }}">
-        <input type="hidden" name="_security_sessions_csrf_token" value="{{ security_sessions_csrf_token }}">
-        <button type="submit" class="btn btn-emerald"><i class="fa-solid fa-shield-halved"></i> {{ t("Setup 2FA") }}</button>
-      </form>
-    </div>
-  {% endif %}
 </section>
 
 <section class="profile-card security-card animated-fade-in" aria-labelledby="active-devices-title">

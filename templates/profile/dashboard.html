@@ -19,7 +19,7 @@
       <i class="fa-solid fa-sliders"></i> {{ t("Preferences") }}
     </a>
     <a href="{{ url_for('profile_security') }}" class="btn btn-outline">
-      <i class="fa-solid fa-shield-halved"></i> {{ t("Security & 2FA") }}
+      <i class="fa-solid fa-shield-halved"></i> {{ t("Security") }}
     </a>
   </nav>
 </header>
@@ -71,7 +71,7 @@
     </div>
     <ul class="profile-access-list">
       <li><a href="{{ url_for('profile_preferences') }}"><i class="fa-solid fa-sliders"></i> {{ t("Preferences") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></li>
-      <li><a href="{{ url_for('profile_security') }}"><i class="fa-solid fa-shield-halved"></i> {{ t("Security & 2FA") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></li>
+      <li><a href="{{ url_for('profile_security') }}"><i class="fa-solid fa-shield-halved"></i> {{ t("Security") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></li>
     </ul>
   </section>
 </div>

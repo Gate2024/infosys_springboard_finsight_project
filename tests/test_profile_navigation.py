@@ -14,7 +14,7 @@ def assert_account_dropdown(response):
     assert b"data-account-menu" in response.data
     assert b"My Profile" in response.data
     assert b"Preferences" in response.data
-    assert b"Security &amp; 2FA" in response.data
+    assert b"Security" in response.data
     assert b'href="/profile"' in response.data
     assert b'href="/profile/preferences"' in response.data
     assert b'href="/profile/security"' in response.data
@@ -72,11 +72,6 @@ def test_profile_navigation_is_active_on_preferences(monkeypatch, tracked_sessio
 def test_profile_navigation_is_active_on_security_and_contains_password_form(monkeypatch, tracked_session_store):
     tracked_session_store(7)
     monkeypatch.setattr(application, "list_active_user_sessions", lambda *args: [])
-    monkeypatch.setattr(
-        application,
-        "get_totp_status",
-        lambda user_id: {"is_enabled": False, "setup_pending": False},
-    )
     client = application.app.test_client()
     set_authenticated_session(client)
 
@@ -84,3 +79,12 @@ def test_profile_navigation_is_active_on_security_and_contains_password_form(mon
 
     assert_account_dropdown(response)
     assert b'action="/profile/security/password"' in response.data
+
+
+def test_two_factor_routes_are_removed():
+    client = application.app.test_client()
+
+    assert client.get("/login/2fa").status_code == 404
+    assert client.post("/profile/security/totp/setup").status_code in {302, 404}
+    assert client.post("/profile/security/totp/verify").status_code in {302, 404}
+    assert client.post("/profile/security/totp/disable").status_code in {302, 404}

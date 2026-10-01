@@ -9,7 +9,7 @@ MIGRATIONS_DIR = Path("database/migrations")
 def test_migrations_are_discovered_in_numeric_order():
     versions = [version for version, _ in _migration_files()]
 
-    assert versions == list(range(17))
+    assert versions == list(range(18))
 
 
 def test_foundation_migration_precedes_investments_and_defines_required_tables():

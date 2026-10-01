@@ -1065,6 +1065,200 @@
     }
 }
 
+/* Final dashboard presentation layer. Keep all selectors page-scoped so the
+   shared application shell and other modules retain their existing styles. */
+.dashboard-page {
+  --dashboard-surface: #ffffff;
+  --dashboard-surface-soft: #f7faf9;
+  --dashboard-border: rgba(18, 35, 51, 0.1);
+  --dashboard-shadow: 0 16px 36px rgba(18, 35, 51, 0.08);
+  max-width: 1560px;
+  margin: 0 auto;
+  padding-bottom: 2rem;
+}
+
+.dashboard-page .summary-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+}
+
+.dashboard-page .card,
+.dashboard-page .chart-card,
+.dashboard-page .financial-health-card {
+  border: 1px solid var(--dashboard-border);
+  box-shadow: var(--dashboard-shadow);
+}
+
+.dashboard-page .card {
+  min-width: 0;
+  min-height: 126px;
+  padding: 1.15rem;
+  gap: 0.9rem;
+  border-radius: 18px;
+  background: var(--dashboard-surface);
+}
+
+.dashboard-page .card:hover,
+.dashboard-page .chart-card:hover,
+.dashboard-page .financial-health-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 20px 42px rgba(18, 35, 51, 0.12);
+}
+
+.dashboard-page .card-icon {
+  width: 50px;
+  height: 50px;
+  min-width: 50px;
+  border-radius: 15px;
+  font-size: 1.25rem;
+}
+
+.dashboard-page .card-info h4 {
+  margin-bottom: 0.3rem;
+  font-size: 0.68rem;
+}
+
+.dashboard-page .card-info h2 {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  font-size: clamp(1.35rem, 2.2vw, 1.85rem);
+  line-height: 1.05;
+}
+
+.dashboard-page .financial-health-section {
+  margin-bottom: 1.25rem;
+}
+
+.dashboard-page .financial-health-card {
+  border-radius: 20px;
+  background: linear-gradient(145deg, #ffffff 0%, var(--dashboard-surface-soft) 100%);
+}
+
+.dashboard-page .dashboard-container {
+  padding-top: 0;
+}
+
+.dashboard-page .chart-card {
+  height: 100%;
+  padding: 1.35rem;
+  border-radius: 18px;
+  background: var(--dashboard-surface);
+}
+
+.dashboard-page .chart-card h3 {
+  margin-bottom: 1rem;
+  font-size: clamp(1.15rem, 1.8vw, 1.45rem);
+  letter-spacing: -0.02em;
+}
+
+.dashboard-page .chart-card > p {
+  margin: -0.55rem 0 0.85rem;
+  font-size: 0.8rem;
+}
+
+.dashboard-page .dashboard-primary-row .chart-card {
+  min-height: 360px;
+}
+
+.dashboard-page .dashboard-analytics-row .chart-card {
+  min-height: 365px;
+}
+
+.dashboard-page .expense-row {
+  grid-template-columns: minmax(0, 1.4fr) auto auto;
+  gap: 0.75rem;
+  padding: 0.75rem 0;
+  border-bottom-color: var(--dashboard-border);
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-style: normal;
+}
+
+.dashboard-page .budget-analysis-summary {
+  gap: 0.75rem;
+}
+
+.dashboard-page .budget-analysis-summary > div,
+.dashboard-page .budget-analysis-item,
+.dashboard-page .insight-item {
+  background: var(--dashboard-surface-soft);
+  border: 1px solid var(--dashboard-border);
+  border-radius: 14px;
+}
+
+.dashboard-page .budget-analysis-summary > div {
+  padding: 0.85rem;
+}
+
+.dashboard-page .budget-analysis-item {
+  padding: 1rem;
+  border-bottom: 0;
+}
+
+.dashboard-page .budget-analysis-item + .budget-analysis-item {
+  margin-top: 0.7rem;
+}
+
+.dashboard-page .insight-item {
+  margin-bottom: 0.7rem;
+}
+
+.dashboard-page .transaction-table {
+  min-width: 640px;
+}
+
+.dashboard-page .transaction-table th {
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
+  border-bottom: 1px solid var(--dashboard-border);
+}
+
+.dashboard-page .transaction-table td {
+  padding-top: 0.9rem;
+  padding-bottom: 0.9rem;
+  border-bottom-color: var(--dashboard-border);
+}
+
+@media (max-width: 1100px) {
+  .dashboard-page .summary-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-page {
+    padding-bottom: 1rem;
+  }
+
+  .dashboard-page .summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dashboard-page .dashboard-primary-row .chart-card,
+  .dashboard-page .dashboard-analytics-row .chart-card {
+    min-height: 0;
+  }
+
+  .dashboard-page .chart-card {
+    padding: 1.1rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-page .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-page .card {
+    min-height: 100px;
+  }
+
+  .dashboard-page .financial-health-card {
+    border-radius: 16px;
+  }
+}
+
 
 .dashboard-page .budget-analysis-summary {
     display: grid;

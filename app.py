@@ -1,5 +1,5 @@
+
 import csv
-import base64
 import hashlib
 import os
 import re
@@ -22,8 +22,6 @@ from flask import (
     session,
     url_for,
 )
-import pyotp
-from cryptography.fernet import Fernet, InvalidToken
 from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
@@ -40,10 +38,9 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 from config import Config
 from db import (
     create_budget,
+    create_notification,
     create_user_session,
     delete_budget,
-    disable_totp_for_user,
-    enable_totp_for_user,
     filter_budgets,
     get_budget,
     get_monthly_expense_summary,
@@ -52,8 +49,6 @@ from db import (
     get_expense_summary,
     get_summary_stats,
     get_transactions,
-    get_totp_credential,
-    get_totp_status,
     get_user_by_id,
     get_user_preferences,
     is_user_session_active,
@@ -66,6 +61,7 @@ from db import (
     mark_all_notifications_read,
     mark_notification_read,
     register_user,
+    record_financial_health_evaluation,
     create_remember_me_token,
     rotate_remember_me_token,
     revoke_remember_me_token,
@@ -73,7 +69,6 @@ from db import (
     revoke_all_user_sessions,
     revoke_current_user_session,
     revoke_user_session,
-    save_pending_totp_secret,
     update_user_preferences,
     update_user_password_and_revoke_other_sessions,
     verify_user_password,
@@ -327,21 +322,6 @@ def request_ip_address():
     return remote_addr[:45] or None
 
 
-def _totp_cipher():
-    key_material = hashlib.sha256(
-        app.config["SECRET_KEY"].encode("utf-8")
-    ).digest()
-    return Fernet(base64.urlsafe_b64encode(key_material))
-
-
-def encrypt_totp_secret(secret):
-    return _totp_cipher().encrypt(secret.encode("utf-8")).decode("utf-8")
-
-
-def decrypt_totp_secret(secret_encrypted):
-    return _totp_cipher().decrypt(secret_encrypted.encode("utf-8")).decode("utf-8")
-
-
 def establish_authenticated_session(user):
     """Create the Flask and tracked-device session after all auth checks pass."""
     session_token = secrets.token_urlsafe(32)
@@ -454,7 +434,6 @@ def restore_remembered_session():
     if (
         request.endpoint == "static"
         or session.get("uid")
-        or session.get("pending_2fa_user_id")
     ):
         return None
 
@@ -486,7 +465,6 @@ def restore_remembered_session():
             g.clear_remember_me_cookie = True
             _revoke_remember_me_token(user_id, new_raw_token)
             return None
-        totp_status = get_totp_status(user_id)
     except Exception:
         app.logger.exception("Remember Me user validation failed")
         g.clear_remember_me_cookie = True
@@ -494,12 +472,6 @@ def restore_remembered_session():
         return None
 
     g.remember_me_cookie_token = new_raw_token
-    if (totp_status or {}).get("is_enabled"):
-        session.clear()
-        session["pending_2fa_user_id"] = user_id
-        session["pending_2fa_remembered_session"] = True
-        return redirect(url_for("login_two_factor"))
-
     if not establish_authenticated_session(user):
         session.clear()
         g.clear_remember_me_cookie = True
@@ -530,6 +502,96 @@ def classify_budget_status(utilization_percentage):
     if utilization_percentage <= BUDGET_APPROACHING_LIMIT:
         return "Approaching Limit"
     return "Over Budget"
+
+
+def _create_business_notification(user_id, notification_type, title, message):
+    """Create a notification without allowing it to affect the core operation."""
+    try:
+        existing = get_notifications(user_id)
+        if any(
+            item.get("type") == notification_type
+            and item.get("title") == title
+            and item.get("message") == message
+            for item in existing
+        ):
+            return
+        create_notification(user_id, notification_type, title, message)
+    except Exception:
+        app.logger.exception("Business notification creation failed")
+
+
+def _budget_notification_state(budget):
+    budget_amount = _safe_non_negative_decimal(budget.get("budget_amount"))
+    spent_amount = _safe_non_negative_decimal(budget.get("spent_amount"))
+    utilization = calculate_budget_utilization(budget_amount, spent_amount)
+    try:
+        threshold = Decimal(str(budget.get("alert_percentage") or 80))
+    except (InvalidOperation, ValueError, TypeError):
+        threshold = Decimal("80")
+    return utilization is not None and utilization >= threshold, utilization
+
+
+def _notify_for_budget_transition(user_id, previous_budget, current_budget):
+    was_alerting = _budget_notification_state(previous_budget)[0] if previous_budget else False
+    is_alerting, utilization = _budget_notification_state(current_budget)
+    if not is_alerting or was_alerting:
+        return
+    budget_name = current_budget.get("budget_name") or "Budget"
+    spent = current_budget.get("spent_amount") or 0
+    amount = current_budget.get("budget_amount") or 0
+    title = "Budget limit reached"
+    message = (
+        f"{budget_name} has reached {utilization:.0f}% utilization "
+        f"({spent} spent of {amount})."
+    )
+    _create_business_notification(user_id, "alert", title, message)
+
+
+def _notify_for_goal_transition(user_id, previous_goal, current_goal):
+    was_completed = bool(previous_goal and previous_goal.get("status") == "Completed")
+    is_completed = bool(current_goal and current_goal.get("status") == "Completed")
+    if not is_completed or was_completed:
+        return
+    goal_name = current_goal.get("goal_name") or "Financial goal"
+    title = "Goal completed"
+    message = f"Congratulations! You completed your goal: {goal_name}."
+    _create_business_notification(user_id, "milestone", title, message)
+
+
+def _evaluate_financial_health_after_operation(user_id):
+    """Evaluate health after a committed mutation without affecting its result."""
+    try:
+        stats = get_summary_stats(user_id)
+        expense_stats = get_expense_summary(user_id)
+        goals = goal_service.list_for_user(user_id)
+        _, investment_stats = investment_service.list_for_user(user_id)
+        health = calculate_financial_health(
+            budget_data={
+                "total_allocated": stats.get("total_allocated"),
+                "total_spent": stats.get("total_spent"),
+            },
+            spending_data={
+                "total_spent": expense_stats.get("total_spent"),
+                "average_expense": expense_stats.get("average_expense"),
+                "largest_expense": expense_stats.get("largest_expense"),
+                "expense_count": expense_stats.get("total_expenses"),
+                "month_spent": expense_stats.get("month_spent"),
+                "month_expenses": expense_stats.get("month_expenses"),
+            },
+            goal_data={
+                "total_current": sum(Decimal(str(goal.get("current_amount") or 0)) for goal in goals),
+                "total_target": sum(Decimal(str(goal.get("target_amount") or 0)) for goal in goals),
+            },
+            investment_data={
+                "return_percentage": investment_stats.get("return_percentage"),
+            },
+        )
+        if health.get("available"):
+            record_financial_health_evaluation(
+                user_id, health.get("grade"), health.get("score")
+            )
+    except Exception:
+        app.logger.exception("Financial health notification processing failed")
 
 
 def build_budget_spending_analysis(budgets, stats):
@@ -903,20 +965,6 @@ def security_sessions_csrf_valid():
     return bool(expected and supplied and secrets.compare_digest(expected, supplied))
 
 
-def two_factor_login_csrf_token():
-    token = session.get("two_factor_login_csrf_token")
-    if not token:
-        token = secrets.token_urlsafe(32)
-        session["two_factor_login_csrf_token"] = token
-    return token
-
-
-def two_factor_login_csrf_valid():
-    expected = session.get("two_factor_login_csrf_token")
-    supplied = request.form.get("_two_factor_login_csrf_token", "")
-    return bool(expected and supplied and secrets.compare_digest(expected, supplied))
-
-
 @app.route("/")
 def home():
     if session.get("uid"):
@@ -956,11 +1004,6 @@ def login():
         if success:
             _clear_login_failures()
             session.clear()
-            if get_totp_status(user["id"])["is_enabled"]:
-                session["pending_2fa_user_id"] = user["id"]
-                session["pending_2fa_remember_me"] = remember_me
-                return redirect(url_for("login_two_factor"))
-
             if not establish_authenticated_session(user):
                 return render_template(
                     "login.html",
@@ -976,77 +1019,7 @@ def login():
         _record_login_failure()
         return render_template("login.html", error="Invalid email or password.")
 
-    success = (
-        "Password reset successful. Please sign in with your new password."
-        if request.args.get("reset") == "success"
-        else None
-    )
-    return render_template("login.html", error=None, success=success)
-
-
-@app.route("/login/2fa", methods=["GET", "POST"])
-def login_two_factor():
-    pending_user_id = session.get("pending_2fa_user_id")
-    if not pending_user_id:
-        return redirect(url_for("login"))
-
-    if request.method == "GET":
-        return render_template(
-            "two_factor_login.html",
-            two_factor_login_csrf_token=two_factor_login_csrf_token(),
-            error=None,
-        )
-
-    if not two_factor_login_csrf_valid():
-        return render_template(
-            "two_factor_login.html",
-            two_factor_login_csrf_token=two_factor_login_csrf_token(),
-            error="The form security token is missing or invalid.",
-        ), 400
-    if _login_rate_limited():
-        return render_template(
-            "two_factor_login.html",
-            two_factor_login_csrf_token=two_factor_login_csrf_token(),
-            error="Too many failed verification attempts. Please try again later.",
-        ), 429
-
-    credential = get_totp_credential(pending_user_id)
-    if not credential or credential["enabled_at"] is None:
-        session.clear()
-        return redirect(url_for("login"))
-
-    try:
-        is_valid = pyotp.TOTP(
-            decrypt_totp_secret(credential["secret_encrypted"])
-        ).verify(request.form.get("totp_code", ""), valid_window=0)
-    except (InvalidToken, ValueError):
-        is_valid = False
-
-    if not is_valid:
-        _record_login_failure()
-        return render_template(
-            "two_factor_login.html",
-            two_factor_login_csrf_token=two_factor_login_csrf_token(),
-            error="Invalid verification code.",
-        )
-
-    remember_me = bool(session.pop("pending_2fa_remember_me", False))
-    remembered_session = bool(session.pop("pending_2fa_remembered_session", False))
-    user = get_user_by_id(pending_user_id)
-    if not user or not establish_authenticated_session(user):
-        session.clear()
-        return render_template(
-            "login.html",
-            error="Unable to start a secure session. Please try again.",
-        ), 503
-
-    _clear_login_failures()
-    response = redirect(url_for("dashboard"))
-    if remember_me and not remembered_session:
-        raw_token = _issue_remember_me_token(user["id"])
-        if raw_token:
-            _set_remember_me_cookie(response, raw_token)
-    return response
+    return render_template("login.html", error=None, success=None)
 
 
 @app.route("/register", methods=["GET", "POST"])
@@ -1139,20 +1112,13 @@ def profile():
 
 
 def security_page_data(user_id):
-    return (
-        list_active_user_sessions(user_id, current_session_token_hash() or ""),
-        get_totp_status(user_id),
-    )
+    return list_active_user_sessions(user_id, current_session_token_hash() or "")
 
 
-def render_security_sessions(
-    active_sessions, totp_status, status=200, setup_secret=None
-):
+def render_security_sessions(active_sessions, status=200):
     return render_template(
         "profile/security.html",
         active_sessions=active_sessions,
-        totp_status=totp_status,
-        setup_secret=setup_secret,
         security_sessions_csrf_token=security_sessions_csrf_token(),
     ), status
 
@@ -1163,8 +1129,7 @@ def profile_security():
     if redirect_response:
         return redirect_response
 
-    active_sessions, totp_status = security_page_data(current_user_id())
-    return render_security_sessions(active_sessions, totp_status)
+    return render_security_sessions(security_page_data(current_user_id()))
 
 
 @app.post("/profile/security/password")
@@ -1174,29 +1139,29 @@ def change_password():
         return redirect_response
 
     user_id = current_user_id()
-    active_sessions, totp_status = security_page_data(user_id)
+    active_sessions = security_page_data(user_id)
     if not security_sessions_csrf_valid():
         flash("The form security token is missing or invalid.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
+        return render_security_sessions(active_sessions, 400)
 
     current_password = request.form.get("current_password", "")
     new_password = request.form.get("new_password", "")
     confirm_password = request.form.get("confirm_password", "")
     if not current_password or not new_password or not confirm_password:
         flash("All password fields are required.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
+        return render_security_sessions(active_sessions, 400)
     if not verify_user_password(user_id, current_password):
         flash("Current password is incorrect.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
+        return render_security_sessions(active_sessions, 400)
     if new_password != confirm_password:
         flash("New password and confirmation do not match.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
+        return render_security_sessions(active_sessions, 400)
     if verify_user_password(user_id, new_password):
         flash("New password must be different from the current password.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
+        return render_security_sessions(active_sessions, 400)
     if len(new_password) < 8:
         flash("Password must contain at least 8 characters.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
+        return render_security_sessions(active_sessions, 400)
 
     try:
         changed = update_user_password_and_revoke_other_sessions(
@@ -1205,112 +1170,20 @@ def change_password():
     except Exception:
         app.logger.exception("Password change failed")
         flash("Unable to change password. Please try again.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 503)
+        return render_security_sessions(active_sessions, 503)
 
     if not changed:
         flash("Unable to change password. Please try again.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 503)
+        return render_security_sessions(active_sessions, 503)
 
     _forget_remember_me_cookie()
-    flash("Password changed successfully. Other active devices were signed out.", "success")
-    return redirect(url_for("profile_security"))
-
-
-@app.post("/profile/security/totp/setup")
-def setup_totp():
-    redirect_response = login_required_redirect()
-    if redirect_response:
-        return redirect_response
-
-    user_id = current_user_id()
-    active_sessions, totp_status = security_page_data(user_id)
-    if not security_sessions_csrf_valid():
-        flash("The form security token is missing or invalid.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
-    if totp_status["is_enabled"]:
-        flash("Two-factor authentication is already enabled.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
-
-    secret = pyotp.random_base32()
-    try:
-        save_pending_totp_secret(user_id, encrypt_totp_secret(secret))
-    except Exception:
-        app.logger.exception("Two-factor setup could not be saved")
-        flash("Unable to start two-factor setup. Please try again.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 503)
-
-    active_sessions, totp_status = security_page_data(user_id)
-    return render_security_sessions(
-        active_sessions, totp_status, setup_secret=secret
+    _create_business_notification(
+        user_id,
+        "alert",
+        "Password changed",
+        "Your account password was changed successfully.",
     )
-
-
-@app.post("/profile/security/totp/verify")
-def verify_totp_setup():
-    redirect_response = login_required_redirect()
-    if redirect_response:
-        return redirect_response
-
-    user_id = current_user_id()
-    active_sessions, totp_status = security_page_data(user_id)
-    if not security_sessions_csrf_valid():
-        flash("The form security token is missing or invalid.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
-
-    credential = get_totp_credential(user_id)
-    if not credential or credential["enabled_at"] is not None:
-        flash("No pending two-factor setup was found.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
-
-    try:
-        is_valid = pyotp.TOTP(
-            decrypt_totp_secret(credential["secret_encrypted"])
-        ).verify(request.form.get("totp_code", ""), valid_window=0)
-    except (InvalidToken, ValueError):
-        is_valid = False
-
-    if not is_valid or not enable_totp_for_user(user_id):
-        flash("Invalid verification code.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
-
-    flash("Two-factor authentication is enabled.", "success")
-    return redirect(url_for("profile_security"))
-
-
-@app.post("/profile/security/totp/disable")
-def disable_totp():
-    redirect_response = login_required_redirect()
-    if redirect_response:
-        return redirect_response
-
-    user_id = current_user_id()
-    active_sessions, totp_status = security_page_data(user_id)
-    if not security_sessions_csrf_valid():
-        flash("The form security token is missing or invalid.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
-    if not totp_status["is_enabled"]:
-        flash("Two-factor authentication is not enabled.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
-    if not verify_user_password(user_id, request.form.get("current_password", "")):
-        flash("Current password is incorrect.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
-
-    credential = get_totp_credential(user_id)
-    try:
-        is_valid = credential and pyotp.TOTP(
-            decrypt_totp_secret(credential["secret_encrypted"])
-        ).verify(request.form.get("totp_code", ""), valid_window=0)
-    except (InvalidToken, ValueError):
-        is_valid = False
-
-    if not is_valid:
-        flash("Invalid verification code.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 400)
-    if not disable_totp_for_user(user_id):
-        flash("Unable to disable two-factor authentication.", "danger")
-        return render_security_sessions(active_sessions, totp_status, 503)
-
-    flash("Two-factor authentication is disabled.", "success")
+    flash("Password changed successfully. Other active devices were signed out.", "success")
     return redirect(url_for("profile_security"))
 
 
@@ -1324,8 +1197,8 @@ def logout_device_session(session_id):
     session_token_hash = current_session_token_hash() or ""
     if not security_sessions_csrf_valid():
         flash("The form security token is missing or invalid.", "danger")
-        active_sessions, totp_status = security_page_data(user_id)
-        return render_security_sessions(active_sessions, totp_status, 400)
+        active_sessions = security_page_data(user_id)
+        return render_security_sessions(active_sessions, 400)
 
     if revoke_user_session(session_id, user_id, session_token_hash):
         flash("Device signed out successfully.", "success")
@@ -1342,8 +1215,8 @@ def logout_all_device_sessions():
 
     if not security_sessions_csrf_valid():
         flash("The form security token is missing or invalid.", "danger")
-        active_sessions, totp_status = security_page_data(current_user_id())
-        return render_security_sessions(active_sessions, totp_status, 400)
+        active_sessions = security_page_data(current_user_id())
+        return render_security_sessions(active_sessions, 400)
 
     user_id = current_user_id()
     revoke_all_user_sessions(user_id)
@@ -2715,9 +2588,8 @@ def create_budget_route():
             return render_budget_form(request.form, is_edit=False)
 
         try:
-            create_budget(current_user_id(), request.form)
-            flash("Budget created successfully.", "success")
-            return redirect(url_for("budgets"))
+            user_id = current_user_id()
+            created = create_budget(user_id, request.form)
         except Exception:
             app.logger.exception("Budget creation failed")
             flash(
@@ -2725,6 +2597,15 @@ def create_budget_route():
                 "danger",
             )
             return render_budget_form(request.form, is_edit=False)
+        try:
+            current_budget = get_budget(created["budget_id"], user_id) if created else None
+            if current_budget:
+                _notify_for_budget_transition(user_id, None, current_budget)
+        except Exception:
+            app.logger.exception("Budget notification preparation failed")
+        flash("Budget created successfully.", "success")
+        _evaluate_financial_health_after_operation(user_id)
+        return redirect(url_for("budgets"))
 
     return render_budget_form(is_edit=False)
 
@@ -2751,16 +2632,26 @@ def edit_budget(budget_id):
             return render_budget_form(request.form, is_edit=True, budget_id=budget_id)
 
         try:
-            if update_budget(budget_id, current_user_id(), request.form):
-                flash("Budget updated successfully.", "success")
-                return redirect(url_for("budgets"))
-            flash("Unable to update budget.", "danger")
+            user_id = current_user_id()
+            updated = update_budget(budget_id, user_id, request.form)
         except Exception:
             app.logger.exception("Budget update failed")
             flash(
                 "Unable to update budget. Please check the form and try again.",
                 "danger",
             )
+            return render_budget_form(budget=budget, is_edit=True, budget_id=budget_id)
+        if updated:
+            try:
+                current_budget = get_budget(budget_id, user_id)
+                if current_budget:
+                    _notify_for_budget_transition(user_id, budget, current_budget)
+            except Exception:
+                app.logger.exception("Budget notification preparation failed")
+            flash("Budget updated successfully.", "success")
+            _evaluate_financial_health_after_operation(user_id)
+            return redirect(url_for("budgets"))
+        flash("Unable to update budget.", "danger")
 
     return render_budget_form(budget=budget, is_edit=True, budget_id=budget_id)
 
@@ -2963,6 +2854,7 @@ def create_expense():
 
             create_transaction(current_user_id(), request.form)
             flash("Expense added successfully.", "success")
+            _evaluate_financial_health_after_operation(current_user_id())
             return redirect(url_for("expenses"))
         except Exception:
             app.logger.exception("Expense creation failed")
@@ -3008,6 +2900,7 @@ def edit_expense(transaction_id):
 
             if update_transaction(transaction_id, current_user_id(), request.form):
                 flash("Expense updated successfully.", "success")
+                _evaluate_financial_health_after_operation(current_user_id())
                 return redirect(url_for("expenses"))
             flash("Unable to update expense.", "danger")
         except Exception:
@@ -3047,6 +2940,8 @@ def delete_expense_route(transaction_id):
     from db import delete_transaction
 
     result = delete_transaction(transaction_id, current_user_id())
+    if result:
+        _evaluate_financial_health_after_operation(current_user_id())
     if result:
         flash("Expense deleted successfully.", "success")
     else:
@@ -3108,6 +3003,7 @@ def create_investment():
         return render_investment_form(request.form, errors=errors), 400
 
     flash("Investment added successfully.", "success")
+    _evaluate_financial_health_after_operation(current_user_id())
     return redirect(url_for("investments"))
 
 
@@ -3155,6 +3051,7 @@ def edit_investment(investment_id):
         return redirect(url_for("investments"))
 
     flash("Investment updated successfully.", "success")
+    _evaluate_financial_health_after_operation(current_user_id())
     return redirect(url_for("investments"))
 
 
@@ -3168,6 +3065,8 @@ def delete_investment(investment_id):
         return redirect(url_for("investments"))
 
     deleted = investment_service.delete(investment_id, current_user_id())
+    if deleted:
+        _evaluate_financial_health_after_operation(current_user_id())
     flash("Investment deleted successfully." if deleted else "Investment not found.",
           "success" if deleted else "danger")
     return redirect(url_for("investments"))
@@ -3203,12 +3102,20 @@ def create_goal():
     if not goal_csrf_valid():
         return render_goal_form(request.form, errors=["Invalid form security token."]), 400
 
-    created, errors = goal_service.create(current_user_id(), request.form)
+    user_id = current_user_id()
+    created, errors = goal_service.create(user_id, request.form)
     if errors:
         for error in errors:
             flash(error, "danger")
         return render_goal_form(request.form, errors=errors), 400
+    try:
+        current_goal = goal_service.get_for_user(created["goal_id"], user_id) if created else None
+        if current_goal:
+            _notify_for_goal_transition(user_id, None, current_goal)
+    except Exception:
+        app.logger.exception("Goal notification preparation failed")
     flash("Financial goal created successfully.", "success")
+    _evaluate_financial_health_after_operation(user_id)
     return redirect(url_for("goals"))
 
 
@@ -3238,7 +3145,8 @@ def edit_goal(goal_id):
     if not goal_csrf_valid():
         return render_goal_form(request.form, True, goal_id, ["Invalid form security token."]), 400
 
-    updated, errors = goal_service.update(goal_id, current_user_id(), request.form)
+    user_id = current_user_id()
+    updated, errors = goal_service.update(goal_id, user_id, request.form)
     if errors:
         for error in errors:
             flash(error, "danger")
@@ -3246,7 +3154,13 @@ def edit_goal(goal_id):
     if not updated:
         flash("Goal not found.", "danger")
         return redirect(url_for("goals"))
+    try:
+        current_goal = goal_service.get_for_user(goal_id, user_id)
+        _notify_for_goal_transition(user_id, goal, current_goal)
+    except Exception:
+        app.logger.exception("Goal notification preparation failed")
     flash("Financial goal updated successfully.", "success")
+    _evaluate_financial_health_after_operation(user_id)
     return redirect(url_for("goals"))
 
 
@@ -3259,6 +3173,8 @@ def delete_goal(goal_id):
         flash("The form security token is missing or invalid.", "danger")
         return redirect(url_for("goals"))
     deleted = goal_service.delete(goal_id, current_user_id())
+    if deleted:
+        _evaluate_financial_health_after_operation(current_user_id())
     flash("Goal deleted successfully." if deleted else "Goal not found.",
           "success" if deleted else "danger")
     return redirect(url_for("goals"))

@@ -1,7 +1,6 @@
 from contextlib import contextmanager
 import hashlib
 
-import pyotp
 import pytest
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -37,8 +36,7 @@ def session_row(session_id, user_id, token, **overrides):
     return row
 
 
-def install_password_store(monkeypatch, two_factor_enabled=False):
-    secret = pyotp.random_base32() if two_factor_enabled else None
+def install_password_store(monkeypatch):
     state = {
         "users": {
             7: {
@@ -59,18 +57,6 @@ def install_password_store(monkeypatch, two_factor_enabled=False):
             session_row(2, 7, "other-device-token"),
             session_row(3, 99, "other-user-token"),
         ],
-        "preferences": {7: {"two_factor_enabled": two_factor_enabled}},
-        "credentials": (
-            {
-                7: {
-                    "secret_encrypted": application.encrypt_totp_secret(secret),
-                    "enabled_at": "2026-09-03 12:00:00+00:00",
-                }
-            }
-            if two_factor_enabled
-            else {}
-        ),
-        "totp_secret": secret,
     }
     calls = {"change": [], "create_session": []}
 
@@ -115,13 +101,6 @@ def install_password_store(monkeypatch, two_factor_enabled=False):
                 row["revoked_at"] = "2026-09-03 13:00:00+00:00"
         return True
 
-    def get_totp_status(user_id):
-        credential = state["credentials"].get(user_id)
-        return {
-            "is_enabled": bool(credential and credential["enabled_at"] is not None),
-            "setup_pending": bool(credential and credential["enabled_at"] is None),
-        }
-
     def create_session(user_id, session_token_hash, device_info, ip_address):
         calls["create_session"].append((user_id, session_token_hash))
         state["sessions"].append(
@@ -148,8 +127,6 @@ def install_password_store(monkeypatch, two_factor_enabled=False):
     monkeypatch.setattr(application, "list_active_user_sessions", list_sessions)
     monkeypatch.setattr(application, "verify_user_password", verify_password)
     monkeypatch.setattr(application, "update_user_password_and_revoke_other_sessions", change_password)
-    monkeypatch.setattr(application, "get_totp_status", get_totp_status)
-    monkeypatch.setattr(application, "get_totp_credential", lambda user_id: state["credentials"].get(user_id))
     monkeypatch.setattr(application, "get_user_by_id", lambda user_id: state["users"].get(user_id))
     monkeypatch.setattr(application, "create_user_session", create_session)
     monkeypatch.setattr(application, "login_user", login)
@@ -287,41 +264,6 @@ def test_client_user_id_cannot_change_another_users_password(monkeypatch):
     assert response.status_code == 302
     assert calls["change"][-1][0] == 7
     assert state["users"][99]["password_hash"] == other_hash
-
-
-def test_password_change_preserves_two_factor_state_and_login_requirement(monkeypatch):
-    state, _ = install_password_store(monkeypatch, two_factor_enabled=True)
-    original_credential = dict(state["credentials"][7])
-    client = application.app.test_client()
-    set_authenticated_session(client)
-    client.post(
-        "/profile/security/password",
-        data=password_form(client, security_csrf_token(client)),
-    )
-
-    assert state["credentials"][7] == original_credential
-    assert state["preferences"][7]["two_factor_enabled"] is True
-    with client.session_transaction() as session:
-        session.clear()
-
-    password_login = post_login(client, "/login", data={"email": "owner@example.com", "password": "new-password"})
-
-    assert password_login.status_code == 302
-    assert password_login.headers["Location"].endswith("/login/2fa")
-    with client.session_transaction() as session:
-        assert session["pending_2fa_user_id"] == 7
-        assert "uid" not in session
-
-    client.get("/login/2fa")
-    with client.session_transaction() as session:
-        csrf_token = session["two_factor_login_csrf_token"]
-    verified_login = client.post(
-        "/login/2fa",
-        data={"_two_factor_login_csrf_token": csrf_token, "totp_code": pyotp.TOTP(state["totp_secret"]).now()},
-    )
-
-    assert verified_login.status_code == 302
-    assert verified_login.headers["Location"].endswith("/dashboard")
 
 
 def test_database_password_update_helper_hashes_password_and_scopes_session_revocation(monkeypatch):

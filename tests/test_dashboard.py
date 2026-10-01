@@ -294,6 +294,24 @@ def test_financial_health_score_remains_available(monkeypatch, tracked_session_s
     assert b"Based on 75%" in response.data
 
 
+def test_dashboard_refresh_does_not_evaluate_health_notifications(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
+    patch_dashboard_data(monkeypatch, dashboard_data(7))
+    evaluations = []
+    monkeypatch.setattr(
+        application,
+        "_evaluate_financial_health_after_operation",
+        lambda user_id: evaluations.append(user_id),
+    )
+    client = application.app.test_client()
+    set_session(client, 7)
+
+    response = client.get("/dashboard")
+
+    assert response.status_code == 200
+    assert evaluations == []
+
+
 def test_dashboard_does_not_mutate_financial_records(monkeypatch, tracked_session_store):
     tracked_session_store(7)
     data = dashboard_data(7)

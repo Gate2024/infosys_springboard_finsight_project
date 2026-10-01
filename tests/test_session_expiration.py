@@ -275,7 +275,7 @@ def test_revoked_session_remains_invalid(monkeypatch):
     assert not db.is_user_session_active(7, row["session_token_hash"], 60, 3600)
 
 
-def test_login_without_totp_creates_a_valid_tracked_session(monkeypatch):
+def test_login_creates_a_valid_tracked_session(monkeypatch):
     now = datetime.now(timezone.utc)
     store = SessionStore([], now)
     monkeypatch.setattr(db, "get_connection", store.connect)
@@ -285,7 +285,6 @@ def test_login_without_totp_creates_a_valid_tracked_session(monkeypatch):
         "login_user",
         lambda email, password: (True, {"id": 7, "username": "Session Owner", "email": email}),
     )
-    monkeypatch.setattr(application, "get_totp_status", lambda user_id: {"is_enabled": False})
     monkeypatch.setattr(application, "get_user_preferences", lambda user_id: {})
     monkeypatch.setattr(
         application,
@@ -320,11 +319,8 @@ def test_login_without_totp_creates_a_valid_tracked_session(monkeypatch):
         )
 
 
-def test_pending_totp_state_is_not_accepted_by_protected_routes():
+def test_incomplete_session_is_not_accepted_by_protected_routes():
     client = application.app.test_client()
-    with client.session_transaction() as session:
-        session["pending_2fa_user_id"] = 7
-
     response = client.get("/profile")
 
     assert response.status_code == 302

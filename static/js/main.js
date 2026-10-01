@@ -82,9 +82,21 @@ document.addEventListener("DOMContentLoaded", () => {
       String(window.matchMedia("(max-width: 768px)").matches)
     );
     sidebar.querySelectorAll("a").forEach((link) => {
+      const label = link.querySelector("span")?.textContent.trim();
+      if (label) {
+        link.setAttribute("title", label);
+        link.setAttribute("aria-label", label);
+      }
       link.addEventListener("click", () => {
         if (window.matchMedia("(max-width: 768px)").matches) setSidebarOpen(false);
       });
+    });
+    sidebar.querySelectorAll(".sidebar-logout").forEach((button) => {
+      const label = button.querySelector("span")?.textContent.trim();
+      if (label) {
+        button.setAttribute("title", label);
+        button.setAttribute("aria-label", label);
+      }
     });
   }
   if (sidebarOverlay) sidebarOverlay.addEventListener("click", () => setSidebarOpen(false));

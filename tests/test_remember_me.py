@@ -179,7 +179,7 @@ class RememberCursor:
         self.result = (row["id"],)
 
 
-def patch_remember_environment(monkeypatch, store, totp_enabled=False):
+def patch_remember_environment(monkeypatch, store):
     monkeypatch.setattr(db, "get_connection", store.connect)
     monkeypatch.setattr(application, "is_user_session_active", db.is_user_session_active)
     monkeypatch.setattr(
@@ -192,7 +192,6 @@ def patch_remember_environment(monkeypatch, store, totp_enabled=False):
         "get_user_by_id",
         lambda user_id: {"id": user_id, "username": "Remembered User", "email": "owner@example.com"},
     )
-    monkeypatch.setattr(application, "get_totp_status", lambda user_id: {"is_enabled": totp_enabled})
     monkeypatch.setattr(application, "get_user_preferences", lambda user_id: {})
     monkeypatch.setattr(application, "get_notifications", lambda *args: [])
     monkeypatch.setattr(application, "get_unread_notification_count", lambda user_id: 0)
@@ -491,21 +490,3 @@ def test_password_change_revokes_persistent_credentials_in_same_database_transac
 
     assert db.update_user_password_and_revoke_other_sessions(7, "new-password", "current-hash")
     assert store.remember_rows[0]["revoked_at"] is not None
-
-
-def test_remember_me_does_not_bypass_totp(monkeypatch):
-    store = RememberStore()
-    raw_token = "totp-remember-token"
-    store.add_remember(7, raw_token)
-    patch_remember_environment(monkeypatch, store, totp_enabled=True)
-    client = application.app.test_client()
-    client.set_cookie(application.REMEMBER_ME_COOKIE_NAME, raw_token)
-
-    response = client.get("/profile")
-
-    assert response.status_code == 302
-    assert response.headers["Location"].endswith("/login/2fa")
-    assert store.session_rows == []
-    with client.session_transaction() as session:
-        assert session["pending_2fa_user_id"] == 7
-        assert "uid" not in session

@@ -732,6 +732,62 @@ def create_notification(user_id, notification_type, title, message):
             return serialize_row(cursor.fetchone())
 
 
+def record_financial_health_evaluation(user_id, grade, score):
+    """Atomically persist a meaningful grade and its Needs Improvement transition."""
+    meaningful_grades = {"Fair", "Good", "Excellent", "Needs Improvement"}
+    if grade not in meaningful_grades:
+        return False
+
+    title = "Financial health needs attention"
+    message = (
+        "Your Financial Health Score is currently in the Needs Improvement category. "
+        "Review your Financial Health dashboard for more details."
+    )
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            # Lock the user's evaluation key even before their state row exists.
+            cursor.execute(
+                "SELECT pg_advisory_xact_lock(%s, %s)",
+                (76483622, user_id),
+            )
+            cursor.execute(
+                """
+                SELECT grade
+                FROM financial_health_state
+                WHERE user_id = %s
+                FOR UPDATE
+                """,
+                (user_id,),
+            )
+            previous = cursor.fetchone()
+            previous_grade = previous["grade"] if previous else None
+            entered_needs_improvement = (
+                grade == "Needs Improvement"
+                and previous_grade in {"Fair", "Good", "Excellent"}
+            )
+
+            cursor.execute(
+                """
+                INSERT INTO financial_health_state (user_id, grade, score)
+                VALUES (%s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE
+                SET grade = EXCLUDED.grade,
+                    score = EXCLUDED.score,
+                    updated_at = CURRENT_TIMESTAMP
+                """,
+                (user_id, grade, score),
+            )
+            if entered_needs_improvement:
+                cursor.execute(
+                    """
+                    INSERT INTO notifications (user_id, type, title, message)
+                    VALUES (%s, 'alert', %s, %s)
+                    """,
+                    (user_id, title, message),
+                )
+            return entered_needs_improvement
+
+
 def get_notifications(user_id, filter_type="all", limit=None):
     filters = {
         "all": "",
@@ -756,7 +812,8 @@ def get_notifications(user_id, filter_type="all", limit=None):
                 """,
                 tuple(params),
             )
-            return serialize_rows(cursor.fetchall())
+            # Notification templates format created_at as a datetime value.
+            return [dict(row) for row in cursor.fetchall()]
 
 
 def get_unread_notification_count(user_id):
@@ -1240,122 +1297,3 @@ def verify_user_password(user_id, password):
             )
             row = cursor.fetchone()
     return bool(row and check_password_hash(row["password_hash"], password))
-
-
-def save_pending_totp_secret(user_id, secret_encrypted):
-    """Store an encrypted, not-yet-enabled TOTP secret for one user."""
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO user_totp_credentials (user_id, secret_encrypted)
-                VALUES (%s, %s)
-                ON CONFLICT (user_id) DO UPDATE
-                SET secret_encrypted = EXCLUDED.secret_encrypted,
-                    enabled_at = NULL,
-                    updated_at = CURRENT_TIMESTAMP
-                RETURNING user_id
-                """,
-                (user_id, secret_encrypted),
-            )
-            return cursor.fetchone() is not None
-
-
-def get_totp_credential(user_id):
-    """Return the encrypted credential only for the owning authenticated user."""
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT secret_encrypted, enabled_at
-                FROM user_totp_credentials
-                WHERE user_id = %s
-                """,
-                (user_id,),
-            )
-            return serialize_row(cursor.fetchone())
-
-
-def get_totp_status(user_id):
-    """Return display-safe TOTP state without exposing an encrypted secret."""
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT enabled_at IS NOT NULL AS is_enabled
-                FROM user_totp_credentials
-                WHERE user_id = %s
-                """,
-                (user_id,),
-            )
-            row = cursor.fetchone()
-    return {
-        "is_enabled": bool(row and row["is_enabled"]),
-        "setup_pending": bool(row and not row["is_enabled"]),
-    }
-
-
-def enable_totp_for_user(user_id):
-    """Enable a verified credential and the existing preference flag together."""
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO user_preferences (user_id)
-                VALUES (%s)
-                ON CONFLICT (user_id) DO NOTHING
-                """,
-                (user_id,),
-            )
-            cursor.execute(
-                """
-                UPDATE user_totp_credentials
-                SET enabled_at = CURRENT_TIMESTAMP,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE user_id = %s
-                  AND enabled_at IS NULL
-                RETURNING user_id
-                """,
-                (user_id,),
-            )
-            enabled = cursor.fetchone() is not None
-            if enabled:
-                cursor.execute(
-                    """
-                    UPDATE user_preferences
-                    SET two_factor_enabled = TRUE,
-                        updated_at = CURRENT_TIMESTAMP
-                    WHERE user_id = %s
-                    """,
-                    (user_id,),
-                )
-            return enabled
-
-
-def disable_totp_for_user(user_id):
-    """Remove a user's credential and clear the existing preference flag."""
-    with get_connection() as conn:
-        with conn.cursor() as cursor:
-            cursor.execute(
-                """
-                INSERT INTO user_preferences (user_id)
-                VALUES (%s)
-                ON CONFLICT (user_id) DO NOTHING
-                """,
-                (user_id,),
-            )
-            cursor.execute(
-                "DELETE FROM user_totp_credentials WHERE user_id = %s RETURNING user_id",
-                (user_id,),
-            )
-            disabled = cursor.fetchone() is not None
-            cursor.execute(
-                """
-                UPDATE user_preferences
-                SET two_factor_enabled = FALSE,
-                    updated_at = CURRENT_TIMESTAMP
-                WHERE user_id = %s
-                """,
-                (user_id,),
-            )
-            return disabled

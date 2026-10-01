@@ -49,7 +49,6 @@ def auth_store(monkeypatch):
     monkeypatch.setattr(application, "register_user", calls["register"])
     monkeypatch.setattr(application, "create_user_session", calls["create"])
     monkeypatch.setattr(application, "revoke_current_user_session", calls["revoke"])
-    monkeypatch.setattr(application, "get_totp_status", lambda uid: {"is_enabled": False})
     monkeypatch.setattr(application, "get_user_by_id", lambda uid: user)
     monkeypatch.setattr(application, "get_user_preferences", lambda uid: None)
     monkeypatch.setattr(application, "get_notifications", lambda *args: [])
