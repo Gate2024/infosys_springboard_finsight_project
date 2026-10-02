@@ -11,11 +11,22 @@
 {% block content %}
 
 <section class="dashboard-page animated-fade-in">
+  <header class="dashboard-intro">
+    <div class="dashboard-intro-copy">
+      <span class="dashboard-intro-label">{{ t("Dashboard") }}</span>
+      <h1>{{ t("Welcome back") }}, {{ current_username }}!</h1>
+      <p>{{ t("A clear view of your recorded financial activity.") }}</p>
+    </div>
+    <div class="dashboard-intro-mark" aria-hidden="true">
+      <i class="fa-solid fa-chart-pie"></i>
+    </div>
+  </header>
+
   <!-- summary cards -->
   <div class="summary-grid">
     <div class="card balance">
       <div class="card-icon">
-        <i class="bi bi-wallet2"></i>
+        <i class="fa-solid fa-wallet"></i>
       </div>
       <div class="card-info">
         <h4>{{ t("Total Balance") }}</h4>
@@ -26,7 +37,7 @@
 
     <div class="card income">
       <div class="card-icon">
-        <i class="bi bi-arrow-down-circle"></i>
+        <i class="fa-solid fa-circle-arrow-down"></i>
       </div>
       <div class="card-info">
         <h4>{{ t("Total Income") }}</h4>
@@ -37,7 +48,7 @@
 
     <div class="card expense">
       <div class="card-icon">
-        <i class="bi bi-arrow-up-circle"></i>
+        <i class="fa-solid fa-circle-arrow-up"></i>
       </div>
       <div class="card-info">
         <h4>{{ t("Total Expenses") }}</h4>
@@ -48,7 +59,7 @@
 
     <div class="card savings">
       <div class="card-icon">
-        <i class="bi bi-piggy-bank"></i>
+        <i class="fa-solid fa-piggy-bank"></i>
       </div>
       <div class="card-info">
         <h4>{{ t("Total Savings") }}</h4>
@@ -59,7 +70,7 @@
 
     <div class="card budget">
       <div class="card-icon">
-        <i class="bi bi-cash-stack"></i>
+        <i class="fa-solid fa-coins"></i>
       </div>
       <div class="card-info">
         <h4>{{ t("Budget Left") }}</h4>
@@ -71,7 +82,7 @@
 
   <!-- financial health score -->
   <div class="financial-health-section">
-    <div class="financial-health-card">
+    <div class="financial-health-card"{% if financial_health.available %} data-grade="{{ financial_health.grade }}"{% endif %}>
       <div class="financial-health-header">
         <div>
           <span class="financial-health-label">{{ t("Financial Wellness") }}</span>
@@ -209,7 +220,7 @@
       </div>
       {% else %}
       <div class="financial-health-empty">
-        <i class="bi bi-info-circle"></i>
+        <i class="fa-solid fa-circle-info"></i>
         <div>
             <strong>{{ t("Insufficient Data") }}</strong>
           <p>
@@ -317,7 +328,7 @@
             <div class="budget-item">
               <div class="budget-header">
                 <span>
-                  <i class="bi bi-wallet2 category-icon"></i>
+                  <i class="fa-solid fa-wallet category-icon"></i>
                   {{ budget.budget_name }}
                 </span>
                 <span>{{ format_currency(budget.spent_amount, current_currency) }} / {{ format_currency(budget.budget_amount, current_currency) }}</span>
@@ -413,7 +424,7 @@
           <div class="chart-card ai-insights-card">
             <div class="d-flex align-items-center justify-content-between mb-3">
               <h3 class="mb-0">
-                <i class="bi bi-stars text-primary"></i>
+                <i class="fa-solid fa-lightbulb text-primary"></i>
                 {{ t("Spending Recommendations") }}
               </h3>
 
@@ -435,7 +446,7 @@
             {% else %}
               <div class="insight-item info">
                 <div class="insight-icon">
-                  <i class="bi bi-check-circle-fill"></i>
+                  <i class="fa-solid fa-circle-check"></i>
                 </div>
                 <div class="insight-content">
                   <p class="mb-0">{{ t("No new spending recommendations based on your current data.") }}</p>
@@ -452,7 +463,9 @@
           <div class="chart-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
               <h3 class="mb-0">{{ t("Recent Transactions") }}</h3>
-              <button class="btn btn-sm btn-primary">{{ t("View All") }}</button>
+              <a class="btn btn-sm btn-primary dashboard-view-all" href="{{ url_for('expenses') }}">
+                {{ t("View All") }} <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i>
+              </a>
             </div>
 
             <div class="table-responsive">
@@ -473,7 +486,7 @@
                     <td>
                       <div class="transaction-category">
                         <span class="transaction-icon">
-                          <i class="bi bi-wallet2"></i>
+                          <i class="fa-solid fa-receipt"></i>
                         </span>
                         {{ transaction.category }}
                       </div>

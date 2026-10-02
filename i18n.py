@@ -1041,6 +1041,17 @@ _MARATHI_TRANSLATIONS.update({
 
 TRANSLATIONS["mr"] = _MARATHI_TRANSLATIONS
 
+_DASHBOARD_GREETING_TRANSLATIONS = {
+    "hi": "वापसी पर स्वागत है",
+    "ja": "おかえりなさい",
+    "de": "Willkommen zurück",
+    "fr": "Bon retour",
+    "es": "Te damos la bienvenida de nuevo",
+    "mr": "पुन्हा स्वागत आहे",
+}
+for _language, _greeting in _DASHBOARD_GREETING_TRANSLATIONS.items():
+    TRANSLATIONS[_language]["Welcome back"] = _greeting
+
 _REGISTRATION_TRANSLATIONS = {
     "en": {
         "Verify your email": "Verify your email",

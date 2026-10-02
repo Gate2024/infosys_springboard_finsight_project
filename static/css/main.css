@@ -1081,3 +1081,162 @@ h4 {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Unified module presentation: shared rhythm without changing module behavior. */
+.app-container > :is(.dashboard-page, .profile-page, .reports-page, .notifications-page) {
+  width: min(100%, 1480px);
+  margin-inline: auto;
+}
+
+.dashboard-header,
+.form-header-bar,
+.profile-page-header,
+.reports-header,
+.notifications-page-header {
+  position: relative;
+  border: 1px solid var(--card-glass-border);
+  border-radius: var(--radius-card);
+  background: var(--card-glass-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.dashboard-header,
+.form-header-bar,
+.profile-page-header,
+.reports-header {
+  padding: 1.35rem 1.45rem;
+}
+
+.dashboard-header h1,
+.form-header-title,
+.profile-page-title,
+.reports-header h1,
+.notifications-page-header h1 {
+  color: var(--text-primary);
+  letter-spacing: -0.035em;
+}
+
+.dashboard-header p,
+.form-header-subtitle,
+.profile-page-subtitle,
+.reports-header .quote-banner,
+.notifications-page-header p {
+  color: var(--text-secondary);
+}
+
+.metric-card,
+.budget-card,
+.goal-card,
+.goal-detail-card,
+.investment-panel,
+.investment-detail-card,
+.expense-panel,
+.profile-card,
+.form-card,
+.report-panel,
+.controls-bar,
+.notification-list,
+.empty-state {
+  border: 1px solid var(--card-glass-border);
+  border-radius: var(--radius-card);
+  background: var(--card-glass-bg);
+  box-shadow: var(--shadow-sm);
+}
+
+.metric-card,
+.budget-card,
+.goal-card,
+.investment-panel,
+.expense-panel,
+.profile-card,
+.form-card,
+.report-panel {
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.metric-card:hover,
+.budget-card:hover,
+.goal-card:hover,
+.investment-panel:hover,
+.expense-panel:hover,
+.profile-card:hover,
+.form-card:hover,
+.report-panel:hover {
+  border-color: rgba(19, 138, 112, 0.28);
+  box-shadow: var(--shadow-md);
+}
+
+.metric-title,
+.amount-label,
+.profile-field-label,
+.form-label,
+.report-stat-list span {
+  color: var(--text-secondary);
+}
+
+.metric-value,
+.amount-val,
+.profile-summary-name,
+.report-stat-list strong {
+  color: var(--text-primary);
+}
+
+.input-control,
+.search-input,
+.filter-select,
+.form-select,
+.report-date-form input {
+  min-height: 44px;
+  border-color: var(--input-border);
+  border-radius: var(--radius-input);
+  background-color: var(--input-bg);
+  color: var(--input-text);
+}
+
+.input-control:focus-visible,
+.search-input:focus-visible,
+.filter-select:focus-visible,
+.form-select:focus-visible,
+.report-date-form input:focus-visible,
+.btn:focus-visible,
+.icon-btn:focus-visible,
+.navbar-brand:focus-visible,
+.nav-links a:focus-visible,
+.sidebar-logout:focus-visible,
+.profile-access-list a:focus-visible {
+  outline: 3px solid rgba(19, 138, 112, 0.28);
+  outline-offset: 2px;
+}
+
+.table-responsive,
+.expense-table-wrap,
+.investment-table-wrap {
+  max-width: 100%;
+  overflow-x: auto;
+  scrollbar-color: var(--border-strong) transparent;
+}
+
+.table-responsive table,
+.expense-table,
+.investment-table {
+  min-width: 620px;
+}
+
+.empty-state,
+.notification-empty-page {
+  color: var(--text-secondary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .metric-card,
+  .budget-card,
+  .goal-card,
+  .investment-panel,
+  .investment-detail-card,
+  .expense-panel,
+  .profile-card,
+  .form-card,
+  .report-panel {
+    transition: none;
+  }
+}

@@ -348,3 +348,114 @@
     height: 26px;
   }
 }
+
+/* Shared module breakpoints keep cards readable without changing their hooks. */
+@media (max-width: 1024px) {
+  .reports-summary-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .investment-analysis-grid,
+  .security-page-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-header,
+  .form-header-bar,
+  .profile-page-header,
+  .reports-header,
+  .notifications-page-header {
+    align-items: flex-start;
+    gap: 1rem;
+    padding: 1.1rem;
+  }
+
+  .dashboard-header .header-action-area,
+  .form-header-bar > .btn,
+  .profile-page-header .profile-nav,
+  .reports-header-actions,
+  .reports-export-actions {
+    width: 100%;
+  }
+
+  .profile-page-header .profile-nav,
+  .reports-export-actions {
+    justify-content: flex-start;
+  }
+
+  .profile-layout,
+  .reports-two-column,
+  .reports-summary-grid,
+  .preference-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-summary-card,
+  .profile-card-heading,
+  .expense-panel-header,
+  .investment-panel-header,
+  .goal-card-header,
+  .goal-card-footer,
+  .goal-detail-actions {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .profile-summary-action,
+  .profile-summary-action .btn,
+  .profile-nav .btn,
+  .goal-detail-actions .btn {
+    width: 100%;
+  }
+
+  .profile-nav {
+    gap: 0.55rem;
+  }
+
+  .metric-card,
+  .budget-card,
+  .goal-card,
+  .investment-panel,
+  .expense-panel,
+  .profile-card,
+  .form-card,
+  .report-panel {
+    border-radius: 18px;
+  }
+}
+
+@media (max-width: 480px) {
+  .dashboard-header,
+  .form-header-bar,
+  .profile-page-header,
+  .reports-header,
+  .notifications-page-header {
+    padding: 1rem;
+    border-radius: 16px;
+  }
+
+  .dashboard-header h1,
+  .form-header-title,
+  .profile-page-title,
+  .reports-header h1,
+  .notifications-page-header h1 {
+    font-size: 1.55rem;
+  }
+
+  .reports-summary-grid {
+    gap: 0.8rem;
+  }
+
+  .metric-card,
+  .budget-card,
+  .goal-card,
+  .investment-panel,
+  .expense-panel,
+  .profile-card,
+  .form-card,
+  .report-panel {
+    padding: 1rem;
+  }
+}
