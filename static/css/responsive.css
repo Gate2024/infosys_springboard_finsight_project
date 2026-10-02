@@ -18,6 +18,7 @@
 
   .navbar {
     padding: 0.8rem 1.25rem;
+    z-index: 1200;
   }
   
   .app-container {

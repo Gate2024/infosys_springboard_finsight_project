@@ -138,6 +138,10 @@ document.addEventListener("DOMContentLoaded", () => {
   const closeMenu = closeAccountMenu;
 
   trigger.addEventListener("click", () => {
+    if (window.matchMedia("(max-width: 768px)").matches) {
+      setSidebarOpen(false);
+    }
+
     const isOpen = trigger.getAttribute("aria-expanded") === "true";
     trigger.setAttribute("aria-expanded", String(!isOpen));
     panel.hidden = isOpen;
@@ -165,6 +169,9 @@ document.addEventListener("DOMContentLoaded", () => {
   };
   notificationTrigger.addEventListener("click", (event) => {
     event.stopPropagation();
+    if (window.matchMedia("(max-width: 768px)").matches) {
+      setSidebarOpen(false);
+    }
     closeAccountMenu();
     const isOpen = notificationTrigger.getAttribute("aria-expanded") === "true";
     notificationTrigger.setAttribute("aria-expanded", String(!isOpen));
