@@ -19,6 +19,7 @@ from flask import (
     render_template,
     Response,
     request,
+    send_file,
     session,
     url_for,
 )
@@ -50,6 +51,9 @@ from db import (
     get_summary_stats,
     get_transactions,
     get_user_by_id,
+    get_user_profile_by_id,
+    get_user_profile_image,
+    is_username_available,
     get_user_preferences,
     is_user_session_active,
     ensure_user_preferences,
@@ -71,6 +75,8 @@ from db import (
     revoke_user_session,
     update_user_preferences,
     update_user_password_and_revoke_other_sessions,
+    update_user_profile,
+    remove_user_profile_image,
     verify_user_password,
     update_budget,
 )
@@ -673,7 +679,7 @@ def build_spending_recommendations(
                 {
                     "priority": "High",
                     "style": "danger",
-                    "icon": "bi bi-exclamation-octagon-fill",
+                    "icon": "fa-solid fa-circle-exclamation",
                     "title": "Budget Over Limit",
                     "title_key": "Budget Over Limit",
                     "message_key": "Your {budget_name} budget is over its stored limit. Review spending in this budget.",
@@ -692,7 +698,7 @@ def build_spending_recommendations(
                 {
                     "priority": "Medium",
                     "style": "warning",
-                    "icon": "bi bi-exclamation-triangle-fill",
+                    "icon": "fa-solid fa-triangle-exclamation",
                     "title": "Budget Near Limit",
                     "title_key": "Budget Near Limit",
                     "message_key": "Your {budget_name} budget is approaching its stored limit. Review remaining spending.",
@@ -725,7 +731,7 @@ def build_spending_recommendations(
                 {
                     "priority": "Medium",
                     "style": "info",
-                    "icon": "bi bi-pie-chart-fill",
+                    "icon": "fa-solid fa-chart-pie",
                     "title": "Expense Concentration",
                     "title_key": "Expense Concentration",
                     "message_key": "A large share of your recorded expenses is concentrated in {category}. Review this category for possible reductions.",
@@ -749,7 +755,7 @@ def build_spending_recommendations(
                 {
                     "priority": "Medium",
                     "style": "warning",
-                    "icon": "bi bi-graph-up-arrow",
+                    "icon": "fa-solid fa-arrow-trend-up",
                     "title": "Spending Increased",
                     "title_key": "Spending Increased",
                     "message_key": "Recorded spending increased compared with the previous recorded month. Review recent expenses.",
@@ -776,7 +782,7 @@ def build_spending_recommendations(
             {
                 "priority": "Low",
                 "style": "info",
-                "icon": "bi bi-receipt-cutoff",
+                "icon": "fa-solid fa-receipt",
                 "title": "Large Expense",
                 "title_key": "Large Expense",
                 "message_key": "One recorded expense is substantially larger than your average expense. Review that transaction.",
@@ -1097,18 +1103,165 @@ def logout():
     return _clear_remember_me_cookie(redirect(url_for("login")))
 
 
-@app.get("/profile")
+PROFILE_IMAGE_MAX_BYTES = 2 * 1024 * 1024
+PROFILE_IMAGE_TYPES = {
+    "image/jpeg": b"\xff\xd8\xff",
+    "image/png": b"\x89PNG\r\n\x1a\n",
+    "image/webp": b"RIFF",
+}
+
+
+def validate_profile_image(upload):
+    if not upload or not upload.filename:
+        return None, None, "Select a JPG, PNG, or WebP image."
+    if upload.mimetype not in PROFILE_IMAGE_TYPES:
+        return None, None, "Profile pictures must be JPG, PNG, or WebP files."
+
+    image_data = upload.read(PROFILE_IMAGE_MAX_BYTES + 1)
+    if len(image_data) > PROFILE_IMAGE_MAX_BYTES:
+        return None, None, "Profile pictures must be 2 MB or smaller."
+
+    signature = PROFILE_IMAGE_TYPES[upload.mimetype]
+    if not image_data.startswith(signature):
+        return None, None, "The selected file is not a valid image."
+    if upload.mimetype == "image/webp" and image_data[8:12] != b"WEBP":
+        return None, None, "The selected file is not a valid WebP image."
+    return image_data, upload.mimetype, None
+
+
+def validate_profile_form(form, user_id):
+    full_name = form.get("full_name", "").strip()
+    username = form.get("username", "").strip()
+    date_of_birth = form.get("date_of_birth", "").strip() or None
+    address = form.get("address", "").strip()
+    errors = []
+
+    if not full_name or len(full_name) > 150:
+        errors.append("Full name is required and must be 150 characters or fewer.")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]{3,50}", username):
+        errors.append("Username must be 3-50 letters, numbers, dots, underscores, or hyphens.")
+    elif not is_username_available(username, user_id):
+        errors.append("That username is already in use.")
+    if len(address) > 500:
+        errors.append("Address must be 500 characters or fewer.")
+    if date_of_birth:
+        try:
+            parsed_date = datetime.strptime(date_of_birth, "%Y-%m-%d").date()
+            if parsed_date > datetime.now().date():
+                errors.append("Date of birth cannot be in the future.")
+        except ValueError:
+            errors.append("Enter a valid date of birth.")
+
+    return {
+        "full_name": full_name,
+        "username": username,
+        "date_of_birth": date_of_birth,
+        "address": address,
+    }, errors
+
+
+@app.route("/profile", methods=["GET", "POST"])
 def profile():
     redirect_response = login_required_redirect()
     if redirect_response:
         return redirect_response
 
-    user = get_user_by_id(current_user_id())
+    user_id = current_user_id()
+    user = get_user_profile_by_id(user_id)
     if not user:
         flash("Profile not found.", "danger")
         return redirect(url_for("dashboard"))
 
-    return render_template("profile/dashboard.html", user=user)
+    if request.method == "POST":
+        if not auth_csrf_valid():
+            flash("The form security token is missing or invalid.", "danger")
+            return render_template(
+                "profile/dashboard.html",
+                user=user,
+                profile_csrf_token=auth_csrf_token(),
+            ), 400
+
+        profile_data, errors = validate_profile_form(request.form, user_id)
+        image_data = image_mime = None
+        upload = request.files.get("profile_image")
+        if upload and upload.filename:
+            image_data, image_mime, image_error = validate_profile_image(upload)
+            if image_error:
+                errors.append(image_error)
+
+        if errors:
+            for error in errors:
+                flash(error, "danger")
+            user.update(profile_data)
+            return render_template(
+                "profile/dashboard.html",
+                user=user,
+                profile_csrf_token=auth_csrf_token(),
+            ), 400
+
+        try:
+            updated_user = update_user_profile(
+                user_id,
+                **profile_data,
+                image_data=image_data,
+                image_mime=image_mime,
+                image_selected=image_data is not None,
+            )
+        except Exception:
+            app.logger.exception("Profile update failed")
+            flash("Unable to save your profile. Please try again.", "danger")
+            return render_template(
+                "profile/dashboard.html",
+                user=user,
+                profile_csrf_token=auth_csrf_token(),
+            ), 503
+
+        if not updated_user:
+            flash("Unable to save your profile. Please try again.", "danger")
+            return render_template(
+                "profile/dashboard.html",
+                user=user,
+                profile_csrf_token=auth_csrf_token(),
+            ), 503
+        session["username"] = updated_user["full_name"]
+        flash("Profile updated successfully.", "success")
+        return redirect(url_for("profile"))
+
+    return render_template(
+        "profile/dashboard.html",
+        user=user,
+        profile_csrf_token=auth_csrf_token(),
+    )
+
+
+@app.get("/profile/avatar")
+def profile_avatar():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+
+    image = get_user_profile_image(current_user_id())
+    if not image:
+        return redirect(url_for("static", filename="images/profile-avatar.jpg"))
+    return send_file(
+        BytesIO(image["profile_image_data"]),
+        mimetype=image["profile_image_mime"],
+        max_age=300,
+        conditional=True,
+    )
+
+
+@app.post("/profile/avatar/remove")
+def remove_profile_avatar():
+    redirect_response = login_required_redirect()
+    if redirect_response:
+        return redirect_response
+    if not auth_csrf_valid():
+        flash("The form security token is missing or invalid.", "danger")
+        return redirect(url_for("profile"))
+    remove_user_profile_image(current_user_id())
+    flash("Profile picture removed.", "success")
+    return redirect(url_for("profile"))
 
 
 def security_page_data(user_id):
@@ -2526,6 +2679,7 @@ def budgets():
 def inject_template_globals():
     return {
         "today_date": datetime.now().strftime("%B %d, %Y"),
+        "today_iso": datetime.now().date().isoformat(),
         "current_username": session.get("username", ""),
     }
 

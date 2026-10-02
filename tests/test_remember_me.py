@@ -192,6 +192,19 @@ def patch_remember_environment(monkeypatch, store):
         "get_user_by_id",
         lambda user_id: {"id": user_id, "username": "Remembered User", "email": "owner@example.com"},
     )
+    monkeypatch.setattr(
+        application,
+        "get_user_profile_by_id",
+        lambda user_id: {
+            "id": user_id,
+            "username": "Remembered User",
+            "email": "owner@example.com",
+            "full_name": "Remembered User",
+            "date_of_birth": None,
+            "address": "",
+            "has_profile_image": False,
+        },
+    )
     monkeypatch.setattr(application, "get_user_preferences", lambda user_id: {})
     monkeypatch.setattr(application, "get_notifications", lambda *args: [])
     monkeypatch.setattr(application, "get_unread_notification_count", lambda user_id: 0)

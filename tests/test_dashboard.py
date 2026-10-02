@@ -139,7 +139,7 @@ def test_authenticated_dashboard_renders_dynamic_sections(monkeypatch, tracked_s
                 "title": "Review spending",
                 "message": "Review this budget.",
                 "style": "warning",
-                "icon": "bi bi-exclamation-circle",
+                "icon": "fa-solid fa-circle-exclamation",
                 "priority": "High",
             }
         ],

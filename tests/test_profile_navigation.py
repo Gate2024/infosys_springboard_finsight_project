@@ -25,14 +25,23 @@ def test_profile_navigation_is_active_on_my_profile(monkeypatch, tracked_session
     tracked_session_store(7)
     monkeypatch.setattr(
         application,
-        "get_user_by_id",
-        lambda user_id: {"id": user_id, "username": "Profile Owner", "email": "owner@example.com"},
+        "get_user_profile_by_id",
+        lambda user_id: {
+            "id": user_id,
+            "username": "Profile Owner",
+            "full_name": "Profile Owner",
+            "email": "owner@example.com",
+            "date_of_birth": None,
+            "address": "",
+            "has_profile_image": False,
+        },
     )
     client = application.app.test_client()
     set_authenticated_session(client)
 
     response = client.get("/profile")
     assert_account_dropdown(response)
+    assert b'class="sidebar-logout"' not in response.data
     for icon_class in (
         "fa-grip",
         "fa-circle-arrow-up",

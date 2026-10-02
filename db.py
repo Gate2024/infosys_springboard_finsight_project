@@ -220,6 +220,128 @@ def get_user_by_id(user_id):
             return serialize_row(cursor.fetchone())
 
 
+def get_user_profile_by_id(user_id):
+    """Return editable profile fields for the authenticated user only."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT id, username, email,
+                       COALESCE(display_name, username) AS full_name,
+                       date_of_birth, address,
+                       (profile_image_data IS NOT NULL) AS has_profile_image
+                FROM users
+                WHERE id = %s
+                """,
+                (user_id,),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def is_username_available(username, user_id):
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT 1
+                FROM users
+                WHERE lower(username) = lower(%s) AND id <> %s
+                LIMIT 1
+                """,
+                (username, user_id),
+            )
+            return cursor.fetchone() is None
+
+
+def update_user_profile(
+    user_id,
+    full_name,
+    username,
+    date_of_birth,
+    address,
+    image_data=None,
+    image_mime=None,
+    image_selected=False,
+):
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE users
+                SET display_name = %s,
+                    username = %s,
+                    date_of_birth = %s,
+                    address = %s,
+                    profile_image_data = CASE WHEN %s THEN %s ELSE profile_image_data END,
+                    profile_image_mime = CASE WHEN %s THEN %s ELSE profile_image_mime END
+                WHERE id = %s
+                RETURNING id, username, email,
+                          COALESCE(display_name, username) AS full_name,
+                          date_of_birth, address,
+                          (profile_image_data IS NOT NULL) AS has_profile_image
+                """,
+                (
+                    full_name,
+                    username,
+                    date_of_birth,
+                    address,
+                    image_selected,
+                    image_data,
+                    image_selected,
+                    image_mime,
+                    user_id,
+                ),
+            )
+            return serialize_row(cursor.fetchone())
+
+
+def update_user_profile_image(user_id, image_data, mime_type):
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE users
+                SET profile_image_data = %s,
+                    profile_image_mime = %s
+                WHERE id = %s
+                RETURNING id
+                """,
+                (image_data, mime_type, user_id),
+            )
+            return cursor.fetchone() is not None
+
+
+def remove_user_profile_image(user_id):
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                UPDATE users
+                SET profile_image_data = NULL,
+                    profile_image_mime = NULL
+                WHERE id = %s
+                RETURNING id
+                """,
+                (user_id,),
+            )
+            return cursor.fetchone() is not None
+
+
+def get_user_profile_image(user_id):
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT profile_image_data, profile_image_mime
+                FROM users
+                WHERE id = %s AND profile_image_data IS NOT NULL
+                """,
+                (user_id,),
+            )
+            row = cursor.fetchone()
+            return dict(row) if row else None
+
+
 def create_budget(user_id, data):
     payload = _clean_budget_data(data)
 

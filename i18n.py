@@ -1041,6 +1041,30 @@ _MARATHI_TRANSLATIONS.update({
 
 TRANSLATIONS["mr"] = _MARATHI_TRANSLATIONS
 
+_MARATHI_TRANSLATIONS.update({
+    "Account Actions": "खाते क्रिया",
+    "Account protected": "खाते सुरक्षित आहे",
+    "Add your address": "तुमचा पत्ता जोडा",
+    "Address": "पत्ता",
+    "Choose Picture": "फोटो निवडा",
+    "Date of Birth": "जन्मतारीख",
+    "Display and reminder settings": "दृश्य आणि स्मरणपत्र सेटिंग्ज",
+    "End this signed-in session": "हे साइन-इन सत्र समाप्त करा",
+    "Full Name": "पूर्ण नाव",
+    "Keep your profile details current across your FinSight experience.": "FinSight वापरताना तुमची प्रोफाइल माहिती अद्ययावत ठेवा.",
+    "Manage your account preferences, security, and access.": "खाते प्राधान्ये, सुरक्षा आणि प्रवेश व्यवस्थापित करा.",
+    "Manage your identity and personal information securely.": "तुमची ओळख आणि वैयक्तिक माहिती सुरक्षितपणे व्यवस्थापित करा.",
+    "Password and active devices": "पासवर्ड आणि सक्रिय उपकरणे",
+    "Personal Information": "वैयक्तिक माहिती",
+    "Profile Picture": "प्रोफाइल फोटो",
+    "Remove Picture": "फोटो काढा",
+    "Save Changes": "बदल जतन करा",
+    "Sign out of FinSight?": "FinSight मधून साइन आउट करायचे?",
+    "Use a clear JPG, PNG, or WebP image up to 2 MB.": "२ MB पर्यंतची स्पष्ट JPG, PNG किंवा WebP प्रतिमा वापरा.",
+    "You can sign back in whenever you are ready.": "तयार झाल्यावर तुम्ही पुन्हा साइन इन करू शकता.",
+    "Your image is stored securely with your account.": "तुमची प्रतिमा तुमच्या खात्यासोबत सुरक्षितपणे संग्रहित केली जाते.",
+})
+
 _DASHBOARD_GREETING_TRANSLATIONS = {
     "hi": "वापसी पर स्वागत है",
     "ja": "おかえりなさい",

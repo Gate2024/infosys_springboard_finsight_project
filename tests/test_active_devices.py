@@ -116,6 +116,19 @@ def install_session_store(monkeypatch, rows=None):
     monkeypatch.setattr(application, "revoke_current_user_session", revoke_current)
     monkeypatch.setattr(application, "revoke_all_user_sessions", revoke_all)
     monkeypatch.setattr(application, "revoke_all_remember_me_tokens", lambda *args: 0)
+    monkeypatch.setattr(
+        application,
+        "get_user_profile_by_id",
+        lambda user_id: {
+            "id": user_id,
+            "username": "Device Owner",
+            "email": f"user{user_id}@example.com",
+            "full_name": "Device Owner",
+            "date_of_birth": None,
+            "address": "",
+            "has_profile_image": False,
+        },
+    )
     return state, calls
 
 
@@ -350,7 +363,7 @@ def test_normal_logout_revokes_current_tracked_session(monkeypatch):
     client = application.app.test_client()
     set_authenticated_session(client, token=current_token)
 
-    client.get("/profile/security")
+    client.get("/profile")
     with client.session_transaction() as session:
         csrf_token = session["auth_csrf_token"]
     response = client.post("/logout", data={"_auth_csrf_token": csrf_token})

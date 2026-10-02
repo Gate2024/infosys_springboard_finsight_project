@@ -128,6 +128,17 @@ def install_password_store(monkeypatch):
     monkeypatch.setattr(application, "verify_user_password", verify_password)
     monkeypatch.setattr(application, "update_user_password_and_revoke_other_sessions", change_password)
     monkeypatch.setattr(application, "get_user_by_id", lambda user_id: state["users"].get(user_id))
+    monkeypatch.setattr(
+        application,
+        "get_user_profile_by_id",
+        lambda user_id: {
+            **{key: value for key, value in state["users"].get(user_id, {}).items() if key != "password_hash"},
+            "full_name": state["users"].get(user_id, {}).get("username", ""),
+            "date_of_birth": None,
+            "address": "",
+            "has_profile_image": False,
+        },
+    )
     monkeypatch.setattr(application, "create_user_session", create_session)
     monkeypatch.setattr(application, "login_user", login)
     return state, calls

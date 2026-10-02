@@ -8,72 +8,123 @@
 
 {% block content %}
 <div class="profile-page profile-dashboard-page">
-<header class="profile-page-header animated-fade-in">
-  <div>
-    <div class="profile-heading-eyebrow">{{ t("Account center") }}</div>
-    <h1 class="profile-page-title"><i class="fa-solid fa-user"></i> {{ t("My Profile") }}</h1>
-    <p class="profile-page-subtitle">{{ t("Your currently signed-in account details.") }}</p>
-  </div>
-  <nav class="profile-nav" aria-label="Profile management">
-    <a href="{{ url_for('profile_preferences') }}" class="btn btn-outline">
-      <i class="fa-solid fa-sliders"></i> {{ t("Preferences") }}
-    </a>
-    <a href="{{ url_for('profile_security') }}" class="btn btn-outline">
-      <i class="fa-solid fa-shield-halved"></i> {{ t("Security") }}
-    </a>
-  </nav>
-</header>
-
-<section class="profile-card profile-summary-card animated-fade-in" aria-label="{{ t('Signed in account') }}">
-  <div class="profile-summary-identity">
-    <span class="profile-avatar" aria-hidden="true">{{ user.username[:1]|upper }}</span>
+  <header class="profile-page-header animated-fade-in">
     <div>
-      <div class="profile-summary-kicker">{{ t("Signed in account") }}</div>
-      <div class="profile-summary-name">{{ user.username }}</div>
-      <p class="profile-summary-note">{{ t("Your FinSight account is ready to manage.") }}</p>
+      <div class="profile-heading-eyebrow">{{ t("Account center") }}</div>
+      <h1 class="profile-page-title"><i class="fa-solid fa-user"></i> {{ t("My Profile") }}</h1>
+      <p class="profile-page-subtitle">{{ t("Manage your identity and personal information securely.") }}</p>
     </div>
-  </div>
-  <div class="profile-summary-action">
-    <a href="{{ url_for('profile_preferences') }}" class="btn btn-emerald">
-      <i class="fa-solid fa-sliders"></i> {{ t("Manage Preferences") }}
-    </a>
-  </div>
-</section>
+    <nav class="profile-nav" aria-label="Profile management">
+      <a href="{{ url_for('profile_preferences') }}" class="btn btn-outline"><i class="fa-solid fa-sliders"></i> {{ t("Preferences") }}</a>
+      <a href="{{ url_for('profile_security') }}" class="btn btn-outline"><i class="fa-solid fa-shield-halved"></i> {{ t("Security") }}</a>
+    </nav>
+  </header>
 
-<div class="profile-layout">
-  <section class="profile-card animated-fade-in" aria-labelledby="profile-details-title">
-    <div class="profile-card-heading">
-      <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-id-card"></i></span>
+  <section class="profile-card profile-summary-card animated-fade-in" aria-label="{{ t('Signed in account') }}">
+    <div class="profile-summary-identity">
+      <img class="profile-avatar profile-avatar-image" src="{{ url_for('profile_avatar') }}" alt="{{ user.full_name }} profile picture">
       <div>
-        <h2 id="profile-details-title" class="profile-card-title">{{ t("Account Details") }}</h2>
-        <p class="profile-card-description">{{ t("These details are managed by your registered FinSight account.") }}</p>
+        <div class="profile-summary-kicker">{{ t("Signed in account") }}</div>
+        <div class="profile-summary-name">{{ user.full_name }}</div>
+        <p class="profile-summary-note">@{{ user.username }} · {{ user.email }}</p>
       </div>
     </div>
-    <div class="profile-details-grid">
-      <div>
-        <span class="profile-field-label">{{ t("Username") }}</span>
-        <div class="profile-readonly">{{ user.username }}</div>
-      </div>
-      <div>
-        <span class="profile-field-label">{{ t("Email") }}</span>
-        <div class="profile-readonly">{{ user.email }}</div>
-      </div>
-    </div>
+    <span class="profile-verified-badge"><i class="fa-solid fa-shield-check"></i> {{ t("Account protected") }}</span>
   </section>
 
-  <section class="profile-card animated-fade-in" aria-labelledby="profile-access-title">
+  <form method="POST" action="{{ url_for('profile') }}" enctype="multipart/form-data" class="profile-edit-form animated-fade-in">
+    <input type="hidden" name="_auth_csrf_token" value="{{ profile_csrf_token }}">
+    <section class="profile-card" aria-labelledby="profile-details-title">
+      <div class="profile-card-heading">
+        <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-id-card"></i></span>
+        <div>
+          <h2 id="profile-details-title" class="profile-card-title">{{ t("Personal Information") }}</h2>
+          <p class="profile-card-description">{{ t("Keep your profile details current across your FinSight experience.") }}</p>
+        </div>
+      </div>
+      <div class="profile-details-grid">
+        <div>
+          <label for="full_name" class="profile-field-label">{{ t("Full Name") }}</label>
+          <input id="full_name" name="full_name" class="input-control" type="text" maxlength="150" required value="{{ user.full_name }}">
+        </div>
+        <div>
+          <label for="profile_username" class="profile-field-label">{{ t("Username") }}</label>
+          <input id="profile_username" name="username" class="input-control" type="text" maxlength="50" pattern="[A-Za-z0-9_.-]{3,50}" required value="{{ user.username }}">
+        </div>
+        <div>
+          <label for="profile_email" class="profile-field-label">{{ t("Email") }}</label>
+          <input id="profile_email" class="input-control" type="email" value="{{ user.email }}" readonly>
+        </div>
+        <div>
+          <label for="date_of_birth" class="profile-field-label">{{ t("Date of Birth") }}</label>
+          <input id="date_of_birth" name="date_of_birth" class="input-control" type="date" max="{{ today_iso }}" value="{{ user.date_of_birth or '' }}">
+        </div>
+        <div class="form-group-full">
+          <label for="address" class="profile-field-label">{{ t("Address") }}</label>
+          <textarea id="address" name="address" class="input-control profile-address-input" maxlength="500" rows="3" placeholder="{{ t('Add your address') }}">{{ user.address or '' }}</textarea>
+        </div>
+      </div>
+    </section>
+
+    <section class="profile-card profile-picture-card" aria-labelledby="profile-picture-title">
+      <div class="profile-card-heading">
+        <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-camera"></i></span>
+        <div>
+          <h2 id="profile-picture-title" class="profile-card-title">{{ t("Profile Picture") }}</h2>
+          <p class="profile-card-description">{{ t("Use a clear JPG, PNG, or WebP image up to 2 MB.") }}</p>
+        </div>
+      </div>
+      <div class="profile-picture-editor">
+        <img class="profile-picture-preview" data-profile-preview src="{{ url_for('profile_avatar') }}" alt="{{ user.full_name }} profile picture preview">
+        <div class="profile-picture-controls">
+          <label class="btn btn-outline profile-upload-button" for="profile_image"><i class="fa-solid fa-upload"></i> {{ t("Choose Picture") }}</label>
+          <input id="profile_image" name="profile_image" type="file" accept="image/jpeg,image/png,image/webp" data-profile-image-input hidden>
+          {% if user.has_profile_image %}
+            <button type="submit" class="btn btn-outline profile-remove-picture" formaction="{{ url_for('remove_profile_avatar') }}" formmethod="post"><i class="fa-solid fa-trash-can"></i> {{ t("Remove Picture") }}</button>
+          {% endif %}
+          <small>{{ t("Your image is stored securely with your account.") }}</small>
+        </div>
+      </div>
+    </section>
+
+    <div class="form-actions-bar profile-form-actions">
+      <a href="{{ url_for('dashboard') }}" class="btn btn-outline"><i class="fa-solid fa-xmark"></i> {{ t("Cancel") }}</a>
+      <button type="submit" class="btn btn-emerald"><i class="fa-solid fa-floppy-disk"></i> {{ t("Save Changes") }}</button>
+    </div>
+  </form>
+
+  <section class="profile-card profile-account-actions" aria-labelledby="account-actions-title">
     <div class="profile-card-heading">
-      <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-compass"></i></span>
+      <span class="profile-card-heading-icon" aria-hidden="true"><i class="fa-solid fa-user-gear"></i></span>
       <div>
-        <h2 id="profile-access-title" class="profile-card-title">{{ t("Profile Management") }}</h2>
-        <p class="profile-card-description">{{ t("Update the settings that shape your account experience.") }}</p>
+        <h2 id="account-actions-title" class="profile-card-title">{{ t("Account Actions") }}</h2>
+        <p class="profile-card-description">{{ t("Manage your account preferences, security, and access.") }}</p>
       </div>
     </div>
-    <ul class="profile-access-list">
-      <li><a href="{{ url_for('profile_preferences') }}"><i class="fa-solid fa-sliders"></i> {{ t("Preferences") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></li>
-      <li><a href="{{ url_for('profile_security') }}"><i class="fa-solid fa-shield-halved"></i> {{ t("Security") }} <i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a></li>
-    </ul>
+    <div class="profile-account-actions-grid">
+      <a href="{{ url_for('profile_preferences') }}" class="profile-action-link"><i class="fa-solid fa-sliders"></i><span>{{ t("Preferences") }}<small>{{ t("Display and reminder settings") }}</small></span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+      <a href="{{ url_for('profile_security') }}" class="profile-action-link"><i class="fa-solid fa-shield-halved"></i><span>{{ t("Security") }}<small>{{ t("Password and active devices") }}</small></span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>
+      <button type="button" class="profile-action-link profile-logout-link" data-profile-logout-open><i class="fa-solid fa-right-from-bracket"></i><span>{{ t("Logout") }}<small>{{ t("End this signed-in session") }}</small></span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></button>
+    </div>
   </section>
 </div>
+
+<div class="modal-overlay" data-profile-logout-modal aria-hidden="true" hidden>
+  <div class="modal-content delete-confirm-dialog" role="dialog" aria-modal="true" aria-labelledby="profileLogoutTitle">
+    <div class="delete-confirm-icon"><i class="fa-solid fa-right-from-bracket"></i></div>
+    <h2 id="profileLogoutTitle">{{ t("Sign out of FinSight?") }}</h2>
+    <p>{{ t("You can sign back in whenever you are ready.") }}</p>
+    <div class="delete-confirm-actions">
+      <button type="button" class="btn btn-outline" data-profile-logout-cancel>{{ t("Cancel") }}</button>
+      <form action="{{ url_for('logout') }}" method="post">
+        <input type="hidden" name="_auth_csrf_token" value="{{ profile_csrf_token }}">
+        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-right-from-bracket"></i> {{ t("Logout") }}</button>
+      </form>
+    </div>
+  </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/profile.js') }}"></script>
 {% endblock %}

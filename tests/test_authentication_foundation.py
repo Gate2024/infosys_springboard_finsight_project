@@ -50,6 +50,17 @@ def auth_store(monkeypatch):
     monkeypatch.setattr(application, "create_user_session", calls["create"])
     monkeypatch.setattr(application, "revoke_current_user_session", calls["revoke"])
     monkeypatch.setattr(application, "get_user_by_id", lambda uid: user)
+    monkeypatch.setattr(
+        application,
+        "get_user_profile_by_id",
+        lambda uid: {
+            **user,
+            "full_name": user["username"],
+            "date_of_birth": None,
+            "address": "",
+            "has_profile_image": False,
+        },
+    )
     monkeypatch.setattr(application, "get_user_preferences", lambda uid: None)
     monkeypatch.setattr(application, "get_notifications", lambda *args: [])
     monkeypatch.setattr(application, "get_unread_notification_count", lambda uid: 0)
