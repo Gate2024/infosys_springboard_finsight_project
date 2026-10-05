@@ -1,10 +1,13 @@
 import os
 import hashlib
+import time
 from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import date, datetime, timezone
 from decimal import Decimal
 
 import psycopg2
+from flask import g, has_app_context, has_request_context
 from psycopg2.extras import RealDictCursor
 from werkzeug.security import check_password_hash, generate_password_hash
 
@@ -19,6 +22,75 @@ DATABASE_SSL_MODES = {
     "verify-ca",
     "verify-full",
 }
+
+
+_performance_metrics = ContextVar("database_performance_metrics", default=None)
+
+
+def begin_performance_measurement():
+    """Start collecting safe request-local database timing metadata."""
+    return _performance_metrics.set(
+        {
+            "connections": 0,
+            "queries": 0,
+            "connection_ms": 0.0,
+            "query_ms": 0.0,
+            "transaction_ms": 0.0,
+            "query_categories": {},
+            "durations": {},
+        }
+    )
+
+
+def finish_performance_measurement(token):
+    metrics = _performance_metrics.get()
+    _performance_metrics.reset(token)
+    return metrics or {}
+
+
+def record_performance_duration(name, duration_seconds):
+    metrics = _performance_metrics.get()
+    if metrics is not None:
+        metrics["durations"][name] = (
+            metrics["durations"].get(name, 0.0) + duration_seconds * 1000
+        )
+
+
+def _record_query(query, duration_seconds):
+    metrics = _performance_metrics.get()
+    if metrics is None:
+        return
+    query_text = str(query).lstrip()
+    category = query_text.split(None, 1)[0].upper() if query_text else "UNKNOWN"
+    if category not in {"SELECT", "INSERT", "UPDATE", "DELETE", "WITH", "CREATE"}:
+        category = "OTHER"
+    metrics["queries"] += 1
+    metrics["query_ms"] += duration_seconds * 1000
+    metrics["query_categories"][category] = (
+        metrics["query_categories"].get(category, 0) + 1
+    )
+
+
+class PerformanceRealDictCursor(RealDictCursor):
+    """Collect query timings without retaining SQL text or parameter values."""
+
+    def execute(self, query, vars=None):
+        if _performance_metrics.get() is None:
+            return super().execute(query, vars)
+        started_at = time.perf_counter()
+        try:
+            return super().execute(query, vars)
+        finally:
+            _record_query(query, time.perf_counter() - started_at)
+
+    def executemany(self, query, vars_list):
+        if _performance_metrics.get() is None:
+            return super().executemany(query, vars_list)
+        started_at = time.perf_counter()
+        try:
+            return super().executemany(query, vars_list)
+        finally:
+            _record_query(query, time.perf_counter() - started_at)
 
 
 def _is_production_environment():
@@ -51,7 +123,7 @@ def _connection_kwargs():
         "user": Config.DB_USER,
         "password": Config.DB_PASSWORD,
         "port": Config.DB_PORT or 5432,
-        "cursor_factory": RealDictCursor,
+        "cursor_factory": PerformanceRealDictCursor,
     }
     sslmode = _database_sslmode()
     if sslmode:
@@ -63,7 +135,19 @@ def _connection_kwargs():
 
 @contextmanager
 def get_connection():
-    conn = psycopg2.connect(**_connection_kwargs())
+    request_scoped = has_request_context()
+    conn = getattr(g, "_finsight_db_connection", None) if request_scoped else None
+    if conn is None or conn.closed:
+        started_at = time.perf_counter()
+        conn = psycopg2.connect(**_connection_kwargs())
+        metrics = _performance_metrics.get()
+        if metrics is not None:
+            metrics["connections"] += 1
+            metrics["connection_ms"] += (time.perf_counter() - started_at) * 1000
+        if request_scoped:
+            g._finsight_db_connection = conn
+
+    transaction_started_at = time.perf_counter()
     try:
         yield conn
         conn.commit()
@@ -71,6 +155,21 @@ def get_connection():
         conn.rollback()
         raise
     finally:
+        metrics = _performance_metrics.get()
+        if metrics is not None:
+            metrics["transaction_ms"] += (
+                time.perf_counter() - transaction_started_at
+            ) * 1000
+        if not request_scoped:
+            conn.close()
+
+
+def close_request_connection(_error=None):
+    """Close the connection owned by the current Flask request, if any."""
+    if not has_app_context():
+        return
+    conn = g.pop("_finsight_db_connection", None)
+    if conn is not None and not conn.closed:
         conn.close()
 
 
@@ -626,7 +725,6 @@ def _clean_transaction_data(data):
 
 
 def create_transaction(user_id, data):
-    ensure_transactions_table()
     payload = _clean_transaction_data(data)
 
     with get_connection() as conn:
@@ -657,8 +755,8 @@ def get_transactions(
     category_filter="All",
     payment_filter="All",
     sort_by="newest",
+    limit=None,
 ):
-    ensure_transactions_table()
     clauses = ["user_id = %s", "type = 'Expense'"]
     params = [user_id]
 
@@ -680,6 +778,13 @@ def get_transactions(
         "amount_desc": "amount DESC",
         "amount_asc": "amount ASC",
     }.get(sort_by, "date DESC, created_at DESC")
+    limit_clause = ""
+    if limit is not None:
+        limit = int(limit)
+        if limit <= 0:
+            raise ValueError("limit must be greater than zero")
+        limit_clause = "LIMIT %s"
+        params.append(limit)
 
     with get_connection() as conn:
         with conn.cursor() as cursor:
@@ -689,6 +794,7 @@ def get_transactions(
                 FROM transactions
                 WHERE {" AND ".join(clauses)}
                 ORDER BY {order_by}
+                {limit_clause}
                 """,
                 tuple(params),
             )
@@ -696,7 +802,6 @@ def get_transactions(
 
 
 def get_transaction(transaction_id, user_id):
-    ensure_transactions_table()
     with get_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -713,7 +818,6 @@ def get_transaction(transaction_id, user_id):
 
 
 def update_transaction(transaction_id, user_id, data):
-    ensure_transactions_table()
     payload = _clean_transaction_data(data)
 
     with get_connection() as conn:
@@ -746,7 +850,6 @@ def update_transaction(transaction_id, user_id, data):
 
 
 def delete_transaction(transaction_id, user_id):
-    ensure_transactions_table()
     with get_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -762,7 +865,6 @@ def delete_transaction(transaction_id, user_id):
 
 
 def get_expense_summary(user_id):
-    ensure_transactions_table()
     with get_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -815,7 +917,6 @@ def get_expense_summary(user_id):
 
 def get_monthly_expense_summary(user_id):
     """Return user-scoped expense totals grouped by calendar month."""
-    ensure_transactions_table()
     with get_connection() as conn:
         with conn.cursor() as cursor:
             cursor.execute(
@@ -840,6 +941,42 @@ def get_monthly_expense_summary(user_id):
             ]
 
 
+def get_expense_category_totals(user_id):
+    """Return user-scoped expense totals grouped by category."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                WITH category_totals AS (
+                    SELECT
+                        category,
+                        COALESCE(SUM(amount) OVER (PARTITION BY category), 0) AS amount,
+                        date,
+                        created_at,
+                        ROW_NUMBER() OVER (
+                            PARTITION BY category
+                            ORDER BY date DESC, created_at DESC
+                        ) AS category_row
+                    FROM transactions
+                    WHERE user_id = %s
+                      AND type = 'Expense'
+                )
+                SELECT category, amount
+                FROM category_totals
+                WHERE category_row = 1
+                ORDER BY amount DESC, date DESC, created_at DESC
+                """,
+                (user_id,),
+            )
+            return [
+                {
+                    "category": row["category"] or "Other",
+                    "amount": float(row["amount"] or 0),
+                }
+                for row in cursor.fetchall()
+            ]
+
+
 def create_notification(user_id, notification_type, title, message):
     with get_connection() as conn:
         with conn.cursor() as cursor:
@@ -852,6 +989,25 @@ def create_notification(user_id, notification_type, title, message):
                 (user_id, notification_type, title, message),
             )
             return serialize_row(cursor.fetchone())
+
+
+def notification_exists(user_id, notification_type, title, message):
+    """Return whether the user already owns an exact matching notification."""
+    with get_connection() as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                SELECT 1
+                FROM notifications
+                WHERE user_id = %s
+                  AND type = %s
+                  AND title = %s
+                  AND message = %s
+                LIMIT 1
+                """,
+                (user_id, notification_type, title, message),
+            )
+            return cursor.fetchone() is not None
 
 
 def record_financial_health_evaluation(user_id, grade, score):

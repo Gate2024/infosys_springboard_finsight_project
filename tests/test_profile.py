@@ -59,7 +59,8 @@ def test_profile_displays_logged_in_username_and_email(monkeypatch, tracked_sess
     assert b"owner@example.com" in response.data
 
 
-def test_profile_never_displays_password_hash(monkeypatch):
+def test_profile_never_displays_password_hash(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     monkeypatch.setattr(application, "get_user_profile_by_id", lambda user_id: profile_user(user_id))
     client = application.app.test_client()
     set_session(client)
@@ -107,7 +108,8 @@ def test_client_user_id_cannot_access_another_profile(monkeypatch, tracked_sessi
     assert b"Profile Owner" in response.data
 
 
-def test_other_users_profile_data_is_not_rendered(monkeypatch):
+def test_other_users_profile_data_is_not_rendered(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
     monkeypatch.setattr(
         application,
         "get_user_profile_by_id",

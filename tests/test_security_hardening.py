@@ -163,6 +163,7 @@ def test_security_headers_apply_to_html_and_download_responses(monkeypatch, trac
 
     monkeypatch.setattr(application, "get_transactions", lambda user_id: [])
     monkeypatch.setattr(application, "build_reporting_data", lambda *args, **kwargs: report_data())
+    monkeypatch.setattr(application, "get_user_preferences", lambda user_id: {"currency": "USD", "language": "en"})
     set_session(client)
 
     responses = [

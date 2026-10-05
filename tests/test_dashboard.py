@@ -90,7 +90,28 @@ def patch_dashboard_data(monkeypatch, data, calls=None, financial_health=None):
     monkeypatch.setattr(
         application,
         "get_transactions",
-        record("transactions", data["transactions"]),
+        lambda user_id, **_kwargs: record(
+            "transactions", data["transactions"]
+        )(user_id),
+    )
+    category_totals = {}
+    for transaction in data["transactions"]:
+        category = transaction.get("category") or "Other"
+        category_totals[category] = category_totals.get(category, Decimal("0")) + Decimal(
+            str(transaction.get("amount") or 0)
+        )
+    monkeypatch.setattr(
+        application,
+        "get_expense_category_totals",
+        record(
+            "expense_categories",
+            [
+                {"category": category, "amount": float(amount)}
+                for category, amount in sorted(
+                    category_totals.items(), key=lambda item: item[1], reverse=True
+                )
+            ],
+        ),
     )
     monkeypatch.setattr(
         application,
@@ -177,7 +198,7 @@ def test_dashboard_does_not_render_another_users_expenses(monkeypatch, tracked_s
     data = dashboard_data(2)
     patch_dashboard_data(monkeypatch, data)
 
-    def scoped_transactions(user_id):
+    def scoped_transactions(user_id, **_kwargs):
         return [
             {
                 "user_id": user_id,

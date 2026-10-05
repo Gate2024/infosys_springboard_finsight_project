@@ -83,7 +83,8 @@ def tracked_client():
     ("7", "fixture-session-7"), (True, "fixture-session-True"),
     (0, "fixture-session-0"), (-1, "fixture-session--1"),
 ])
-def test_protected_routes_reject_invalid_sessions(route, user_id, token):
+def test_protected_routes_reject_invalid_sessions(route, user_id, token, real_tracked_session):
+    real_tracked_session.cursor_obj.fetchone.return_value = None
     client = application.app.test_client()
     with client.session_transaction() as session:
         session["uid"] = user_id

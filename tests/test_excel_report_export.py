@@ -7,6 +7,15 @@ import pytest
 import app as application
 
 
+@pytest.fixture(autouse=True)
+def isolate_report_preferences(monkeypatch):
+    monkeypatch.setattr(
+        application,
+        "get_user_preferences",
+        lambda _user_id: {"currency": "USD", "language": "en"},
+    )
+
+
 def set_session(client, user_id=7):
     with client.session_transaction() as session:
         session["uid"] = user_id

@@ -12,6 +12,7 @@ from io import BytesIO, StringIO
 
 from flask import (
     Flask,
+    before_render_template,
     flash,
     g,
     jsonify,
@@ -21,6 +22,7 @@ from flask import (
     request,
     send_file,
     session,
+    template_rendered,
     url_for,
 )
 from openpyxl import Workbook
@@ -38,12 +40,16 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 
 from config import Config
 from db import (
+    begin_performance_measurement,
+    close_request_connection,
     create_budget,
     create_notification,
     create_user_session,
     delete_budget,
     filter_budgets,
+    finish_performance_measurement,
     get_budget,
+    get_expense_category_totals,
     get_monthly_expense_summary,
     get_notifications,
     get_unread_notification_count,
@@ -64,6 +70,8 @@ from db import (
     login_user,
     mark_all_notifications_read,
     mark_notification_read,
+    notification_exists,
+    record_performance_duration,
     register_user,
     record_financial_health_evaluation,
     create_remember_me_token,
@@ -112,6 +120,12 @@ def _debug_enabled():
     if _is_production_environment():
         return False
     return os.getenv("FLASK_DEBUG", "").strip().lower() in {
+        "1", "true", "yes", "on"
+    }
+
+
+def _performance_logging_enabled():
+    return os.getenv("PERFORMANCE_TIMING", "").strip().lower() in {
         "1", "true", "yes", "on"
     }
 
@@ -197,6 +211,68 @@ SECURITY_HEADERS = {
         "connect-src 'self'"
     ),
 }
+
+
+@app.before_request
+def start_performance_measurement():
+    if not _performance_logging_enabled():
+        return None
+    g.performance_started_at = time.perf_counter()
+    g.performance_token = begin_performance_measurement()
+    return None
+
+
+@before_render_template.connect_via(app)
+def start_template_measurement(_sender, **_extra):
+    if hasattr(g, "performance_token"):
+        g.template_started_at = time.perf_counter()
+
+
+@template_rendered.connect_via(app)
+def finish_template_measurement(_sender, **_extra):
+    started_at = g.pop("template_started_at", None)
+    if started_at is not None:
+        record_performance_duration("render", time.perf_counter() - started_at)
+
+
+@app.after_request
+def log_performance_measurement(response):
+    token = g.pop("performance_token", None)
+    started_at = g.pop("performance_started_at", None)
+    if token is None or started_at is None:
+        return response
+
+    metrics = finish_performance_measurement(token)
+    durations = metrics.get("durations", {})
+    route = request.url_rule.rule if request.url_rule else "unmatched"
+    app.logger.info(
+        "performance route=%s method=%s status=%s total_ms=%.2f "
+        "connections=%d connection_ms=%.2f queries=%d query_ms=%.2f "
+        "transaction_ms=%.2f render_ms=%.2f business_ms=%.2f export_ms=%.2f "
+        "query_categories=%s",
+        route,
+        request.method,
+        response.status_code,
+        (time.perf_counter() - started_at) * 1000,
+        metrics.get("connections", 0),
+        metrics.get("connection_ms", 0.0),
+        metrics.get("queries", 0),
+        metrics.get("query_ms", 0.0),
+        metrics.get("transaction_ms", 0.0),
+        durations.get("render", 0.0),
+        durations.get("business", 0.0),
+        durations.get("export", 0.0),
+        metrics.get("query_categories", {}),
+    )
+    return response
+
+
+@app.teardown_appcontext
+def close_database_connection(error=None):
+    close_request_connection(error)
+    token = g.pop("performance_token", None)
+    if token is not None:
+        finish_performance_measurement(token)
 
 
 @app.after_request
@@ -513,13 +589,7 @@ def classify_budget_status(utilization_percentage):
 def _create_business_notification(user_id, notification_type, title, message):
     """Create a notification without allowing it to affect the core operation."""
     try:
-        existing = get_notifications(user_id)
-        if any(
-            item.get("type") == notification_type
-            and item.get("title") == title
-            and item.get("message") == message
-            for item in existing
-        ):
+        if notification_exists(user_id, notification_type, title, message):
             return
         create_notification(user_id, notification_type, title, message)
     except Exception:
@@ -566,6 +636,7 @@ def _notify_for_goal_transition(user_id, previous_goal, current_goal):
 
 def _evaluate_financial_health_after_operation(user_id):
     """Evaluate health after a committed mutation without affecting its result."""
+    started_at = time.perf_counter()
     try:
         stats = get_summary_stats(user_id)
         expense_stats = get_expense_summary(user_id)
@@ -598,6 +669,8 @@ def _evaluate_financial_health_after_operation(user_id):
             )
     except Exception:
         app.logger.exception("Financial health notification processing failed")
+    finally:
+        record_performance_duration("business", time.perf_counter() - started_at)
 
 
 def build_budget_spending_analysis(budgets, stats):
@@ -1484,7 +1557,8 @@ def dashboard():
     stats = get_summary_stats(user_id)
 
     expense_stats = get_expense_summary(user_id)
-    expense_transactions = get_transactions(user_id)
+    expense_transactions = get_transactions(user_id, limit=5)
+    expense_category_totals = get_expense_category_totals(user_id)
     monthly_expenses = get_monthly_expense_summary(user_id)
     budget_rows = filter_budgets(user_id)
     budget_spending_analysis, budget_spending_summary = build_budget_spending_analysis(
@@ -1492,13 +1566,6 @@ def dashboard():
     )
 
     expense_total = float(expense_stats.get("total_spent") or 0)
-    category_totals = {}
-    for transaction in expense_transactions:
-        category = transaction.get("category") or "Other"
-        category_totals[category] = category_totals.get(category, 0) + float(
-            transaction.get("amount") or 0
-        )
-
     expense_colors = [
         "#2563EB",
         "#22C55E",
@@ -1509,14 +1576,14 @@ def dashboard():
     ]
     expense_breakdown = [
         {
-            "category": category,
-            "amount": amount,
-            "percentage": (amount / expense_total * 100) if expense_total else 0,
+            "category": item["category"],
+            "amount": item["amount"],
+            "percentage": (
+                item["amount"] / expense_total * 100 if expense_total else 0
+            ),
             "color": expense_colors[index % len(expense_colors)],
         }
-        for index, (category, amount) in enumerate(
-            sorted(category_totals.items(), key=lambda item: item[1], reverse=True)
-        )
+        for index, item in enumerate(expense_category_totals)
     ]
     spending_recommendations = build_spending_recommendations(
         budget_spending_analysis,
@@ -1591,7 +1658,7 @@ def dashboard():
         budget_spending_summary=budget_spending_summary,
         spending_recommendations=spending_recommendations,
         budget_progress=budget_progress,
-        recent_transactions=expense_transactions[:5],
+        recent_transactions=expense_transactions,
         current_username=session["username"],
     )
 
@@ -1651,12 +1718,10 @@ def reports_data():
     )
 
     try:
-        report_data = build_reporting_data(
+        report_data = _build_timed_reporting_data(
             current_user_id(),
             request.args.get("start_date"),
             request.args.get("end_date"),
-            investment_service=investment_service,
-            goal_service=goal_service,
         )
     except ReportValidationError as error:
         if wants_json:
@@ -1677,6 +1742,20 @@ def reports_data():
         start_date=request.args.get("start_date", ""),
         end_date=request.args.get("end_date", ""),
     )
+
+
+def _build_timed_reporting_data(user_id, start_date, end_date):
+    started_at = time.perf_counter()
+    try:
+        return build_reporting_data(
+            user_id,
+            start_date,
+            end_date,
+            investment_service=investment_service,
+            goal_service=goal_service,
+        )
+    finally:
+        record_performance_duration("business", time.perf_counter() - started_at)
 
 
 def _pdf_decimal(value):
@@ -2158,23 +2237,24 @@ def export_pdf_report():
         return redirect_response
 
     try:
-        report_data = build_reporting_data(
+        report_data = _build_timed_reporting_data(
             current_user_id(),
             request.args.get("start_date"),
             request.args.get("end_date"),
-            investment_service=investment_service,
-            goal_service=goal_service,
         )
     except ReportValidationError as error:
         return jsonify({"error": str(error)}), 400
 
     preferences = get_user_preferences(current_user_id()) or PREFERENCE_DEFAULTS
+    export_started_at = time.perf_counter()
+    pdf_data = _build_pdf_report(
+        report_data,
+        preferences.get("currency", "USD"),
+        preferences.get("language", "en"),
+    )
+    record_performance_duration("export", time.perf_counter() - export_started_at)
     return Response(
-        _build_pdf_report(
-            report_data,
-            preferences.get("currency", "USD"),
-            preferences.get("language", "en"),
-        ),
+        pdf_data,
         mimetype="application/pdf",
         headers={
             "Content-Disposition": (
@@ -2601,23 +2681,24 @@ def export_excel_report():
         return redirect_response
 
     try:
-        report_data = build_reporting_data(
+        report_data = _build_timed_reporting_data(
             current_user_id(),
             request.args.get("start_date"),
             request.args.get("end_date"),
-            investment_service=investment_service,
-            goal_service=goal_service,
         )
     except ReportValidationError as error:
         return jsonify({"error": str(error)}), 400
 
     preferences = get_user_preferences(current_user_id()) or PREFERENCE_DEFAULTS
+    export_started_at = time.perf_counter()
+    workbook_data = _build_excel_report(
+        report_data,
+        preferences.get("currency", "USD"),
+        preferences.get("language", "en"),
+    )
+    record_performance_duration("export", time.perf_counter() - export_started_at)
     return Response(
-        _build_excel_report(
-            report_data,
-            preferences.get("currency", "USD"),
-            preferences.get("language", "en"),
-        ),
+        workbook_data,
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={
             "Content-Disposition": (
@@ -2964,6 +3045,7 @@ def export_expenses():
         return redirect_response
 
     expense_rows = get_transactions(current_user_id())
+    export_started_at = time.perf_counter()
     output = StringIO(newline="")
     writer = csv.writer(output)
     writer.writerow(["Date", "Category", "Description", "Payment Mode", "Type", "Amount"])
@@ -2979,6 +3061,7 @@ def export_expenses():
                 expense.get("amount", ""),
             ]
         )
+    record_performance_duration("export", time.perf_counter() - export_started_at)
 
     response = Response(output.getvalue(), mimetype="text/csv")
     response.headers["Content-Disposition"] = (

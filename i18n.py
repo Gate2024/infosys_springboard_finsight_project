@@ -1460,6 +1460,7 @@ _MARATHI_PRESENTATION_TRANSLATIONS = {
     "About": "आमच्याबद्दल",
     "Add expenses, budgets, investments and goals as they happen.": "खर्च, बजेट, गुंतवणूक आणि उद्दिष्टे नोंदवत रहा.",
     "All rights reserved.": "सर्व हक्क राखीव.",
+    "Build By Narayan Adhude": "नारायण अधुडे यांनी तयार केलेले",
     "Analyze spending, budget progress and financial health in context.": "खर्च, बजेटची प्रगती आणि आर्थिक आरोग्य समजून घ्या.",
     "Budget Control": "बजेट नियंत्रण",
     "Build a budget": "बजेट तयार करा",

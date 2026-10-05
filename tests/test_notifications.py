@@ -38,6 +38,11 @@ def sample_notifications():
 def install_notification_store(monkeypatch):
     rows = sample_notifications()
     calls = []
+    monkeypatch.setattr(
+        application,
+        "get_user_preferences",
+        lambda _user_id: application.PREFERENCE_DEFAULTS,
+    )
 
     def get_notifications(user_id, filter_type="all", limit=None):
         calls.append(("get", user_id, filter_type, limit))
@@ -161,7 +166,19 @@ def test_notification_popup_uses_real_count_and_categories(monkeypatch, tracked_
 
 def test_budget_threshold_notification_is_created_once_for_owned_user(monkeypatch):
     created = []
-    monkeypatch.setattr(application, "get_notifications", lambda _user_id: created)
+    monkeypatch.setattr(
+        application,
+        "notification_exists",
+        lambda user_id, notification_type, title, message: any(
+            item == {
+                "user_id": user_id,
+                "type": notification_type,
+                "title": title,
+                "message": message,
+            }
+            for item in created
+        ),
+    )
     monkeypatch.setattr(
         application,
         "create_notification",
@@ -187,7 +204,19 @@ def test_budget_threshold_notification_is_created_once_for_owned_user(monkeypatc
 
 def test_goal_completion_notification_is_created_once_and_isolated(monkeypatch):
     created = []
-    monkeypatch.setattr(application, "get_notifications", lambda _user_id: created)
+    monkeypatch.setattr(
+        application,
+        "notification_exists",
+        lambda user_id, notification_type, title, message: any(
+            item == {
+                "user_id": user_id,
+                "type": notification_type,
+                "title": title,
+                "message": message,
+            }
+            for item in created
+        ),
+    )
     monkeypatch.setattr(
         application,
         "create_notification",
@@ -272,7 +301,19 @@ def test_security_notification_content_is_user_scoped_and_non_sensitive(
     monkeypatch, title, message
 ):
     created = []
-    monkeypatch.setattr(application, "get_notifications", lambda _user_id: created)
+    monkeypatch.setattr(
+        application,
+        "notification_exists",
+        lambda user_id, notification_type, title, message: any(
+            item == {
+                "user_id": user_id,
+                "type": notification_type,
+                "title": title,
+                "message": message,
+            }
+            for item in created
+        ),
+    )
     monkeypatch.setattr(
         application,
         "create_notification",
@@ -293,7 +334,7 @@ def test_security_notification_content_is_user_scoped_and_non_sensitive(
 
 
 def test_security_notification_failure_is_isolated(monkeypatch):
-    monkeypatch.setattr(application, "get_notifications", lambda _user_id: [])
+    monkeypatch.setattr(application, "notification_exists", lambda *_args: False)
     monkeypatch.setattr(
         application,
         "create_notification",

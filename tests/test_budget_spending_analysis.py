@@ -116,7 +116,8 @@ def test_dashboard_queries_budgets_for_authenticated_user(monkeypatch, tracked_s
             "month_expenses": 0,
         },
     )
-    monkeypatch.setattr(application, "get_transactions", lambda user_id: [])
+    monkeypatch.setattr(application, "get_transactions", lambda user_id, **_kwargs: [])
+    monkeypatch.setattr(application, "get_expense_category_totals", lambda user_id: [])
     monkeypatch.setattr(application, "get_monthly_expense_summary", lambda user_id: [])
 
     def owned_budgets(user_id):
