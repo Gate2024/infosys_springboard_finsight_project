@@ -22,7 +22,7 @@
 
 ### 🌐 Live Application
 
-**[🚀 Open FinSight Live](https://infosys-springboard-finsight-project.onrender.com/)**
+**[🚀 Open FinSight Live](https://infosys-springboard-finsight-project-vf66.onrender.com/)**
 
 </div>
 
