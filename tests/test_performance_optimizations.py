@@ -2,6 +2,7 @@ from contextlib import contextmanager
 
 import app as application
 import db
+import pytest
 
 
 class FakeConnection:
@@ -42,6 +43,27 @@ def test_flask_request_reuses_one_database_connection(monkeypatch):
         assert connections[0].closed == 0
         db.close_request_connection()
         assert connections[0].closed == 1
+
+
+def test_closed_database_connection_does_not_mask_original_error(monkeypatch):
+    class ClosedConnection:
+        closed = 1
+
+        def commit(self):
+            pass
+
+        def rollback(self):
+            raise db.psycopg2.InterfaceError("connection already closed")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(db.psycopg2, "connect", lambda **_kwargs: ClosedConnection())
+
+    with application.app.test_request_context("/reports"):
+        with pytest.raises(RuntimeError, match="original database failure"):
+            with db.get_connection():
+                raise RuntimeError("original database failure")
 
 
 def test_transaction_creation_no_longer_runs_runtime_schema_ddl(monkeypatch):

@@ -35,6 +35,27 @@ def sample_notifications():
     ]
 
 
+def test_mobile_notification_styles_keep_popup_inside_viewport():
+    client = application.app.test_client()
+
+    notification_css = client.get("/static/css/notifications.css")
+    responsive_css = client.get("/static/css/responsive.css")
+
+    assert notification_css.status_code == 200
+    notification_styles = notification_css.get_data(as_text=True)
+    assert "position: fixed" in notification_styles
+    assert "env(safe-area-inset-right)" in notification_styles
+    assert "env(safe-area-inset-left)" in notification_styles
+    assert "overflow-wrap: anywhere" in notification_styles
+    assert "max-height: calc(100dvh - 76px)" in notification_styles
+
+    assert responsive_css.status_code == 200
+    responsive_styles = responsive_css.get_data(as_text=True)
+    assert ".notification-theme-switcher button span" in responsive_styles
+    assert ".navbar-user .account-menu-trigger > span" in responsive_styles
+    assert "max-width: 100vw" in responsive_styles
+
+
 def install_notification_store(monkeypatch):
     rows = sample_notifications()
     calls = []

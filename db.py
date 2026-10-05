@@ -152,7 +152,13 @@ def get_connection():
         yield conn
         conn.commit()
     except Exception:
-        conn.rollback()
+        if not getattr(conn, "closed", False):
+            try:
+                conn.rollback()
+            except psycopg2.Error:
+                # Preserve the original database error if the server already
+                # closed the connection before rollback could run.
+                pass
         raise
     finally:
         metrics = _performance_metrics.get()

@@ -1,0 +1,165 @@
+<section class="report-print-document" aria-hidden="true">
+  <div class="preview-page">
+    {% set expenses = report.expenses %}
+    {% set expense_summary = expenses.expense_summary %}
+    {% set budgets = report.budgets %}
+    {% set investments = report.investments %}
+    {% set investment_stats = investments.stats %}
+    {% set goals = report.goals %}
+    {% set health = report.financial_health %}
+
+    <article class="preview-report" aria-labelledby="printReportTitle">
+      <header class="preview-report-header">
+        <div class="preview-brand">FinSight</div>
+        <h1 id="printReportTitle">{{ t("Financial Report") }}</h1>
+        <div class="preview-meta-grid">
+          <div>
+            <span>{{ t("Reporting Period") }}</span>
+            <strong>{{ pdf_period(report) }}</strong>
+          </div>
+          <div>
+            <span>{{ t("Generated") }}</span>
+            <strong>{{ generated_at }}</strong>
+          </div>
+        </div>
+      </header>
+
+      <section class="preview-section">
+        <h2>1. {{ t("Expense Summary") }}</h2>
+        <div class="preview-metric-grid preview-metric-grid-four">
+          <div class="preview-metric"><span>{{ t("Total Expenses") }}</span><strong>{{ format_currency(expense_summary.total_expenses, current_currency) }}</strong></div>
+          <div class="preview-metric"><span>{{ t("Transaction Count") }}</span><strong>{{ expense_summary.transaction_count }}</strong></div>
+          <div class="preview-metric"><span>{{ t("Average Expense") }}</span><strong>{{ format_currency(expense_summary.average_expense, current_currency) }}</strong></div>
+          <div class="preview-metric"><span>{{ t("Largest Expense") }}</span><strong>{{ format_currency(expense_summary.largest_expense, current_currency) }}</strong></div>
+        </div>
+      </section>
+
+      <section class="preview-section">
+        <h2>2. {{ t("Expense by Category") }}</h2>
+        {% if expenses.category_totals %}
+        <table>
+          <thead><tr><th>{{ t("Category") }}</th><th class="numeric">{{ t("Amount") }}</th></tr></thead>
+          <tbody>
+          {% for item in expenses.category_totals %}
+            <tr><td>{{ item.category or t("Uncategorized") }}</td><td class="numeric">{{ format_currency(item.amount, current_currency) }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<p class="preview-muted">{{ t("No expense data available for the selected period.") }}</p>{% endif %}
+      </section>
+
+      <section class="preview-section">
+        <h2>3. {{ t("Monthly Spending") }}</h2>
+        {% if expenses.monthly_totals %}
+        <table>
+          <thead><tr><th>{{ t("Month") }}</th><th class="numeric">{{ t("Amount") }}</th></tr></thead>
+          <tbody>
+          {% for item in expenses.monthly_totals %}
+            <tr><td>{{ item.month or t("Unknown") }}</td><td class="numeric">{{ format_currency(item.amount, current_currency) }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<p class="preview-muted">{{ t("No monthly expense data available.") }}</p>{% endif %}
+      </section>
+
+      <section class="preview-section">
+        <h2>4. {{ t("Budget Snapshot") }} <small>{{ t("Current Snapshot") }}</small></h2>
+        <p class="preview-muted">{{ t("Budget data represents the current stored budget snapshot.") }}</p>
+        <div class="preview-metric-grid preview-metric-grid-five">
+          <div class="preview-metric"><span>{{ t("Total Budget") }}</span><strong>{{ format_currency(budgets.total_budget, current_currency) }}</strong></div>
+          <div class="preview-metric"><span>{{ t("Total Spent") }}</span><strong>{{ format_currency(budgets.total_spent, current_currency) }}</strong></div>
+          <div class="preview-metric"><span>{{ t("Total Remaining") }}</span><strong>{{ format_currency(budgets.total_remaining, current_currency) }}</strong></div>
+          <div class="preview-metric"><span>{{ t("Utilization") }}</span><strong>{% if budgets.overall_utilization is defined and budgets.overall_utilization is not none %}{{ "{:.2f}".format(budgets.overall_utilization) }}%{% else %}{{ t("Unavailable") }}{% endif %}</strong></div>
+          <div class="preview-metric"><span>{{ t("Budget Count") }}</span><strong>{{ budgets.budget_count }}</strong></div>
+        </div>
+        {% if budgets.budgets %}
+        <table>
+          <thead><tr><th>{{ t("Budget") }}</th><th>{{ t("Category") }}</th><th class="numeric">{{ t("Budget Amount") }}</th><th class="numeric">{{ t("Spent") }}</th><th class="numeric">{{ t("Remaining") }}</th><th>{{ t("Status") }}</th></tr></thead>
+          <tbody>
+          {% for item in budgets.budgets %}
+            <tr><td>{{ item.budget_name or t("Budget") }}</td><td>{{ item.category or t("Uncategorized") }}</td><td class="numeric">{{ format_currency(item.budget_amount, current_currency) }}</td><td class="numeric">{{ format_currency(item.spent_amount, current_currency) }}</td><td class="numeric">{{ format_currency(item.remaining_amount, current_currency) }}</td><td>{{ t(item.status or "Unavailable") }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+      </section>
+
+      <section class="preview-section">
+        <h2>5. {{ t("Investment Snapshot") }} <small>{{ t("Current Snapshot") }}</small></h2>
+        <p class="preview-muted">{{ t("Investment data represents the current portfolio snapshot.") }}</p>
+        <div class="preview-metric-grid preview-metric-grid-five">
+          <div class="preview-metric"><span>{{ t("Invested Value") }}</span><strong>{{ format_currency(investment_stats.total_invested, current_currency) }}</strong></div>
+          <div class="preview-metric"><span>{{ t("Current Value") }}</span><strong>{{ format_currency(investment_stats.current_value, current_currency) }}</strong></div>
+          <div class="preview-metric"><span>{{ t("Absolute Return") }}</span><strong>{{ format_currency(investment_stats.absolute_return, current_currency) }}</strong></div>
+          <div class="preview-metric"><span>{{ t("Return Percentage") }}</span><strong>{% if investment_stats.return_percentage is defined and investment_stats.return_percentage is not none %}{{ "{:.2f}".format(investment_stats.return_percentage) }}%{% else %}{{ t("Unavailable") }}{% endif %}</strong></div>
+          <div class="preview-metric"><span>{{ t("Holding Count") }}</span><strong>{{ investments.holding_count }}</strong></div>
+        </div>
+        {% if investment_stats.allocation %}
+        <table>
+          <thead><tr><th>{{ t("Asset Type") }}</th><th class="numeric">{{ t("Allocation") }}</th></tr></thead>
+          <tbody>
+          {% for item in investment_stats.allocation %}
+            <tr><td>{{ item.asset_type or t("Unknown") }}</td><td class="numeric">{{ "{:.2f}".format(item.percentage) }}%</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+      </section>
+
+      <section class="preview-section">
+        <h2>6. {{ t("Goal Progress") }} <small>{{ t("Current Snapshot") }}</small></h2>
+        <p class="preview-muted">{{ t("Goal values represent current saved progress; historical contributions are not available.") }}</p>
+        {% if goals.goals %}
+        <table>
+          <thead><tr><th>{{ t("Goal") }}</th><th class="numeric">{{ t("Target") }}</th><th class="numeric">{{ t("Current") }}</th><th class="numeric">{{ t("Progress") }}</th><th class="numeric">{{ t("Remaining") }}</th><th>{{ t("Status") }}</th><th>{{ t("Target Date") }}</th></tr></thead>
+          <tbody>
+          {% for item in goals.goals %}
+            <tr><td>{{ item.goal_name or t("Goal") }}</td><td class="numeric">{{ format_currency(item.target_amount, current_currency) }}</td><td class="numeric">{{ format_currency(item.current_amount, current_currency) }}</td><td class="numeric">{{ "{:.2f}".format(item.progress_percentage) }}%</td><td class="numeric">{{ format_currency(item.remaining_amount, current_currency) }}</td><td>{{ t(item.status or "Unavailable") }}</td><td>{{ pdf_date(item.target_date) }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<p class="preview-muted">{{ t("No financial goals available.") }}</p>{% endif %}
+      </section>
+
+      <section class="preview-section">
+        <h2>7. {{ t("Financial Health") }}</h2>
+        {% if health.available %}
+        <div class="preview-metric-grid preview-metric-grid-five">
+          <div class="preview-metric"><span>{{ t("Score") }}</span><strong>{{ health.score }}/100</strong></div>
+          <div class="preview-metric"><span>{{ t("Grade") }}</span><strong>{{ t(health.grade or "Unavailable") }}</strong></div>
+          <div class="preview-metric"><span>{{ t("Coverage") }}</span><strong>{% if health.coverage is defined and health.coverage is not none %}{{ "{:.2f}".format(health.coverage) }}%{% else %}{{ t("Unavailable") }}{% endif %}</strong></div>
+          <div class="preview-metric"><span>{{ t("Earned Points") }}</span><strong>{% if health.earned_points is defined and health.earned_points is not none %}{{ health.earned_points }}{% else %}{{ t("Unavailable") }}{% endif %}</strong></div>
+          <div class="preview-metric"><span>{{ t("Available Weight") }}</span><strong>{% if health.available_weight is defined and health.available_weight is not none %}{{ health.available_weight }}{% else %}{{ t("Unavailable") }}{% endif %}</strong></div>
+        </div>
+        {% if health.components %}
+        <table>
+          <thead><tr><th>{{ t("Component") }}</th><th>{{ t("Status") }}</th><th class="numeric">{{ t("Score") }}</th><th>{{ t("Details") }}</th></tr></thead>
+          <tbody>
+          {% for name, component in health.components.items() %}
+            <tr><td>{{ name.replace("_", " ").title() }}</td><td>{{ t("Available" if component.available else "Unavailable") }}</td><td class="numeric">{% if component.available %}{{ component.score|round|int }}{% else %}{{ t("Unavailable") }}{% endif %}</td><td>{{ t(component.message or "") }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% endif %}
+        {% else %}<p class="preview-muted">{{ t("Financial Health: Unavailable with the current data.") }}</p>{% endif %}
+      </section>
+
+      <section class="preview-section">
+        <h2>8. {{ t("Unavailable Metrics") }}</h2>
+        {% set unavailable = report.unavailable_metrics or {} %}
+        {% if unavailable %}
+        <table>
+          <thead><tr><th>{{ t("Metric") }}</th><th>{{ t("Status") }}</th><th>{{ t("Reason") }}</th></tr></thead>
+          <tbody>
+          {% for name, metric in unavailable.items() if not metric.available %}
+            <tr><td>{{ name.replace("_", " ").title() }}</td><td>{{ t("Unavailable") }}</td><td>{{ t(metric.reason or "No reliable data source exists.") }}</td></tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}<p class="preview-muted">{{ t("No additional unavailable metrics were reported.") }}</p>{% endif %}
+      </section>
+
+      <footer class="preview-report-footer">FinSight | {{ t("Financial Report") }}</footer>
+    </article>
+  </div>
+</section>

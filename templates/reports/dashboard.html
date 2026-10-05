@@ -4,6 +4,7 @@
 
 {% block page_styles %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/reports.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/report-print.css') }}">
 {% endblock %}
 
 {% block content %}
@@ -26,13 +27,9 @@
         {% endif %}
       </div>
       <div class="reports-export-actions">
-        {% if start_date and end_date %}
-        <a href="{{ url_for('export_pdf_report', start_date=start_date, end_date=end_date) }}" class="btn btn-outline" title="{{ t('Export financial report as PDF') }}">
-        {% else %}
-        <a href="{{ url_for('export_pdf_report') }}" class="btn btn-outline" title="{{ t('Export financial report as PDF') }}">
-        {% endif %}
+        <button type="button" class="btn btn-outline" data-report-print title="{{ t('Preview financial report before printing') }}">
           <i class="fa-solid fa-file-pdf"></i> {{ t("Export PDF") }}
-        </a>
+        </button>
         {% if start_date and end_date %}
         <a href="{{ url_for('export_excel_report', start_date=start_date, end_date=end_date) }}" class="btn btn-outline" title="{{ t('Export financial report as Excel') }}">
         {% else %}
@@ -236,6 +233,9 @@
   </section>
   {% endif %}
 </section>
+{% if report %}
+  {% include "reports/_print_report.html" %}
+{% endif %}
 {% endblock %}
 
 {% block scripts %}

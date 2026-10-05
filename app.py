@@ -29,12 +29,13 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from psycopg2 import InterfaceError, OperationalError
 from werkzeug.security import generate_password_hash
 from werkzeug.middleware.proxy_fix import ProxyFix
 
@@ -1741,19 +1742,31 @@ def reports_data():
         report=report_data,
         start_date=request.args.get("start_date", ""),
         end_date=request.args.get("end_date", ""),
+        generated_at=datetime.now().strftime("%B %d, %Y %H:%M"),
+        pdf_period=_pdf_period,
+        pdf_date=_pdf_date,
     )
 
 
 def _build_timed_reporting_data(user_id, start_date, end_date):
     started_at = time.perf_counter()
     try:
-        return build_reporting_data(
-            user_id,
-            start_date,
-            end_date,
-            investment_service=investment_service,
-            goal_service=goal_service,
-        )
+        for attempt in range(2):
+            try:
+                return build_reporting_data(
+                    user_id,
+                    start_date,
+                    end_date,
+                    investment_service=investment_service,
+                    goal_service=goal_service,
+                )
+            except (OperationalError, InterfaceError):
+                if attempt:
+                    raise
+                close_request_connection()
+                app.logger.warning(
+                    "Transient database connection failure while building report; retrying once."
+                )
     finally:
         record_performance_duration("business", time.perf_counter() - started_at)
 
@@ -1865,7 +1878,7 @@ def _pdf_styles():
             leading=28,
             textColor=colors.HexColor("#091A2B"),
             alignment=TA_LEFT,
-            spaceAfter=2,
+            spaceAfter=3,
         ),
         "subtitle": ParagraphStyle(
             "PDFSubtitle",
@@ -1874,17 +1887,31 @@ def _pdf_styles():
             fontSize=13,
             leading=16,
             textColor=colors.HexColor("#138A70"),
-            spaceAfter=12,
+            spaceAfter=8,
+        ),
+        "metadata": ParagraphStyle(
+            "PDFMetadata",
+            parent=styles["BodyText"],
+            fontName=PDF_FONT,
+            fontSize=8.5,
+            leading=12,
+            textColor=colors.HexColor("#122333"),
+            spaceAfter=0,
         ),
         "section": ParagraphStyle(
             "PDFSection",
             parent=styles["Heading2"],
             fontName=PDF_FONT_BOLD,
-            fontSize=14,
-            leading=18,
+            fontSize=12,
+            leading=15,
             textColor=colors.HexColor("#138A70"),
-            spaceBefore=14,
+            backColor=colors.HexColor("#EAF6F2"),
+            borderColor=colors.HexColor("#B8E2D7"),
+            borderWidth=0.5,
+            borderPadding=(5, 7, 5),
+            spaceBefore=13,
             spaceAfter=7,
+            keepWithNext=1,
         ),
         "body": ParagraphStyle(
             "PDFBody",
@@ -1916,9 +1943,18 @@ def _pdf_styles():
             "PDFTableBody",
             parent=styles["BodyText"],
             fontName=PDF_FONT,
-            fontSize=8,
-            leading=10,
+            fontSize=7.8,
+            leading=9.8,
             textColor=colors.HexColor("#122333"),
+        ),
+        "table_body_right": ParagraphStyle(
+            "PDFTableBodyRight",
+            parent=styles["BodyText"],
+            fontName=PDF_FONT,
+            fontSize=7.8,
+            leading=9.8,
+            textColor=colors.HexColor("#122333"),
+            alignment=TA_RIGHT,
         ),
         "summary_label": ParagraphStyle(
             "PDFSummaryLabel",
@@ -1928,6 +1964,15 @@ def _pdf_styles():
             leading=10,
             textColor=colors.HexColor("#71808D"),
             alignment=TA_CENTER,
+        ),
+        "table_header_right": ParagraphStyle(
+            "PDFTableHeaderRight",
+            parent=styles["BodyText"],
+            fontName=PDF_FONT_BOLD,
+            fontSize=7.8,
+            leading=9.8,
+            textColor=colors.white,
+            alignment=TA_RIGHT,
         ),
         "summary_value": ParagraphStyle(
             "PDFSummaryValue",
@@ -1946,29 +1991,53 @@ def _pdf_cell(value, style):
     return Paragraph(escape(text), style)
 
 
-def _pdf_table(rows, widths, styles):
+def _pdf_table(
+    rows,
+    widths,
+    styles,
+    numeric_columns=(),
+    header_background="#091A2B",
+    body_background="#FFFFFF",
+    alternate_background="#F6F9F9",
+):
     formatted_rows = []
     for index, row in enumerate(rows):
-        style = styles["table_header"] if index == 0 else styles["table_body"]
-        formatted_rows.append([_pdf_cell(value, style) for value in row])
+        formatted_row = []
+        for column_index, value in enumerate(row):
+            if index == 0:
+                style_name = (
+                    "table_header_right"
+                    if column_index in numeric_columns
+                    else "table_header"
+                )
+            else:
+                style_name = (
+                    "table_body_right"
+                    if column_index in numeric_columns
+                    else "table_body"
+                )
+            formatted_row.append(_pdf_cell(value, styles[style_name]))
+        formatted_rows.append(formatted_row)
 
     table = Table(formatted_rows, colWidths=widths, repeatRows=1, hAlign="LEFT")
     table.setStyle(
         TableStyle(
             [
-                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#091A2B")),
+                ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor(header_background)),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
-                ("GRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#DFE6E9")),
-                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor("#F6F9F9")),
+                ("LINEBELOW", (0, 0), (-1, 0), 0.8, colors.HexColor("#138A70")),
+                ("BOX", (0, 0), (-1, -1), 0.45, colors.HexColor("#C9D8D9")),
+                ("INNERGRID", (0, 1), (-1, -1), 0.25, colors.HexColor("#E1E9E9")),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.HexColor(body_background)),
                 ("ROWBACKGROUNDS", (0, 1), (-1, -1), [
-                    colors.white,
-                    colors.HexColor("#F6F9F9"),
+                    colors.HexColor(body_background),
+                    colors.HexColor(alternate_background),
                 ]),
                 ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 6),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-                ("TOPPADDING", (0, 0), (-1, -1), 6),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 7),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+                ("TOPPADDING", (0, 0), (-1, -1), 5),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
             ]
         )
     )
@@ -1987,21 +2056,35 @@ def _pdf_summary_table(items, styles):
             "table_header": styles["summary_label"],
             "table_body": styles["summary_value"],
         },
+        header_background="#EAF6F2",
+        body_background="#FFFFFF",
+        alternate_background="#F6F9F9",
     )
 
 
+def _pdf_section(title, styles):
+    return Paragraph(escape(title), styles["section"])
+
+
 def _draw_pdf_header_footer(canvas, document):
-    width, height = letter
+    width, height = document.pagesize
     canvas.saveState()
     canvas.setFillColor(colors.HexColor("#091A2B"))
-    canvas.rect(0, height - 36, width, 36, fill=1, stroke=0)
+    canvas.rect(0, height - 37, width, 37, fill=1, stroke=0)
+    canvas.setFillColor(colors.HexColor("#43C7A9"))
+    canvas.rect(0, height - 39, width, 2, fill=1, stroke=0)
     canvas.setFillColor(colors.white)
     canvas.setFont(PDF_FONT_BOLD, 10)
-    canvas.drawString(document.leftMargin, height - 23, "FinSight")
+    canvas.drawString(document.leftMargin, height - 24, "FinSight")
     canvas.setFont(PDF_FONT, 8)
-    canvas.drawRightString(width - document.rightMargin, height - 23, "Financial Report")
+    canvas.drawRightString(width - document.rightMargin, height - 24, "Financial Report")
     canvas.setFillColor(colors.HexColor("#71808D"))
-    canvas.drawRightString(width - document.rightMargin, 20, f"Page {document.page}")
+    canvas.setStrokeColor(colors.HexColor("#D5E1E0"))
+    canvas.setLineWidth(0.5)
+    canvas.line(document.leftMargin, 29, width - document.rightMargin, 29)
+    canvas.setFont(PDF_FONT, 7.5)
+    canvas.drawString(document.leftMargin, 18, "FinSight | Financial Report")
+    canvas.drawRightString(width - document.rightMargin, 18, f"Page {document.page}")
     canvas.restoreState()
 
 
@@ -2016,20 +2099,41 @@ def _build_pdf_report(report_data, currency="INR", language="en"):
     investment_stats = investments.get("stats") or {}
     goals = report_data.get("goals") or {}
     health = report_data.get("financial_health") or {}
+    metadata = Table(
+        [[
+            Paragraph(
+                f"<b>{escape(label('Reporting Period'))}</b><br/>{escape(_pdf_period(report_data))}",
+                styles["metadata"],
+            ),
+            Paragraph(
+                f"<b>{escape(label('Generated'))}</b><br/>{escape(datetime.now().strftime('%B %d, %Y %H:%M'))}",
+                styles["metadata"],
+            ),
+        ]],
+        colWidths=[270, 270],
+        hAlign="LEFT",
+    )
+    metadata.setStyle(
+        TableStyle(
+            [
+                ("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#F1F7F6")),
+                ("BOX", (0, 0), (-1, -1), 0.45, colors.HexColor("#C9D8D9")),
+                ("INNERGRID", (0, 0), (-1, -1), 0.35, colors.HexColor("#DCE8E7")),
+                ("LEFTPADDING", (0, 0), (-1, -1), 9),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 9),
+                ("TOPPADDING", (0, 0), (-1, -1), 7),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 7),
+            ]
+        )
+    )
     story = [
         Paragraph("FinSight", styles["title"]),
         Paragraph(label("Financial Report"), styles["subtitle"]),
-        Paragraph(
-            f"<b>{escape(label('Reporting Period'))}:</b> {escape(_pdf_period(report_data))}",
-            styles["body"],
-        ),
-        Paragraph(
-            f"<b>{escape(label('Generated'))}:</b> {escape(datetime.now().strftime('%B %d, %Y %H:%M'))}",
-            styles["muted"],
-        ),
+        metadata,
+        Spacer(1, 3),
     ]
 
-    story.append(Paragraph(f"1. {label('Expense Summary')}", styles["section"]))
+    story.append(_pdf_section(f"1. {label('Expense Summary')}", styles))
     story.append(
         _pdf_summary_table(
             [
@@ -2042,7 +2146,7 @@ def _build_pdf_report(report_data, currency="INR", language="en"):
         )
     )
 
-    story.append(Paragraph(f"2. {label('Expense by Category')}", styles["section"]))
+    story.append(_pdf_section(f"2. {label('Expense by Category')}", styles))
     category_totals = expenses.get("category_totals") or []
     if category_totals:
         story.append(
@@ -2054,12 +2158,13 @@ def _build_pdf_report(report_data, currency="INR", language="en"):
                 ],
                 [360, 180],
                 styles,
+                numeric_columns=(1,),
             )
         )
     else:
         story.append(Paragraph(label("No expense data available for the selected period."), styles["muted"]))
 
-    story.append(Paragraph(f"3. {label('Monthly Spending')}", styles["section"]))
+    story.append(_pdf_section(f"3. {label('Monthly Spending')}", styles))
     monthly_totals = expenses.get("monthly_totals") or []
     if monthly_totals:
         story.append(
@@ -2068,12 +2173,13 @@ def _build_pdf_report(report_data, currency="INR", language="en"):
                 + [[item.get("month") or "Unknown", amount(item.get("amount"))] for item in monthly_totals],
                 [360, 180],
                 styles,
+                numeric_columns=(1,),
             )
         )
     else:
         story.append(Paragraph(label("No monthly expense data available."), styles["muted"]))
 
-    story.append(Paragraph(f"4. {label('Budget Snapshot')} - {label('Current Snapshot')}", styles["section"]))
+    story.append(_pdf_section(f"4. {label('Budget Snapshot')} - {label('Current Snapshot')}", styles))
     story.append(Paragraph(label("Budget data represents the current stored budget snapshot."), styles["muted"]))
     story.append(
         _pdf_summary_table(
@@ -2104,12 +2210,13 @@ def _build_pdf_report(report_data, currency="INR", language="en"):
                     ]
                     for item in budget_rows
                 ],
-                [120, 80, 90, 80, 90, 80],
+                [115, 78, 90, 80, 90, 87],
                 styles,
+                numeric_columns=(2, 3, 4),
             )
         )
 
-    story.append(Paragraph(f"5. {label('Investment Snapshot')} - {label('Current Snapshot')}", styles["section"]))
+    story.append(_pdf_section(f"5. {label('Investment Snapshot')} - {label('Current Snapshot')}", styles))
     story.append(Paragraph(label("Investment data represents the current portfolio snapshot."), styles["muted"]))
     story.append(
         _pdf_summary_table(
@@ -2132,10 +2239,11 @@ def _build_pdf_report(report_data, currency="INR", language="en"):
                 + [[item.get("asset_type") or "Unknown", _pdf_percent(item.get("percentage"))] for item in allocation],
                 [360, 180],
                 styles,
+                numeric_columns=(1,),
             )
         )
 
-    story.append(Paragraph(f"6. {label('Goal Progress')} - {label('Current Snapshot')}", styles["section"]))
+    story.append(_pdf_section(f"6. {label('Goal Progress')} - {label('Current Snapshot')}", styles))
     story.append(Paragraph(label("Goal values represent current saved progress; historical contributions are not available."), styles["muted"]))
     goal_rows = goals.get("goals") or []
     if goal_rows:
@@ -2156,12 +2264,13 @@ def _build_pdf_report(report_data, currency="INR", language="en"):
                 ],
                 [110, 75, 75, 65, 75, 80, 60],
                 styles,
+                numeric_columns=(1, 2, 3, 4),
             )
         )
     else:
         story.append(Paragraph(label("No financial goals available."), styles["muted"]))
 
-    story.append(Paragraph(f"7. {label('Financial Health')}", styles["section"]))
+    story.append(_pdf_section(f"7. {label('Financial Health')}", styles))
     if health.get("available"):
         story.append(
             _pdf_summary_table(
@@ -2192,12 +2301,13 @@ def _build_pdf_report(report_data, currency="INR", language="en"):
                     ],
                     [110, 80, 70, 280],
                     styles,
+                    numeric_columns=(2,),
                 )
             )
     else:
         story.append(Paragraph(label("Financial Health: Unavailable with the current data."), styles["muted"]))
 
-    story.append(Paragraph(f"8. {label('Unavailable Metrics')}", styles["section"]))
+    story.append(_pdf_section(f"8. {label('Unavailable Metrics')}", styles))
     unavailable = report_data.get("unavailable_metrics") or {}
     unavailable_rows = [[label("Metric"), label("Status"), label("Reason")]]
     for name, metric in unavailable.items():
@@ -2220,8 +2330,8 @@ def _build_pdf_report(report_data, currency="INR", language="en"):
         pagesize=letter,
         leftMargin=36,
         rightMargin=36,
-        topMargin=54,
-        bottomMargin=34,
+        topMargin=55,
+        bottomMargin=39,
         title="FinSight Financial Report",
         author="FinSight",
         pageCompression=0,

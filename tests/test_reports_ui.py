@@ -1,7 +1,9 @@
 from copy import deepcopy
 from decimal import Decimal
+from unittest.mock import Mock
 
 import app as application
+from psycopg2 import OperationalError
 
 
 def set_session(client, user_id=7):
@@ -84,6 +86,94 @@ def test_authenticated_reports_page_renders_real_report_data(monkeypatch, tracke
     assert b"window.reportsMonthlyExpenses" in response.data
 
 
+def test_reports_pdf_action_prints_embedded_report_without_preview_request(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
+    report_builder = Mock(return_value=report_data())
+    monkeypatch.setattr(application, "build_reporting_data", report_builder)
+    client = application.app.test_client()
+    set_session(client)
+
+    response = client.get(
+        "/reports?start_date=2026-05-01&end_date=2026-05-31",
+        headers={"Accept": "text/html"},
+    )
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert 'type="button"' in body
+    assert "data-report-print" in body
+    assert "/reports/print-preview" not in body
+    assert 'target="_blank"' not in body
+    for section in (
+        "Expense Summary",
+        "Expense by Category",
+        "Monthly Spending",
+        "Budget Snapshot",
+        "Investment Snapshot",
+        "Goal Progress",
+        "Financial Health",
+        "Unavailable Metrics",
+    ):
+        assert section in body
+    assert "May 1, 2026 - May 31, 2026" in body
+    assert "preview-toolbar" not in body
+    assert "Back to Reports" not in body
+    assert "Print / Save as PDF" not in body
+    assert "printReportButton" not in body
+    assert "report-print.css" in body
+    stylesheet = client.get("/static/css/report-print.css")
+    assert stylesheet.status_code == 200
+    stylesheet_body = stylesheet.get_data(as_text=True)
+    assert "@media print" in stylesheet_body
+    assert ".navbar" in stylesheet_body
+    assert ".reports-page" in stylesheet_body
+    assert ".report-print-document" in stylesheet_body
+    assert "display: block !important" in stylesheet_body
+    script = client.get("/static/js/reports.js")
+    assert script.status_code == 200
+    script_body = script.get_data(as_text=True)
+    assert "window.print()" in script_body
+    assert 'document.querySelector("[data-report-print]")' in script_body
+    assert "printReportButton" not in script_body
+    assert report_builder.call_count == 1
+
+
+def test_reports_retry_once_after_transient_database_disconnect(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
+    report_builder = Mock(
+        side_effect=[OperationalError("SSL connection has been closed unexpectedly"), report_data()]
+    )
+    connection_reset = Mock()
+    monkeypatch.setattr(application, "build_reporting_data", report_builder)
+    monkeypatch.setattr(application, "close_request_connection", connection_reset)
+    monkeypatch.setattr(
+        application, "get_user_preferences", lambda _user_id: application.PREFERENCE_DEFAULTS
+    )
+    monkeypatch.setattr(application, "get_notifications", lambda *args, **kwargs: [])
+    monkeypatch.setattr(application, "get_unread_notification_count", lambda _user_id: 0)
+    client = application.app.test_client()
+    set_session(client)
+
+    response = client.get("/reports", headers={"Accept": "text/html"})
+
+    assert response.status_code == 200
+    assert report_builder.call_count == 2
+    assert connection_reset.called
+
+
+def test_removed_print_preview_route_is_not_available(monkeypatch, tracked_session_store):
+    tracked_session_store(7)
+    report_builder = Mock(return_value=report_data())
+    monkeypatch.setattr(application, "build_reporting_data", report_builder)
+    client = application.app.test_client()
+    set_session(client)
+
+    response = client.get("/reports/print-preview")
+
+    assert response.status_code == 404
+    report_builder.assert_not_called()
+
+
 def test_reports_page_requires_authentication():
     response = application.app.test_client().get(
         "/reports", headers={"Accept": "text/html"}
@@ -91,6 +181,18 @@ def test_reports_page_requires_authentication():
 
     assert response.status_code == 302
     assert response.headers["Location"].endswith("/login")
+
+
+def test_reports_mobile_styles_constrain_controls_and_content():
+    response = application.app.test_client().get("/static/css/reports.css")
+
+    assert response.status_code == 200
+    styles = response.get_data(as_text=True)
+    assert ".reports-page, .reports-header" in styles
+    assert "min-width: 0; max-width: 100%" in styles
+    assert ".report-filter-panel { width: 100%" in styles
+    assert ".report-date-form label, .report-date-form input, .report-date-form .btn" in styles
+    assert ".reports-export-actions .btn { width: 100%; }" in styles
 
 
 def test_reports_page_uses_session_user_not_client_user_id(monkeypatch, tracked_session_store):

@@ -25,6 +25,11 @@ function reportChartTheme() {
 }
 
 document.addEventListener("DOMContentLoaded", function () {
+    const printButton = document.querySelector("[data-report-print]");
+    if (printButton) {
+        printButton.addEventListener("click", () => window.print());
+    }
+
     const categoryCanvas = document.getElementById("reportsExpenseCategoryChart");
     const categoryData = window.reportsExpenseCategories || [];
     const monthlyCanvas = document.getElementById("reportsMonthlyExpenseChart");
